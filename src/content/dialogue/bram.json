@@ -1,0 +1,149 @@
+{
+  "id": "bram",
+  "speaker": "Old Bram",
+  "start": [
+    {
+      "if": [
+        {
+          "if": "flag",
+          "flag": "key_returned"
+        }
+      ],
+      "node": "thanks"
+    },
+    {
+      "if": [
+        {
+          "if": "hasItem",
+          "item": "key_rusty"
+        }
+      ],
+      "node": "has_key"
+    },
+    {
+      "if": [
+        {
+          "if": "flag",
+          "flag": "quest_key_started"
+        }
+      ],
+      "node": "waiting"
+    },
+    {
+      "node": "intro"
+    }
+  ],
+  "nodes": {
+    "intro": {
+      "text": "Hrm. Don't mind me. Just an old man who's lost his key.",
+      "choices": [
+        {
+          "text": "Lost your key?",
+          "next": "lost"
+        },
+        {
+          "text": "Good luck with that.",
+          "next": null
+        }
+      ]
+    },
+    "lost": {
+      "text": "The key to my storeroom. I was oiling the doors in the yard behind me this morning, and now it's gone. My knees won't let me crawl about looking for it.",
+      "choices": [
+        {
+          "text": "I'll find it for you.",
+          "next": "accepted",
+          "do": [
+            {
+              "do": "setFlag",
+              "flag": "quest_key_started"
+            },
+            {
+              "do": "notify",
+              "text": "New task: Find Bram's key"
+            }
+          ]
+        },
+        {
+          "text": "Sorry, I'm busy.",
+          "next": "refused"
+        }
+      ]
+    },
+    "accepted": {
+      "text": "Would you? It's a small rusty thing. Probably still in the yard somewhere. The wooden door's open to anyone, just press on it."
+    },
+    "refused": {
+      "text": "Aye, everyone is. If you change your mind, I'll be here. Where else would I go?"
+    },
+    "waiting": {
+      "text": "Any luck with my key? It'll be in the yard behind me, I'm sure of it.",
+      "choices": [
+        {
+          "text": "Where exactly did you lose it?",
+          "next": "hint"
+        },
+        {
+          "text": "Still looking.",
+          "next": null
+        }
+      ]
+    },
+    "hint": {
+      "text": "I sat down at the little table for a rest. Southwest corner, I think. Then I got up and it was gone.",
+      "next": "waiting"
+    },
+    "has_key": {
+      "text": "Is that... you've got my key!",
+      "choices": [
+        {
+          "text": "Here you go.",
+          "next": "returned",
+          "do": [
+            {
+              "do": "takeItem",
+              "item": "key_rusty"
+            },
+            {
+              "do": "giveItem",
+              "item": "gold",
+              "count": 10
+            },
+            {
+              "do": "setFlag",
+              "flag": "key_returned"
+            },
+            {
+              "do": "setFlag",
+              "flag": "unlocked.storeroom"
+            },
+            {
+              "do": "notify",
+              "text": "Task complete: Find Bram's key"
+            }
+          ]
+        },
+        {
+          "text": "Finders keepers.",
+          "next": "keepers"
+        }
+      ]
+    },
+    "keepers": {
+      "text": "That's not funny. That's my storeroom, that is.",
+      "next": "has_key"
+    },
+    "returned": {
+      "text": "Bless you. Here, take this for your trouble. Ten gold. And I've opened the storeroom, go and have a look if you like. Just don't drink all of Tess's cider."
+    },
+    "thanks": {
+      "text": "My favourite person! The storeroom's open, it's the little shed right there. Help yourself to anything in the chest.",
+      "choices": [
+        {
+          "text": "Glad I could help.",
+          "next": null
+        }
+      ]
+    }
+  }
+}

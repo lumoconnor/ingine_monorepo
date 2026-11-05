@@ -1,0 +1,686 @@
+{
+  "key_rusty": {
+    "name": "Rusty key",
+    "description": "Old Bram's storeroom key. Heavier than it looks.",
+    "category": "quest",
+    "model": "key"
+  },
+  "gold": {
+    "name": "gold",
+    "description": "Coins. Tess takes them, so does everyone else.",
+    "category": "currency",
+    "model": "coins"
+  },
+  "cider": {
+    "name": "Cider",
+    "description": "A bottle of Tess's apple cider, first of the batch.",
+    "category": "consumable",
+    "model": "bottle",
+    "useLabel": "Drink",
+    "use": [
+      {
+        "do": "notify",
+        "text": "Sweet, cold, and a little too strong."
+      },
+      {
+        "do": "heal",
+        "amount": 10
+      },
+      {
+        "do": "addVar",
+        "var": "drinks",
+        "value": 1
+      },
+      {
+        "do": "consume"
+      }
+    ]
+  },
+  "apple": {
+    "name": "Apple",
+    "description": "Crisp and red. Probably from the orchard Tess gets her cider from. A small bite of health.",
+    "category": "consumable",
+    "model": "apple",
+    "maxStack": 10,
+    "useLabel": "Eat",
+    "use": [
+      {
+        "do": "notify",
+        "text": "Crunchy."
+      },
+      {
+        "do": "heal",
+        "amount": 5
+      },
+      {
+        "do": "consume"
+      }
+    ]
+  },
+  "note_storeroom": {
+    "name": "Bram's list",
+    "description": "A scrap of paper in shaky handwriting.",
+    "category": "misc",
+    "model": "note",
+    "text": "Storeroom:\n- 12 barrels cider (Tess's)\n- door oil\n- spare rope for the zipline\n\nDon't lose the key again, you old fool."
+  },
+  "iron_key": {
+    "name": "Iron key",
+    "description": "Heavy and black, with a square bow. It was in Bram's storeroom chest, so it must open something of his.",
+    "category": "quest",
+    "model": "iron_key"
+  },
+  "old_map": {
+    "name": "Faded map",
+    "description": "A hand-drawn map, folded many times.",
+    "category": "misc",
+    "model": "note",
+    "text": "The proving grounds, drawn by someone with a shaky hand.\n\nNorth: the river. Mind the rapids.\nEast: the pool and the lift.\nWest: Bram's yard.\n\nIn the corner, in different ink: \"Past the hills, the real road begins.\""
+  },
+  "healing_draught": {
+    "name": "Healing draught",
+    "description": "A stoppered flask of something red and bitter. Closes cuts (stops bleeding) and stops the shaking.",
+    "category": "consumable",
+    "model": "flask",
+    "maxStack": 5,
+    "useLabel": "Drink",
+    "use": [
+      {
+        "do": "heal",
+        "amount": 50
+      },
+      {
+        "do": "cure",
+        "status": "bleeding"
+      },
+      {
+        "do": "consume"
+      }
+    ]
+  },
+  "longsword": {
+    "name": "Longsword",
+    "category": "weapon",
+    "model": "longsword",
+    "description": "A plain arming sword, a bit long for one hand. Click to swing (up to three in a row), hold for an overhead cut.",
+    "weapon": {
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "combo",
+            "steps": [
+              "slash_r",
+              "slash_l",
+              "thrust"
+            ],
+            "window": 0.35
+          },
+          "timing": {
+            "windup": 0.16,
+            "active": 0.14,
+            "recovery": 0.32
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 1.9,
+            "radius": 0.1,
+            "arc": "step"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "slash",
+                "amount": 40
+              }
+            ],
+            "impulse": 3,
+            "status": [
+              {
+                "id": "bleeding",
+                "seconds": 6,
+                "chance": 0.35
+              }
+            ]
+          }
+        },
+        "heavy": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0.18,
+            "max": 0.6
+          },
+          "timing": {
+            "windup": 0.12,
+            "active": 0.18,
+            "recovery": 0.6
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 2.0,
+            "radius": 0.12,
+            "arc": "overhead"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "slash",
+                "amount": 55,
+                "chargeScale": 1.6
+              }
+            ],
+            "impulse": 6,
+            "status": [
+              {
+                "id": "bleeding",
+                "seconds": 8,
+                "chance": 0.5
+              }
+            ]
+          }
+        }
+      },
+      "block": {
+        "reduce": {
+          "slash": 0.85,
+          "blunt": 0.6,
+          "pierce": 0.6
+        },
+        "parryWindow": 0.18,
+        "staminaPerHit": 10
+      },
+      "handling": {
+        "move": 0.95
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.3,
+          -0.46
+        ],
+        "rotation": [
+          30,
+          -14,
+          -6
+        ],
+        "scale": 0.8
+      }
+    }
+  },
+  "pistol": {
+    "name": "Pistol",
+    "category": "weapon",
+    "model": "pistol",
+    "description": "A compact semi-automatic, 8 rounds a magazine. Right mouse to aim, R to reload.",
+    "weapon": {
+      "ammo": [
+        "pistol_rounds"
+      ],
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "press"
+          },
+          "timing": {
+            "recovery": 0.16
+          },
+          "feeder": {
+            "kind": "magazine",
+            "capacity": 8,
+            "reload": 1.8,
+            "tactical": 1.4
+          },
+          "delivery": {
+            "kind": "hitscan",
+            "range": 80,
+            "spread": {
+              "hip": 1.2,
+              "ads": 0.5,
+              "bloomPerShot": 0.8,
+              "bloomMax": 3,
+              "recover": 5
+            }
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "ballistic",
+                "amount": 34
+              }
+            ],
+            "impulse": 2,
+            "status": [
+              {
+                "id": "bleeding",
+                "seconds": 8,
+                "chance": 0.6
+              }
+            ]
+          }
+        }
+      },
+      "handling": {
+        "ads": 0.72,
+        "adsMove": 0.6,
+        "recoil": {
+          "pitch": 1.6,
+          "yaw": 0.5
+        }
+      },
+      "view": {
+        "position": [
+          0.18,
+          -0.17,
+          -0.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1.2,
+        "sight": [
+          0,
+          -0.085,
+          -0.42
+        ]
+      },
+      "noise": 45
+    }
+  },
+  "pistol_rounds": {
+    "name": "Pistol rounds",
+    "category": "ammo",
+    "model": "ammo_box",
+    "maxStack": 60,
+    "description": "A cardboard box of pistol cartridges."
+  },
+  "longbow": {
+    "name": "Longbow",
+    "category": "weapon",
+    "model": "longbow",
+    "description": "A yew longbow taller than you. Hold the attack button to draw, let go to loose. A full draw flies flat and hits hard.",
+    "weapon": {
+      "ammo": [
+        "arrows",
+        "fire_arrows"
+      ],
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0.1,
+            "max": 0.75
+          },
+          "timing": {
+            "recovery": 0.2
+          },
+          "feeder": {
+            "kind": "single-load",
+            "capacity": 1,
+            "loadTime": 0.45
+          },
+          "delivery": {
+            "kind": "projectile",
+            "speed": [
+              22,
+              62
+            ],
+            "gravity": 1,
+            "onImpact": "stick",
+            "spread": {
+              "hip": 0.4
+            },
+            "hand": [
+              -0.05,
+              -0.03
+            ]
+          }
+        }
+      },
+      "handling": {
+        "move": 0.95
+      },
+      "view": {
+        "position": [
+          -0.17,
+          -0.1,
+          -0.62
+        ],
+        "rotation": [
+          0,
+          0,
+          -10
+        ],
+        "scale": 0.42,
+        "draw": [
+          -0.06,
+          -0.03,
+          -0.52
+        ]
+      },
+      "noise": 8
+    }
+  },
+  "arrows": {
+    "name": "Arrows",
+    "category": "ammo",
+    "model": "arrows",
+    "flightModel": "arrow",
+    "maxStack": 30,
+    "description": "Ash shafts with steel broadheads. You can pull them back out of whatever they hit.",
+    "payload": {
+      "damage": [
+        {
+          "type": "pierce",
+          "amount": 16,
+          "chargeScale": 3.2
+        }
+      ],
+      "impulse": 1.5,
+      "status": [
+        {
+          "id": "bleeding",
+          "seconds": 6,
+          "chance": 0.45
+        }
+      ]
+    }
+  },
+  "grenade": {
+    "name": "Frag grenade",
+    "category": "weapon",
+    "model": "grenade",
+    "maxStack": 4,
+    "description": "Pull, throw, duck. Hold to throw further; the fuse burns from the moment you start (3.5 s), so don't hold it too long.",
+    "weapon": {
+      "stack": true,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1,
+            "cook": true
+          },
+          "timing": {
+            "recovery": 0.6
+          },
+          "feeder": {
+            "kind": "self"
+          },
+          "delivery": {
+            "kind": "projectile",
+            "speed": [
+              7,
+              17
+            ],
+            "gravity": 1,
+            "onImpact": "bounce",
+            "fuse": 3.5,
+            "then": {
+              "kind": "area",
+              "radius": 6,
+              "falloff": "linear",
+              "lineOfSight": true
+            }
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blast",
+                "amount": 150
+              }
+            ],
+            "impulse": 14
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.2,
+          -0.19,
+          -0.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.9
+      },
+      "noise": 60
+    }
+  },
+  "fire_arrows": {
+    "name": "Fire arrows",
+    "category": "ammo",
+    "model": "fire_arrows",
+    "flightModel": "fire_arrow",
+    "maxStack": 20,
+    "description": "Arrows with pitch-soaked rag behind the head. Light them and loose: they set what they hit alight. Press T with the bow drawn to switch arrows.",
+    "payload": {
+      "damage": [
+        {
+          "type": "pierce",
+          "amount": 12,
+          "chargeScale": 3
+        },
+        {
+          "type": "fire",
+          "amount": 8
+        }
+      ],
+      "impulse": 1.2,
+      "status": [
+        {
+          "id": "burning",
+          "seconds": 5
+        }
+      ]
+    }
+  },
+  "bandage": {
+    "name": "Bandage",
+    "category": "consumable",
+    "model": "bandage",
+    "maxStack": 10,
+    "useLabel": "Apply",
+    "description": "A roll of clean linen. Binding a wound stops the bleeding.",
+    "use": [
+      {
+        "do": "cure",
+        "status": "bleeding"
+      },
+      {
+        "do": "heal",
+        "amount": 5
+      },
+      {
+        "do": "consume"
+      }
+    ]
+  },
+  "leather_cap": {
+    "name": "Leather cap",
+    "category": "armour",
+    "model": "leather_cap",
+    "description": "Boiled leather, stitched over felt. Takes the edge off a blow to the head.",
+    "armour": {
+      "slot": "head",
+      "covers": [
+        "head"
+      ],
+      "resist": {
+        "slash": 0.35,
+        "blunt": 0.3,
+        "pierce": 0.2,
+        "ballistic": 0.05
+      }
+    }
+  },
+  "steel_helm": {
+    "name": "Steel helm",
+    "category": "armour",
+    "model": "steel_helm",
+    "description": "A plain sallet. Swords skate off it; a musket ball might not.",
+    "armour": {
+      "slot": "head",
+      "covers": [
+        "head"
+      ],
+      "resist": {
+        "slash": 0.85,
+        "blunt": 0.5,
+        "pierce": 0.65,
+        "ballistic": 0.3
+      }
+    }
+  },
+  "mail_hauberk": {
+    "name": "Mail hauberk",
+    "category": "armour",
+    "model": "mail_hauberk",
+    "description": "Riveted rings to the knee and elbow. Stops cuts well and points less well; heavy to wear.",
+    "armour": {
+      "slot": "body",
+      "covers": [
+        "torso",
+        "limbs"
+      ],
+      "resist": {
+        "slash": 0.75,
+        "pierce": 0.4,
+        "blunt": 0.2,
+        "ballistic": 0.15,
+        "fire": 0.1
+      },
+      "move": 0.93
+    }
+  },
+  "ballistic_vest": {
+    "name": "Ballistic vest",
+    "category": "armour",
+    "model": "ballistic_vest",
+    "description": "Aramid panels in a nylon carrier. Built to stop pistol rounds and fragments; only covers the chest.",
+    "armour": {
+      "slot": "body",
+      "covers": [
+        "torso"
+      ],
+      "resist": {
+        "ballistic": 0.6,
+        "blast": 0.35,
+        "slash": 0.4,
+        "pierce": 0.35,
+        "blunt": 0.15
+      }
+    }
+  },
+  "musket": {
+    "name": "Flintlock musket",
+    "category": "weapon",
+    "model": "musket",
+    "description": "A long smoothbore with a flint lock. One heavy ball, then a long, fiddly reload: half-cock, prime the pan, powder and ball, ram, cock. It misfires now and then.",
+    "weapon": {
+      "ammo": [
+        "musket_cartridges"
+      ],
+      "noise": 70,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "press",
+            "delay": 0.12,
+            "misfire": 0.08
+          },
+          "timing": {
+            "recovery": 0.5
+          },
+          "feeder": {
+            "kind": "sequence",
+            "steps": [
+              [
+                "Half-cock",
+                0.35
+              ],
+              [
+                "Prime the pan",
+                0.7
+              ],
+              [
+                "Powder and ball",
+                1.1
+              ],
+              [
+                "Ram it home",
+                1.4
+              ],
+              [
+                "Full cock",
+                0.35
+              ]
+            ]
+          },
+          "delivery": {
+            "kind": "hitscan",
+            "range": 120,
+            "spread": {
+              "hip": 2.4,
+              "ads": 0.7
+            }
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "ballistic",
+                "amount": 75
+              }
+            ],
+            "impulse": 5,
+            "status": [
+              {
+                "id": "bleeding",
+                "seconds": 10,
+                "chance": 0.7
+              }
+            ]
+          }
+        }
+      },
+      "handling": {
+        "ads": 0.78,
+        "adsMove": 0.5,
+        "move": 0.92,
+        "recoil": {
+          "pitch": 4.5,
+          "yaw": 1.2
+        }
+      },
+      "view": {
+        "position": [
+          0.17,
+          -0.2,
+          -0.5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1,
+        "sight": [
+          0,
+          -0.115,
+          -0.45
+        ]
+      }
+    }
+  },
+  "musket_cartridges": {
+    "name": "Musket cartridges",
+    "category": "ammo",
+    "model": "cartridges",
+    "maxStack": 30,
+    "description": "A measure of powder and a lead ball twisted up in paper. Bite it open, prime, pour, ram."
+  }
+}

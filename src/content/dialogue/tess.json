@@ -1,0 +1,88 @@
+{
+  "id": "tess",
+  "speaker": "Tess",
+  "start": [
+    {
+      "if": [
+        {
+          "if": "flag",
+          "flag": "key_returned"
+        }
+      ],
+      "node": "after"
+    },
+    {
+      "node": "before"
+    }
+  ],
+  "nodes": {
+    "before": {
+      "text": "You look like you're new. I'm Tess. I'd offer you a drink, but my stall's closed until Bram finds his storeroom key.",
+      "choices": [
+        {
+          "text": "Bram lost his key?",
+          "next": "gossip"
+        },
+        {
+          "text": "Why does that close your stall?",
+          "next": "stall"
+        },
+        {
+          "text": "Bye.",
+          "next": null
+        }
+      ]
+    },
+    "gossip": {
+      "text": "This morning, somewhere in that yard of his. He won't ask for help, stubborn old goat. But if somebody offered...",
+      "next": "before"
+    },
+    "stall": {
+      "text": "All my cider is in his storeroom. No key, no cider.",
+      "next": "before"
+    },
+    "after": {
+      "text": "There's the hero of the hour! Bram's storeroom is open and my cider is flowing again.",
+      "choices": [
+        {
+          "text": "I'll have a cider. (5 gold)",
+          "next": "drink",
+          "if": [
+            {
+              "if": "hasItem",
+              "item": "gold",
+              "count": 5
+            }
+          ],
+          "do": [
+            {
+              "do": "takeItem",
+              "item": "gold",
+              "count": 5
+            },
+            {
+              "do": "giveItem",
+              "item": "cider"
+            }
+          ]
+        },
+        {
+          "text": "What's new?",
+          "next": "news"
+        },
+        {
+          "text": "Bye, Tess.",
+          "next": null
+        }
+      ]
+    },
+    "drink": {
+      "text": "Here you go, first of the batch. Drink it whenever you like. You've got {item.gold} gold left, so don't let Mira talk you into buying a map.",
+      "next": "after"
+    },
+    "news": {
+      "text": "Mira won't stop talking about you. And Bram's whistling. I've never heard Bram whistle.",
+      "next": "after"
+    }
+  }
+}

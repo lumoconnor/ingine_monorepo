@@ -1,0 +1,43 @@
+{
+  "id": "mira",
+  "speaker": "Mira",
+  "start": [
+    { "if": [{ "if": "flag", "flag": "key_returned" }], "node": "welcome_back" },
+    { "if": [{ "if": "visited", "node": "intro" }], "node": "hub" },
+    { "node": "intro" }
+  ],
+  "nodes": {
+    "intro": {
+      "text": "Oh, a new face! Welcome to the proving grounds. I'm Mira. I keep an eye on newcomers.",
+      "next": "hub"
+    },
+    "hub": {
+      "text": "What would you like to know?",
+      "choices": [
+        { "text": "What is this place?", "next": "place" },
+        { "text": "What is there to do here?", "next": "todo" },
+        { "text": "Who else is around?", "next": "others" },
+        { "text": "See you later.", "next": null }
+      ]
+    },
+    "place": {
+      "text": "A training yard. Ramps, ladders, a pool, a river with a nasty current. Everything a traveller needs to practise before heading out.",
+      "next": "hub"
+    },
+    "todo": {
+      "text": "Climb the tower to the north and ride the zipline, if you're brave. Or swim the rapids. And if you want to be useful, talk to Old Bram by the door house to the west.",
+      "next": "hub"
+    },
+    "others": {
+      "text": "Tess is right over there, she knows everyone's business. Old Bram looks after the door house. He's been grumpy all morning.",
+      "next": "hub"
+    },
+    "welcome_back": {
+      "text": "I heard you found Bram's key! He's been whistling ever since. Thank you.",
+      "choices": [
+        { "text": "Just doing my part.", "next": "hub" },
+        { "text": "Bye, Mira.", "next": null }
+      ]
+    }
+  }
+}

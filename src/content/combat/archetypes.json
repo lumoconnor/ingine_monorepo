@@ -1,0 +1,41 @@
+{
+  "sword_bandit": {
+    "name": "Bandit",
+    "faction": "bandits",
+    "health": 90,
+    "style": "melee",
+    "carry": { "longsword": 1, "gold": 6 },
+    "draw": "longsword",
+    "armour": ["leather_cap"],
+    "look": { "tunic": "0x6e3b2a", "hood": "0x3b2a1f" },
+    "walkSpeed": 1.6,
+    "runSpeed": 4.4,
+    "range": [1.3, 1.8],
+    "sight": 26,
+    "aggression": 0.75,
+    "blockChance": 0.45,
+    "parryChance": 0.3,
+    "fleeAt": 0.2,
+    "windupScale": 2.2,
+    "dropChance": { "longsword": 1, "gold": 1 }
+  },
+  "musket_bandit": {
+    "name": "Bandit marksman",
+    "faction": "bandits",
+    "health": 70,
+    "style": "ranged",
+    "carry": { "musket": 1, "musket_cartridges": 6, "gold": 4 },
+    "draw": "musket",
+    "armour": [],
+    "look": { "tunic": "0x4a5a3a", "hood": "0x2b3320" },
+    "walkSpeed": 1.5,
+    "runSpeed": 4.0,
+    "range": [7, 32],
+    "sight": 34,
+    "aimTime": 0.9,
+    "aimError": 1.4,
+    "fleeAt": 0,
+    "windupScale": 1,
+    "dropChance": { "musket": 1, "musket_cartridges": 1, "gold": 1 }
+  }
+}
