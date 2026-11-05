@@ -1,0 +1,16 @@
+{
+  "name": "@ingine/net",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Peer-to-peer rooms: one player hosts, others join with a room code. WebRTC data and media between browsers, no game server. Knows nothing about the engine.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "peerjs": "^1.5.5"
+  }
+}

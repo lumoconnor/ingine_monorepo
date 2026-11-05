@@ -1,0 +1,23 @@
+.voice-hud {
+  position: fixed;
+  left: 14px;
+  bottom: 70px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(12, 15, 20, 0.62);
+  color: #c9d2df;
+  font: 13px system-ui, sans-serif;
+  pointer-events: none;
+}
+.voice-hud.hidden { display: none; }
+.voice-dot { width: 10px; height: 10px; border-radius: 50%; background: #6f7b8d; flex: none; }
+.voice-hud.live { color: #fff; }
+.voice-hud.live .voice-dot { background: #7dff9b; box-shadow: 0 0 0 4px rgba(125, 255, 155, 0.3); }
+.voice-hud.muted .voice-dot { background: #ff6b6b; }
+.voice-meter { width: 46px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.voice-meter div { height: 100%; width: 0; background: #7dff9b; transition: width 60ms linear; }
+.voice-hud:not(.live) .voice-meter div { background: #6f7b8d; }

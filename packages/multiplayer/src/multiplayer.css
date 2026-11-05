@@ -1,0 +1,88 @@
+/* Lobby (first screen) and the in-game room panel. */
+.mp-lobby {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: radial-gradient(ellipse at 50% 30%, rgba(30, 38, 52, 0.92), rgba(8, 10, 14, 0.97));
+  font-family: system-ui, sans-serif;
+  color: #e8ecf2;
+}
+.mp-panel {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 28px;
+  border-radius: 14px;
+  background: rgba(20, 24, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.mp-panel h1 { margin: 0; font-size: 24px; }
+.mp-sub { margin: 0 0 4px; color: #9aa6b8; font-size: 14px; }
+.mp-panel label { display: grid; gap: 6px; font-size: 13px; color: #9aa6b8; }
+.mp-panel input {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #36404f;
+  background: #0f131a;
+  color: #fff;
+  min-width: 0;
+}
+.mp-panel input[name='code'] { flex: 1; text-transform: uppercase; letter-spacing: 0.2em; }
+.mp-row { display: flex; gap: 8px; }
+.mp-row > button { flex: none; }
+.mp-host { flex: 1 !important; }
+.mp-panel button {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 0;
+  background: #4f9dff;
+  color: #071222;
+  cursor: pointer;
+}
+.mp-panel button:disabled { opacity: 0.5; cursor: progress; }
+.mp-join { background: #e8ecf2 !important; }
+.mp-or { display: flex; align-items: center; gap: 10px; color: #6f7b8d; font-size: 12px; }
+.mp-or::before, .mp-or::after { content: ''; flex: 1; height: 1px; background: #2a3240; }
+.mp-status { margin: 0; min-height: 1.2em; font-size: 14px; color: #ffcf7a; }
+.mp-note { margin: 0; font-size: 12px; color: #6f7b8d; }
+
+.mp-room {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  min-width: 180px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(12, 15, 20, 0.62);
+  color: #e8ecf2;
+  font: 13px system-ui, sans-serif;
+  pointer-events: auto;
+}
+.mp-room.hidden, .mp-closed.hidden { display: none; }
+.mp-room-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-weight: 600; letter-spacing: 0.04em; }
+.mp-copy {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #3b4556;
+  background: transparent;
+  color: #b8c3d4;
+  cursor: pointer;
+}
+.mp-players { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.mp-players li { display: flex; align-items: center; gap: 8px; }
+.mp-players i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.mp-players li.speaking { color: #7dff9b; }
+.mp-players li.speaking i { box-shadow: 0 0 0 3px rgba(125, 255, 155, 0.35); }
+.mp-closed { margin-top: 8px; color: #ffb37a; }
