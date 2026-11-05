@@ -21,6 +21,14 @@ npm run check:office   # headless: three browsers in one room
 
 To try it alone, open two browser windows on the same machine.
 
+### Hosted copy
+
+`.github/workflows/office-pages.yml` publishes the game to GitHub Pages on
+every push to main that touches it, so friends only need the link. One-time
+setup: repo **Settings > Pages > Source: GitHub Actions** (Pages on a private
+repo needs a paid GitHub plan; otherwise make the repo public). It can't be a
+Claude artifact: artifact pages block the microphone and WebRTC.
+
 | Input | Action |
 |---|---|
 | W A S D, mouse, Space, Shift, C | Move, look, jump, sprint, crouch |

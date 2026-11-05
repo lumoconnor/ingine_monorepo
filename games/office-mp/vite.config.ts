@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Relative asset paths, so the build works from any folder (e.g. GitHub Pages at /<repo>/).
+  base: './',
   // 5174 so it can run next to the sandbox (5173).
   server: { port: 5174 },
   // Rapier's WASM is inlined into the JS bundle, so the main chunk is large by design.
