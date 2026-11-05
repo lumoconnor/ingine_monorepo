@@ -3,29 +3,38 @@
  * ever asks about actions, never raw keys, so rebinding / gamepad support is
  * a change here and in InputManager only.
  */
-export type Action =
-  | 'moveForward'
-  | 'moveBack'
-  | 'moveLeft'
-  | 'moveRight'
-  | 'jump'
-  | 'sprint'
-  | 'crouch'
-  | 'interact'
-  | 'attack'
-  | 'altAttack'
-  | 'reload'
-  | 'cycleAmmo'
-  | 'slot1'
-  | 'slot2'
-  | 'slot3'
-  | 'slot4'
-  | 'inventory'
-  | 'quickSave'
-  | 'quickLoad'
-  | 'toggleDebug'
-  | 'toggleFullscreen'
-  | 'respawn';
+/**
+ * Every logical action. A game adds its own by augmenting this interface and
+ * binding keys with `game.input.setBindings({ ...defaultBindings, castSpell: ['KeyQ'] })`:
+ *
+ *   declare module '@/config/bindings' { interface ActionMap { castSpell: true } }
+ */
+export interface ActionMap {
+  moveForward: true;
+  moveBack: true;
+  moveLeft: true;
+  moveRight: true;
+  jump: true;
+  sprint: true;
+  crouch: true;
+  interact: true;
+  attack: true;
+  altAttack: true;
+  reload: true;
+  cycleAmmo: true;
+  slot1: true;
+  slot2: true;
+  slot3: true;
+  slot4: true;
+  inventory: true;
+  quickSave: true;
+  quickLoad: true;
+  toggleDebug: true;
+  toggleFullscreen: true;
+  respawn: true;
+}
+
+export type Action = keyof ActionMap & string;
 
 export type Bindings = Record<Action, string[]>;
 

@@ -4,7 +4,7 @@ import type { Entity } from '@/entities/Entity';
 import { RAPIER } from '@/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
 import { PlayerController } from '@/gameplay/player/PlayerController';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { Damageable } from '../Damageable';
 import { Combatant } from '../Combatant';
 import { isHostile } from './factions';

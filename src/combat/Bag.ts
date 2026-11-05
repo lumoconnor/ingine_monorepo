@@ -1,5 +1,5 @@
 import type { ItemInstance, VarValue } from '@/core/WorldState';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { isInstanced } from '@/inventory/types';
 
 /**

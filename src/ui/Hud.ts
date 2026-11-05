@@ -6,7 +6,7 @@ import type { SaveSystem } from '@/core/SaveSystem';
 import { Damageable } from '@/combat/Damageable';
 import { Combatant } from '@/combat/Combatant';
 import { PlayerCombat } from '@/combat/PlayerCombat';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { Statuses } from '@/combat/registry';
 import * as THREE from 'three';
 

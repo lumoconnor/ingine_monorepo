@@ -7,7 +7,7 @@ import { groups, Layer } from '@/physics/groups';
 import { PlayerController } from '@/gameplay/player/PlayerController';
 import type { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { runAll } from '@/dialogue/registry';
-import { Items, itemLabel } from '@/content/items';
+import { Items, itemLabel } from '@/inventory/catalog';
 import { canDrop, isInstanced, stackSize, type ItemDef } from './types';
 import { validateArchetypes } from '@/world/enemies';
 import { validateItems } from './validate';

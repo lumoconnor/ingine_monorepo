@@ -26,8 +26,8 @@ export interface SaveData {
   machines: Record<string, unknown>;
 }
 
-/** The key predates format v2; kept so existing saves are found. */
-const KEY = 'owrpg.save.v1';
+/** Default storage key. It predates format v2; kept so existing saves are found. */
+const DEFAULT_KEY = 'owrpg.save.v1';
 const AUTOSAVE_EVERY = 30;
 
 /**
@@ -46,6 +46,12 @@ export class SaveSystem implements System {
   private timer = 0;
   private pending = false;
   private warned = false;
+  /** localStorage key. Each game should pass its own so games don't share saves. */
+  private readonly key: string;
+
+  constructor(options: { key?: string } = {}) {
+    this.key = options.key ?? DEFAULT_KEY;
+  }
 
   init(game: Game): void {
     this.game = game;
@@ -77,7 +83,7 @@ export class SaveSystem implements System {
     this.pending = false;
     this.timer = 0;
     try {
-      localStorage.setItem(KEY, JSON.stringify(this.capture()));
+      localStorage.setItem(this.key, JSON.stringify(this.capture()));
     } catch {
       if (!auto || !this.warned) this.game.events.emit('notify', { text: "Can't save here: browser storage is unavailable" });
       this.warned = true;
@@ -102,7 +108,7 @@ export class SaveSystem implements System {
   /** Forget the save and put the world back as it was when the level loaded. */
   newGame(): void {
     try {
-      localStorage.removeItem(KEY);
+      localStorage.removeItem(this.key);
     } catch {
       /* nothing to clear */
     }
@@ -142,7 +148,7 @@ export class SaveSystem implements System {
 
   private read(): SaveData | null {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(this.key);
       const data = raw ? (JSON.parse(raw) as SaveData) : null;
       return data?.version === 1 || data?.version === 2 ? data : null;
     } catch {

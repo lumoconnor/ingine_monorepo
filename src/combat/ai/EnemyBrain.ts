@@ -3,7 +3,7 @@ import { Component } from '@/entities/Component';
 import type { Entity } from '@/entities/Entity';
 import type { Saveable } from '@/core/SaveSystem';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { spawnPickup } from '@/inventory/pickups';
 import { Damageable } from '../Damageable';
 import { Combatant } from '../Combatant';

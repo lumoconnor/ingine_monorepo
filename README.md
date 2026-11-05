@@ -115,13 +115,15 @@ src/
     DialogueSystem.ts        runs a conversation, frames the camera, reports lines on the EventBus
   inventory/
     types.ts, validate.ts    item definition format + load-time checks
+    catalog.ts               the item catalogue (`Items`, `itemLabel`); filled by the game with `registerItems`
     models.ts, icons.ts      greybox item models (registered by id) and icons rendered from them
     weaponModels.ts          greybox weapon (held), kit (resting) and arrow (flight) models
     pickups.ts               addItemPickup (level items with stable ids), dropped items, restore on load
     InventorySystem.ts       open/close (pause + free mouse), slots, use, drop
-  content/
+  content/                   THIS GAME's data. Engine code never imports from here (see "Engine vs game content")
+    index.ts                 registerContent(): hands items, damage types, factions, unarmed, archetypes, model overrides to the engine
     dialogue/*.json          conversations (index.ts type-checks each one with `satisfies DialogueTree`)
-    items.json, items.ts     item catalogue (type-checked with `satisfies`)
+    items.json               item catalogue (type-checked with `satisfies`)
     models.json              model id -> real model file (.glb/.gltf); empty = all greybox
   world/
     Level.ts                 level contract (load/unload)
@@ -202,7 +204,9 @@ Content is checked twice: TypeScript checks every file's shape against
 `DialogueTree` at build time, and `validateTree` checks what types can't
 (every `next` exists, conditions and effects are registered with the right
 parameters, item ids exist, no unreachable nodes) and fails loudly at startup.
-New verbs go in `dialogue/registry.ts` and are immediately usable from JSON.
+Engine verbs live in `dialogue/registry.ts`; a game adds its own with
+`registerCondition` / `registerEffect` before `game.init()`, and they are
+immediately usable (and validated) in JSON.
 
 All state lives in `game.state` (`WorldState`): flags, variables and items.
 The dialogue system records its own bookkeeping there too
@@ -415,3 +419,26 @@ Nothing here changes the simulation; it all listens to `combat:*` events.
   with Rapier heightfield colliders.
 - Rapier's WASM is inlined in the bundle (~2 MB gzipped). Fine for now;
   can switch to the non-compat package to load the `.wasm` separately.
+
+## Engine vs game content
+
+This codebase is on its way to becoming a reusable engine with games built on
+top (plan: "Reusable engine structure proposal" doc). The rule already holds:
+**engine code never imports `src/content/`**. A game hands its data over at
+startup, before `game.init()`:
+
+| What | How the game provides it |
+|---|---|
+| Items | `registerItems(json)` (`inventory/catalog.ts`) |
+| Damage types, factions, bare hands | `registerDamageType`, `registerFaction`, `setUnarmed` |
+| Enemy archetypes | `registerArchetype` (`world/enemies.ts`) |
+| Real-art model files | `registerModelOverrides(json)` |
+| Dialogue trees | `new DialogueSystem(trees)` |
+| Dialogue / item-use verbs | `registerCondition`, `registerEffect` |
+| Events | augment `GameEvents`: `declare module '@/core/EventBus' { interface GameEvents { 'quest:done': { id: string } } }` |
+| Input actions | augment `ActionMap` in `@/config/bindings`, then `game.input.setBindings({ ...defaultBindings, castSpell: ['KeyQ'] })` |
+| Save slot | `new SaveSystem({ key: 'my-game.save' })` |
+
+`src/content/index.ts` (`registerContent`) does all of this for the playground.
+`config/player.ts`, `config/combat.ts` and `config/bindings.ts` are engine
+defaults a game may override.

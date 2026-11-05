@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Component } from '@/entities/Component';
 import type { FrameTime } from '@/core/Time';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 
 const DEG = Math.PI / 180;
 const _q = new THREE.Quaternion();

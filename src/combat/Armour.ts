@@ -1,6 +1,6 @@
 import { Component } from '@/entities/Component';
 import type { Saveable } from '@/core/SaveSystem';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { DamageTypes, registerModifier } from './registry';
 
 /** An item you can wear (items.json `armour` block). */
