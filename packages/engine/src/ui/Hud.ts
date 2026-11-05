@@ -20,6 +20,18 @@ const fullscreenElement = (): Element | null =>
   document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ?? null;
 const _v = new THREE.Vector3();
 
+export interface HudOptions {
+  /** Heading on the start screen. */
+  title?: string;
+  /** Rows for the start screen's controls table (input, what it does). Defaults to the full engine list. */
+  controls?: [string, string][];
+}
+
+const escapeHtml = (t: string) =>
+  t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const controlsTable = (rows: [string, string][]) =>
+  `<table class="controls">${rows.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')}</table>`;
+
 /**
  * DOM overlay: click-to-play screen, crosshair and a debug readout.
  * Also owns browser-level concerns (fullscreen, keyboard lock, leave-page guard).
@@ -65,7 +77,7 @@ export class Hud implements System {
   private dirsEl!: HTMLDivElement;
   private dirs: { el: HTMLDivElement; from: THREE.Vector3; age: number }[] = [];
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, opts: HudOptions = {}) {
     this.root = document.createElement('div');
     this.root.className = 'hud';
     this.root.innerHTML = `
@@ -85,12 +97,12 @@ export class Hud implements System {
       <div class="hint hidden">Mouse capture isn't available here, so hold the left button and drag to look.</div>
       <div class="overlay">
         <div class="panel">
-          <h1>Movement Playground</h1>
+          <h1>${escapeHtml(opts.title ?? 'Movement Playground')}</h1>
           <p class="status">Loading physics…</p>
           <button class="play" disabled>Click to play</button>
           <button class="newgame hidden">New game</button>
           <button class="fullscreen-btn">Fullscreen</button>
-          <table class="controls">
+          ${opts.controls ? controlsTable(opts.controls) : `<table class="controls">
             <tr><td>Mouse</td><td>Look</td></tr>
             <tr><td>W A S D</td><td>Move</td></tr>
             <tr><td>Space</td><td>Jump (hold for higher)</td></tr>
@@ -111,7 +123,7 @@ export class Hud implements System {
             <tr><td>Backspace</td><td>Respawn (if stuck)</td></tr>
             <tr><td>\` or F3</td><td>Toggle debug info</td></tr>
             <tr><td>Esc</td><td>Release mouse / pause</td></tr>
-          </table>
+          </table>`}
         </div>
       </div>`;
     container.appendChild(this.root);

@@ -1,0 +1,26 @@
+{
+  "name": "@ingine/voice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Voice chat over an @ingine/net room: push-to-talk or open mic, mute, and spatial playback (3D position, distance, muffled through walls).",
+  "exports": {
+    "./voice.css": "./src/voice.css",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@ingine/net": "*"
+  },
+  "peerDependencies": {
+    "@ingine/engine": "*",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@ingine/engine": "*",
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.187.0"
+  }
+}

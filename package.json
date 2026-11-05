@@ -2,12 +2,19 @@
   "name": "ingine-monorepo",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "games/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w @ingine/sandbox",
+    "dev:office": "npm run dev -w @ingine/office-mp",
     "build": "npm run build -w @ingine/sandbox",
+    "build:office": "npm run build -w @ingine/office-mp",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "check": "npm run check -w @ingine/sandbox"
+    "check": "npm run check -w @ingine/sandbox",
+    "check:office": "npm run check -w @ingine/office-mp"
   },
   "devDependencies": {
     "@types/three": "^0.187.0",

@@ -1,0 +1,26 @@
+{
+  "name": "@ingine/multiplayer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Puts an @ingine/net room into an engine game: lobby, other players' avatars, and shared world state (pickups).",
+  "exports": {
+    "./multiplayer.css": "./src/multiplayer.css",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@ingine/net": "*"
+  },
+  "peerDependencies": {
+    "@ingine/engine": "*",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@ingine/engine": "*",
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.187.0"
+  }
+}

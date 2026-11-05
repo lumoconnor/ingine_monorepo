@@ -8,11 +8,19 @@ the engine; each game supplies its own content, levels and tuning.
 ## Repo layout
 
 ```
-packages/engine/   @ingine/engine: all engine code (src/ below). Never imports game content.
-apps/sandbox/      @ingine/sandbox: the playground level, its test content, and the headless checks.
-                   The engine's test bed, and the template for a new game.
-games/             (coming) one folder per game, set up like apps/sandbox.
+packages/engine/       @ingine/engine: all engine code (src/ below). Never imports game content or networking.
+packages/net/          @ingine/net: peer-to-peer rooms (host + room code, WebRTC). Knows nothing about the engine.
+packages/multiplayer/  @ingine/multiplayer: puts a room into an engine game (lobby, avatars, shared pickups).
+packages/voice/        @ingine/voice: voice chat over a room, played back in 3D (distance, walls).
+apps/sandbox/          @ingine/sandbox: the playground level, its test content, and the headless checks.
+                       The engine's test bed, and the template for a new game.
+games/office-mp/       @ingine/office-mp: multiplayer test game (an office floor, items, spatial voice).
 ```
+
+The packages depend in one direction only: `net` stands alone, `multiplayer` and
+`voice` each use `net` and the engine, and a game wires them together. The engine
+itself has no idea networking exists; it only offers hooks (for example
+`setPickupAuthority`, which lets a host decide who gets an item).
 
 npm workspaces link them, so `@ingine/engine` always means the engine source in
 this repo. Games import engine modules by path, for example
@@ -27,6 +35,9 @@ npm run build      # type-check + production build into apps/sandbox/dist/
 npm run typecheck  # every package
 npm run check      # all headless checks (starts its own dev server)
 npm run check -- movement water   # just some of them
+
+npm run dev:office    # the multiplayer office test at http://localhost:5174
+npm run check:office  # its headless check: three browsers in one room, voice included
 ```
 
 The checks live in `apps/sandbox/scripts/*-check.cjs` and use the preinstalled

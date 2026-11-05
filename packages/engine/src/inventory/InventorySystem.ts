@@ -11,7 +11,7 @@ import { Items, itemLabel } from './catalog';
 import { canDrop, isInstanced, stackSize, type ItemDef } from './types';
 import { validateArchetypes } from '../world/enemies';
 import { validateItems } from './validate';
-import { spawnPickup, type PickupSpec } from './pickups';
+import { placeDroppedItem, type PickupSpec } from './pickups';
 
 export interface Slot {
   /** Selection key: the instance uid for weapons, else the item id. */
@@ -141,7 +141,7 @@ export class InventorySystem implements System {
     } else {
       g.state.removeItem(item, 1);
     }
-    spawnPickup(g, { item, count: 1, position: [spot.x, spot.y, spot.z], yawDeg: Math.random() * 360, data });
+    placeDroppedItem(g, { item, count: 1, position: [spot.x, spot.y, spot.z], yawDeg: Math.random() * 360, data });
     g.events.emit('notify', { text: `Dropped ${itemLabel(item)}` });
     return true;
   }

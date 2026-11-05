@@ -30,6 +30,54 @@ export interface PickupSpec {
 
 export const takenFlag = (id: string) => `world.taken.${id}`;
 
+/**
+ * Lets something else decide who gets a pickup (a multiplayer host, so two
+ * players can't both take the same mug). Without hooks, pickups work as in
+ * single player: E takes the item at once, a drop lands at once.
+ */
+export interface PickupAuthority {
+  /** The local player pressed E on this pickup. Call `collectPickup` if it's granted. */
+  requestTake(entity: Entity, spec: PickupSpec): void;
+  /** The local player dropped an item (already out of their bag). Spawn it, or ask someone to. */
+  requestDrop(spec: PickupSpec): void;
+}
+
+const authorities = new WeakMap<Game, PickupAuthority>();
+
+/** Install (or with null, remove) the pickup authority for a game. */
+export function setPickupAuthority(game: Game, authority: PickupAuthority | null): void {
+  if (authority) authorities.set(game, authority);
+  else authorities.delete(game);
+}
+
+/** Every pickup lying in the world right now. */
+export function allPickups(game: Game): Entity[] {
+  return game.world.findByTag('pickup');
+}
+
+/** Finds a pickup by its id (level items and, in multiplayer, dropped ones). */
+export function findPickup(game: Game, id: string): Entity | undefined {
+  return allPickups(game).find((e) => e.get(ItemPickup)?.spec.id === id);
+}
+
+/** Puts the item in the local player's bag and removes it from the world. */
+export function collectPickup(game: Game, e: Entity): void {
+  const o = e.get(ItemPickup)!.spec;
+  const count = o.count ?? 1;
+  if (o.data && game.state.isInstanced(o.item)) game.state.addInstance(o.item, o.data);
+  else game.state.addItem(o.item, count);
+  if (o.id) game.state.setFlag(takenFlag(o.id));
+  game.events.emit('notify', { text: `Picked up ${itemLabel(o.item, count)}` });
+  game.world.destroy(e);
+}
+
+/** Puts a dropped item into the world, through the authority if there is one. */
+export function placeDroppedItem(game: Game, spec: PickupSpec): void {
+  const authority = authorities.get(game);
+  if (authority) authority.requestDrop(spec);
+  else spawnPickup(game, spec);
+}
+
 /** Marks an entity as an item lying in the world. */
 export class ItemPickup extends Component {
   constructor(readonly spec: PickupSpec) {
@@ -90,11 +138,9 @@ export function spawnPickup(game: Game, o: PickupSpec): Entity {
     new Interactable({
       prompt: `Pick up ${itemLabel(o.item, count)}`,
       onInteract: () => {
-        if (o.data && game.state.isInstanced(o.item)) game.state.addInstance(o.item, o.data);
-        else game.state.addItem(o.item, count);
-        if (o.id) game.state.setFlag(takenFlag(o.id));
-        game.events.emit('notify', { text: `Picked up ${itemLabel(o.item, count)}` });
-        game.world.destroy(e);
+        const authority = authorities.get(game);
+        if (authority) authority.requestTake(e, e.get(ItemPickup)!.spec);
+        else collectPickup(game, e);
       },
     }),
   );
