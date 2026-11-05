@@ -9,7 +9,7 @@ import { buildModel, modelPart } from '@/render/models/ModelRegistry';
 import { CHEST_SIZE } from './propModels';
 import { Interactable } from '@/gameplay/interaction/Interactable';
 import { Lock, type LockOptions } from '@/gameplay/components/Lock';
-import { Items, itemLabel } from '@/content/items';
+import { Items, itemLabel } from '@/inventory/catalog';
 
 type Vec3 = [number, number, number];
 

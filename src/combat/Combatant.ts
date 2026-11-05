@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { Component } from '@/entities/Component';
 import type { Saveable } from '@/core/SaveSystem';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
-import { Items } from '@/content/items';
-import unarmedJson from '@/content/combat/unarmed.json';
+import { Items } from '@/inventory/catalog';
 import { Arcs, resolveMode } from './blocks';
 import { Damageable } from './Damageable';
 import type { Bag } from './Bag';
@@ -11,7 +10,13 @@ import type { CombatSystem } from './CombatSystem';
 import type { AttackModeDef, FeederDef, PayloadDef, WeaponDef } from './weaponTypes';
 import type { DamagePacket } from './types';
 
-export const UNARMED: WeaponDef = unarmedJson as WeaponDef;
+/** Bare hands: the weapon used when nothing is held. The game sets it with `setUnarmed`. */
+export const UNARMED = {} as WeaponDef;
+
+export function setUnarmed(def: WeaponDef): void {
+  for (const k of Object.keys(UNARMED)) delete (UNARMED as unknown as Record<string, unknown>)[k];
+  Object.assign(UNARMED, structuredClone(def));
+}
 
 /** What the brain (player input or AI) wants this tick. `*Pressed` are edges, the rest are held. */
 export interface Intents {

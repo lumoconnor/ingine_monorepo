@@ -1,6 +1,6 @@
 import type { Game } from '@/core/Game';
 import type { VarValue } from '@/core/WorldState';
-import { Items, itemLabel } from '@/content/items';
+import { Items, itemLabel } from '@/inventory/catalog';
 import { Damageable, killedFlag } from '@/combat/Damageable';
 import { DamageTypes } from '@/combat/registry';
 
@@ -156,6 +156,21 @@ export const Effects: Record<string, EffectDef> = {
     },
   },
 };
+
+/**
+ * Adds a condition verb for every JSON file (dialogue, items, later quests).
+ * Games call this before `game.init()` so validation knows the verb.
+ */
+export function registerCondition(name: string, def: ConditionDef): void {
+  if (name in Conditions) throw new Error(`Condition "${name}" registered twice`);
+  Conditions[name] = def;
+}
+
+/** Adds an effect verb (`{ "do": name, ... }`). Same rules as registerCondition. */
+export function registerEffect(name: string, def: EffectDef): void {
+  if (name in Effects) throw new Error(`Effect "${name}" registered twice`);
+  Effects[name] = def;
+}
 
 function playerHealth(game: Game): Damageable | undefined {
   return game.world.find('player')?.get(Damageable);

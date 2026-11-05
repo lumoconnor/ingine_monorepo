@@ -1,6 +1,6 @@
 import type { VarValue } from '@/core/WorldState';
 import type { ItemDef } from '@/inventory/types';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { DamageTypes } from './registry';
 import { resolveMode } from './blocks';
 

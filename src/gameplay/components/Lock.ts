@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Component } from '@/entities/Component';
 import type { FrameTime } from '@/core/Time';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 
 export interface LockOptions {
   /** Unique id. Unlocked state is the WorldState flag `unlocked.<id>`, so it saves and dialogue can set it. */

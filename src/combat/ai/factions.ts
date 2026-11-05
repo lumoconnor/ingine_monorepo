@@ -1,4 +1,3 @@
-import factionsJson from '@/content/combat/factions.json';
 
 /** Who fights whom. Content: src/content/combat/factions.json. Hostility goes both ways. */
 export interface FactionDef {
@@ -6,7 +5,7 @@ export interface FactionDef {
   hostile: string[];
 }
 
-export const Factions: Record<string, FactionDef> = structuredClone(factionsJson as Record<string, FactionDef>);
+export const Factions: Record<string, FactionDef> = {};
 
 export function registerFaction(id: string, def: FactionDef): void {
   Factions[id] = def;

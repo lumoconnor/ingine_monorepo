@@ -1,5 +1,4 @@
-import type { ItemDef } from '@/inventory/types';
-import items from './items.json';
+import type { ItemDef } from './types';
 
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -32,11 +31,21 @@ export function resolveExtends(raw: Record<string, ItemDef>): Record<string, Ite
 }
 
 /**
- * Item catalogue. Dialogue, pickups and the inventory refer to items by
- * these ids. `satisfies` type-checks the JSON; `validateItems` (run by the
- * InventorySystem at startup) checks models, use-effects and weapons.
+ * The item catalogue. The engine reads it; the game fills it once at startup
+ * with `registerItems(json)` before `game.init()`. Dialogue, pickups, the
+ * inventory and combat refer to items by these ids. `validateItems` (run by
+ * the InventorySystem at startup) checks models, use-effects and weapons.
  */
-export const Items: Record<string, ItemDef> = resolveExtends(items satisfies Record<string, ItemDef>);
+export const Items: Record<string, ItemDef> = {};
+
+/** Adds items (resolving `extends` within the batch). Ids must be new. */
+export function registerItems(raw: Record<string, ItemDef>): void {
+  const resolved = resolveExtends(raw);
+  for (const [id, def] of Object.entries(resolved)) {
+    if (id in Items) throw new Error(`Item "${id}" registered twice`);
+    Items[id] = def;
+  }
+}
 
 export function itemLabel(id: string, count = 1): string {
   const def = Items[id];

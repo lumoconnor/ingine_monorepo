@@ -5,7 +5,7 @@ import { PlaygroundLevel } from '@/world/levels/PlaygroundLevel';
 import { PlayerController } from '@/gameplay/player/PlayerController';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { DialogueUi } from '@/ui/DialogueUi';
-import { dialogueTrees } from '@/content/dialogue';
+import { registerContent, dialogueTrees } from '@/content';
 import { InventorySystem } from '@/inventory/InventorySystem';
 import { InventoryUi } from '@/ui/InventoryUi';
 import { SaveSystem } from '@/core/SaveSystem';
@@ -20,6 +20,7 @@ import '@/world/propModels';
 import { loadModelAssets } from '@/render/models/ModelRegistry';
 
 async function main(): Promise<void> {
+  registerContent();
   const container = document.getElementById('app')!;
   const game = new Game(container);
   game.addSystem(new CombatSystem());

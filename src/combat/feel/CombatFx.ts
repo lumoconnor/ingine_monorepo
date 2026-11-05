@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Game } from '@/core/Game';
 import type { System } from '@/core/System';
 import type { FrameTime } from '@/core/Time';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
 
 const MAX = 400;

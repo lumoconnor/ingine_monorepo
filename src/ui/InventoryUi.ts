@@ -7,7 +7,7 @@ import { Combatant } from '@/combat/Combatant';
 import { Armour } from '@/combat/Armour';
 import { DamageTypes } from '@/combat/registry';
 import { weaponSummary } from '@/combat/describe';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 
 const CATEGORY_LABEL: Record<string, string> = {
   quest: 'Quest item',

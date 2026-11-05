@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Game } from '@/core/Game';
 import type { System } from '@/core/System';
 import type { Entity } from '@/entities/Entity';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 
 const _p = new THREE.Vector3();
 const _r = new THREE.Vector3();

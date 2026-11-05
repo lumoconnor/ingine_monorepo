@@ -55,7 +55,7 @@ const { chromium } = require('playwright');
 
     // The live class (the dev server may have reloaded the module under another URL).
     const Combatant = F.constructor;
-    const Items = (await import('/src/content/items.ts')).Items;
+    const Items = (await import('/src/inventory/catalog.ts')).Items;
     const steps = [];
     game.events.on('combat:attack', (e) => e.attacker === player && steps.push(1));
     const HP = comp(player, 'Damageable');

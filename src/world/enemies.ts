@@ -3,8 +3,7 @@ import type { Game } from '@/core/Game';
 import { Entity } from '@/entities/Entity';
 import { RAPIER } from '@/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
-import archetypesJson from '@/content/combat/archetypes.json';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { Damageable, killedFlag } from '@/combat/Damageable';
 import { Combatant } from '@/combat/Combatant';
 import { Armour } from '@/combat/Armour';
@@ -17,7 +16,11 @@ import { Factions } from '@/combat/ai/factions';
 
 type Vec3 = [number, number, number];
 
-export const Archetypes: Record<string, Archetype> = archetypesJson as Record<string, Archetype>;
+export const Archetypes: Record<string, Archetype> = {};
+
+export function registerArchetype(id: string, def: Archetype): void {
+  Archetypes[id] = def;
+}
 
 /** Checks archetypes at startup: known factions, items, styles. */
 export function validateArchetypes(): void {

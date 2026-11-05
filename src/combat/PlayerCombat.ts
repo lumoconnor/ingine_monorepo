@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Component } from '@/entities/Component';
 import { PlayerController } from '@/gameplay/player/PlayerController';
 import { CombatConfig } from '@/config/combat';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { Damageable } from './Damageable';
 import { Combatant } from './Combatant';
 import { Armour } from './Armour';

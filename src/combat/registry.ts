@@ -1,4 +1,3 @@
-import damageTypesJson from '@/content/combat/damage-types.json';
 import type { DamagePacket, DamageTypeDef, Hit, StatusSpec } from './types';
 import type { Damageable } from './Damageable';
 
@@ -10,7 +9,7 @@ import type { Damageable } from './Damageable';
  *   registerModifier({ name: 'backstab', order: 25, apply: (ctx) => { ... } })
  */
 
-export const DamageTypes: Record<string, DamageTypeDef> = { ...(damageTypesJson as Record<string, DamageTypeDef>) };
+export const DamageTypes: Record<string, DamageTypeDef> = {};
 
 export function registerDamageType(id: string, def: DamageTypeDef): void {
   DamageTypes[id] = def;

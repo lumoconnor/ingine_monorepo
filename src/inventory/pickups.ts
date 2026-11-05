@@ -6,7 +6,7 @@ import { RAPIER } from '@/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@/physics/RigidBodyComponent';
 import { INTERACT_ONLY_GROUPS } from '@/physics/groups';
 import { Interactable } from '@/gameplay/interaction/Interactable';
-import { Items, itemLabel } from '@/content/items';
+import { Items, itemLabel } from '@/inventory/catalog';
 import { buildItemModel } from './models';
 import type { VarValue } from '@/core/WorldState';
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { buildItemModel } from './models';
 
 /**

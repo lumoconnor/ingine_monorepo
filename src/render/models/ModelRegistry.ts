@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import overrides from '@/content/models.json';
 
 /**
  * Every visible thing that isn't level blockout (items, weapons, projectiles,
@@ -9,7 +8,8 @@ import overrides from '@/content/models.json';
  * id into a fresh Object3D.
  *
  * Today every id is backed by a procedural greybox builder registered in code.
- * To swap in real art, add an entry to src/content/models.json:
+ * To swap in real art, add an entry to the game's models.json (passed to
+ * `registerModelOverrides`):
  *
  *   "longsword": { "src": "models/longsword.glb", "scale": 1 }
  *
@@ -51,7 +51,12 @@ export interface ModelOverride {
 
 const defs = new Map<string, ModelDef>();
 const loaded = new Map<string, THREE.Object3D>();
-const overrideTable = overrides as Record<string, ModelOverride>;
+const overrideTable: Record<string, ModelOverride> = {};
+
+/** Real art that replaces greybox builders, loaded by `loadModelAssets`. Call before it. */
+export function registerModelOverrides(table: Record<string, ModelOverride>): void {
+  Object.assign(overrideTable, table);
+}
 
 export function registerModels(table: Record<string, ModelDef>): void {
   for (const [id, def] of Object.entries(table)) {

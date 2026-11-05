@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Component } from '@/entities/Component';
 import type { FrameTime } from '@/core/Time';
-import { Items } from '@/content/items';
+import { Items } from '@/inventory/catalog';
 import { buildModel, hasModel } from '@/render/models/ModelRegistry';
 import { Arcs } from './blocks';
 import { Combatant } from './Combatant';
