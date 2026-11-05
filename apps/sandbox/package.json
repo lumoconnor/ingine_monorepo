@@ -1,0 +1,19 @@
+{
+  "name": "@ingine/sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The engine's test bed: the movement/combat playground level and the headless regression checks.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
+    "check": "node scripts/run-checks.cjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "@ingine/engine": "*",
+    "three": "^0.187.0"
+  }
+}
