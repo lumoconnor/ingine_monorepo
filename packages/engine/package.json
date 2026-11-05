@@ -1,0 +1,22 @@
+{
+  "name": "@ingine/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "First-person engine: loop, entities, physics, movement, interaction, combat, dialogue, inventory, saves.",
+  "exports": {
+    "./ui/styles.css": "./src/ui/styles.css",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "peerDependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.187.0"
+  }
+}

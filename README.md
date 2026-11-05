@@ -1,24 +1,38 @@
-# Open World RPG (working title)
+# ingine
 
-A first-person open-world RPG for the web, built with **Three.js** (rendering),
-**Rapier** (physics, via `@dimforge/rapier3d-compat`) and **TypeScript + Vite**.
+A first-person web engine (**Three.js** rendering, **Rapier** physics via
+`@dimforge/rapier3d-compat`, **TypeScript + Vite**) and the games built on it.
+Movement, interaction, machinery, combat, dialogue, inventory and saves live in
+the engine; each game supplies its own content, levels and tuning.
 
-Milestone 1 is a **movement playground**: terrain, ramps, stairs, jump tests,
-a crouch tunnel, ladders, pushable crates and moving platforms in every direction.
+## Repo layout
+
+```
+packages/engine/   @ingine/engine: all engine code (src/ below). Never imports game content.
+apps/sandbox/      @ingine/sandbox: the playground level, its test content, and the headless checks.
+                   The engine's test bed, and the template for a new game.
+games/             (coming) one folder per game, set up like apps/sandbox.
+```
+
+npm workspaces link them, so `@ingine/engine` always means the engine source in
+this repo. Games import engine modules by path, for example
+`import { Game } from '@ingine/engine/core/Game'`.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # type-check + production build into dist/
-npm run preview    # serve the production build
+npm run dev        # the sandbox at http://localhost:5173
+npm run build      # type-check + production build into apps/sandbox/dist/
+npm run typecheck  # every package
+npm run check      # all headless checks (starts its own dev server)
+npm run check -- movement water   # just some of them
 ```
 
-Headless movement check (with `npm run dev` running; uses the preinstalled
-Playwright Chromium): `node scripts/movement-check.cjs`. It steps the
-simulation deterministically and prints results for ramps, stairs, ledges,
-crouch tunnel, ceiling bump and every moving platform.
+The checks live in `apps/sandbox/scripts/*-check.cjs` and use the preinstalled
+Playwright Chromium. Each steps the simulation deterministically and prints
+PASS/FAIL lines; `npm run check` reports which failed. Run them after any
+engine change, since they are what "the engine still works" means.
 
 ## Controls
 
@@ -63,13 +77,15 @@ On a touch device the game shows on-screen controls instead of capturing the mou
 - Crouch: tap toggles, hold is crouch-while-held (swim down). Use glows when something is in reach.
 - Top row: weapon slots 1-4, Bag (inventory, with a close button), fullscreen, pause.
 - Fullscreen: a button on the start screen (all devices) and in the touch bar. iPhone Safari has no
-  page fullscreen, so it shows a hint instead. Check: `node scripts/touch-check.cjs`.
+  page fullscreen, so it shows a hint instead. Check: `npm run check -- touch`.
 
 ## Architecture
 
+Engine source, in `packages/engine/` (sandbox-only files are marked):
+
 ```
 src/
-  main.ts                    bootstrap: create Game, add systems, load level, start
+  [sandbox] main.ts          bootstrap: create Game, add systems, load level, start (apps/sandbox/src)
   core/
     Game.ts                  owns systems + World; fixed-timestep loop (60 Hz) with render interpolation
     System.ts                interface for global modules (input, physics, renderer, HUD, later audio/AI/save)
@@ -120,7 +136,7 @@ src/
     weaponModels.ts          greybox weapon (held), kit (resting) and arrow (flight) models
     pickups.ts               addItemPickup (level items with stable ids), dropped items, restore on load
     InventorySystem.ts       open/close (pause + free mouse), slots, use, drop
-  content/                   THIS GAME's data. Engine code never imports from here (see "Engine vs game content")
+  [sandbox] content/         the game's data (apps/sandbox/src/content). Engine code never imports from here (see "Engine vs game content")
     index.ts                 registerContent(): hands items, damage types, factions, unarmed, archetypes, model overrides to the engine
     dialogue/*.json          conversations (index.ts type-checks each one with `satisfies DialogueTree`)
     items.json               item catalogue (type-checked with `satisfies`)
@@ -134,7 +150,7 @@ src/
     enemies.ts               addEnemy from an archetype (content/combat/archetypes.json), archetype validation
     machinery.ts             addWall (with doorways) / addDoor / addLever / addButton / addLift
     terrain/Terrain.ts       height-function terrain tile: mesh + trimesh collider
-    levels/PlaygroundLevel.ts  the movement test level
+    [sandbox] levels/PlaygroundLevel.ts  the movement test level (apps/sandbox/src/levels)
   config/
     bindings.ts              action -> key bindings
     player.ts                every movement tunable in one place
@@ -190,7 +206,7 @@ rides both switch lifts.
 
 ### Dialogue and world state
 
-Conversations are data: one JSON file per tree in `src/content/dialogue/`.
+Conversations are data: one JSON file per tree in `apps/sandbox/src/content/dialogue/`.
 A tree picks its opening node from `start` rules (first rule whose conditions
 pass), each node has a line and up to 9 choices, and choices or nodes can
 have conditions (`"if"`) and effects (`"do"`):
@@ -224,7 +240,7 @@ plays through the whole task.
 
 ### Items, inventory and saving
 
-Items are defined in `src/content/items.json` (name, description, category,
+Items are defined in `apps/sandbox/src/content/items.json` (name, description, category,
 model, optional `maxStack`, `use`, `useLabel`, `text`), type-checked at build
 time and validated at startup. `use` lists the same effects as dialogue plus
 `consume`, so a cider is just
@@ -254,7 +270,7 @@ turns an id into a mesh with `buildModel(id)`; `buildModel(id, 'rest')`
 lays a held weapon down on a surface.
 
 Today every id is a procedural greybox registered in code. To use real art,
-put the file under `public/` and list it in `src/content/models.json`:
+put the file under `public/` and list it in `apps/sandbox/src/content/models.json`:
 
 ```json
 { "longsword": { "src": "models/longsword.glb", "scale": 1, "rotation": [0, 0, 0] } }
@@ -424,7 +440,7 @@ Nothing here changes the simulation; it all listens to `combat:*` events.
 
 This codebase is on its way to becoming a reusable engine with games built on
 top (plan: "Reusable engine structure proposal" doc). The rule already holds:
-**engine code never imports `src/content/`**. A game hands its data over at
+**engine code never imports `apps/sandbox/src/content/`**. A game hands its data over at
 startup, before `game.init()`:
 
 | What | How the game provides it |
@@ -435,10 +451,19 @@ startup, before `game.init()`:
 | Real-art model files | `registerModelOverrides(json)` |
 | Dialogue trees | `new DialogueSystem(trees)` |
 | Dialogue / item-use verbs | `registerCondition`, `registerEffect` |
-| Events | augment `GameEvents`: `declare module '@/core/EventBus' { interface GameEvents { 'quest:done': { id: string } } }` |
-| Input actions | augment `ActionMap` in `@/config/bindings`, then `game.input.setBindings({ ...defaultBindings, castSpell: ['KeyQ'] })` |
+| Events | augment `GameEvents`: `declare module '@ingine/engine/core/EventBus' { interface GameEvents { 'quest:done': { id: string } } }` |
+| Input actions | augment `ActionMap` in `@ingine/engine/config/bindings`, then `game.input.setBindings({ ...defaultBindings, castSpell: ['KeyQ'] })` |
 | Save slot | `new SaveSystem({ key: 'my-game.save' })` |
 
-`src/content/index.ts` (`registerContent`) does all of this for the playground.
+`apps/sandbox/src/content/index.ts` (`registerContent`) does all of this for the playground.
 `config/player.ts`, `config/combat.ts` and `config/bindings.ts` are engine
-defaults a game may override.
+defaults a game may override. The greybox model builders (`inventory/models.ts`,
+`inventory/weaponModels.ts`, `world/propModels.ts`) are engine defaults too: a
+game imports them for their side effect, as the sandbox's `main.ts` does, and
+can replace any of them with real art via `registerModelOverrides`.
+
+### Starting a new game
+
+Copy `apps/sandbox` to `games/<name>`, rename the package in its
+`package.json`, replace `src/content/` and `src/levels/` with your own, give
+`SaveSystem` its own `key`, and run `npm install` at the root.
