@@ -21,8 +21,8 @@ const _d = new THREE.Vector3();
 const _t = new THREE.Vector3();
 const _box = new THREE.Box3();
 const TRAIL_MAX = 12;
-/** Seconds a blade's smear lasts. */
-const TRAIL_LIFE = 0.1;
+/** Seconds a blade's smear lasts: short, so it reads as speed, not as a painted fan. */
+const TRAIL_LIFE = 0.05;
 const smooth = (x: number) => {
   const c = THREE.MathUtils.clamp(x, 0, 1);
   return c * c * (3 - 2 * c);
@@ -89,6 +89,10 @@ export class FistViewmodel extends Component {
   private bladeTip = new THREE.Vector3();
   private bladeBase = new THREE.Vector3();
   private hasBlade = false;
+  /** A glint down the weapon the moment a hold reaches full. */
+  private glint = 0;
+  private glintMats: THREE.MeshStandardMaterial[] = [];
+  private unsub: (() => void) | null = null;
   private flashLight = new THREE.PointLight(0xffc070, 0, 6, 2);
   private model: THREE.Object3D | null = null;
   private shownItem: string | null | undefined = undefined;
@@ -170,13 +174,17 @@ export class FistViewmodel extends Component {
     const cam = this.game.renderer.camera;
     if (!cam.parent) this.game.renderer.scene.add(cam);
     cam.add(this.pivot);
+    this.unsub = this.game.events.on('combat:charge', ({ entity, full }) => {
+      if (entity === this.entity && full) this.glint = 1;
+    });
   }
 
   onDetach(): void {
     this.pivot.removeFromParent();
+    this.unsub?.();
   }
 
-  /** The smear behind a cutting blade: a ribbon through where its edge has just been, fading in a tenth of a second. */
+  /** The smear behind a cutting blade: a ribbon through where its edge has just been, fading in a twentieth of a second. */
   private updateTrail(dt: number, cutting: boolean): void {
     const pts = this.trailPts;
     for (const p of pts) p.age += dt;
@@ -196,8 +204,8 @@ export class FistViewmodel extends Component {
       pos.setXYZ(i * 2 + 1, p.tip.x, p.tip.y, p.tip.z);
       // Additive: brightness is its opacity. Faint at the grip end, brightest at the tip, gone with age.
       const k = Math.max(0, 1 - p.age / TRAIL_LIFE);
-      col.setXYZ(i * 2, 0.02 * k, 0.02 * k, 0.02 * k);
-      col.setXYZ(i * 2 + 1, 0.2 * k, 0.2 * k, 0.21 * k);
+      col.setXYZ(i * 2, 0.01 * k, 0.01 * k, 0.01 * k);
+      col.setXYZ(i * 2 + 1, 0.13 * k, 0.13 * k, 0.14 * k);
     });
     geo.setDrawRange(0, (pts.length - 1) * 6);
     pos.needsUpdate = true;
@@ -211,6 +219,7 @@ export class FistViewmodel extends Component {
     this.shownItem = item;
     this.model?.removeFromParent();
     this.model = null;
+    this.glintMats = [];
     const def = item ? Items[item] : undefined;
     const view = def?.weapon?.view;
     const name = view?.model ?? def?.model;
@@ -224,6 +233,7 @@ export class FistViewmodel extends Component {
         o.castShadow = false;
         o.material = (o.material as THREE.Material).clone();
         (o.material as THREE.Material).depthTest = false;
+        if (o.material instanceof THREE.MeshStandardMaterial) this.glintMats.push(o.material);
       }
     });
     this.fist.traverse((o) => {
@@ -241,25 +251,25 @@ export class FistViewmodel extends Component {
     const sp = view?.sight ?? [0, -0.11, p[2]];
     this.sightPos.set(sp[0], sp[1], sp[2]);
     this.holder.add(this.model);
-    // Muzzle at the front of the model.
-    const box = new THREE.Box3().setFromObject(this.model);
-    this.flash.position.set(0, (box.max.y + box.min.y) / 2 + 0.01, box.min.z - 0.03);
-    this.flash.scale.setScalar(1 / (view?.scale ?? 1));
+    // The model's extent in the holder's own space (it runs along -Z from the grip).
     this.model.add(this.flash);
-    // A blade's edge, in the holder's space: from part way up to the tip (models run along -Z).
+    this.model.updateMatrixWorld(true);
+    const local = new THREE.Box3();
+    const inv = new THREE.Matrix4().copy(this.holder.matrixWorld).invert();
+    this.model.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || o.parent === this.flash) return;
+      o.geometry.computeBoundingBox();
+      local.union(_box.copy(o.geometry.boundingBox!).applyMatrix4(_m.multiplyMatrices(inv, o.matrixWorld)));
+    });
+    // Muzzle at the front of the model (the flash is the model's child, so in its unscaled space).
+    const sc = this.model.scale.x || 1;
+    this.flash.position.set(0, ((local.max.y + local.min.y) / 2 + 0.01) / sc, (local.min.z - 0.03) / sc);
+    // A blade's edge: its outer part, out to the tip.
     this.hasBlade = Object.values(def.weapon?.modes ?? {}).some((m) => m.delivery?.kind === 'sweep');
     this.trailPts.length = 0;
     if (this.hasBlade) {
-      this.model.updateMatrixWorld(true);
-      const local = new THREE.Box3();
-      const inv = new THREE.Matrix4().copy(this.holder.matrixWorld).invert();
-      this.model.traverse((o) => {
-        if (!(o instanceof THREE.Mesh) || o.parent === this.flash) return;
-        o.geometry.computeBoundingBox();
-        local.union(_box.copy(o.geometry.boundingBox!).applyMatrix4(_m.multiplyMatrices(inv, o.matrixWorld)));
-      });
       this.bladeTip.set(0, (local.max.y + local.min.y) / 2, local.min.z);
-      this.bladeBase.set(0, this.bladeTip.y, local.min.z * 0.35);
+      this.bladeBase.set(0, this.bladeTip.y, local.min.z * 0.6);
     }
   }
 
@@ -433,6 +443,13 @@ export class FistViewmodel extends Component {
     this.lastQuat.copy(this.holder.quaternion);
 
     this.updateTrail(dt, melee && st === 'active' && !f.paused);
+    if (this.glint > 0 || this.glintMats[0]?.emissiveIntensity) {
+      this.glint = Math.max(0, this.glint - dt * 5);
+      for (const gm of this.glintMats) {
+        gm.emissive.setRGB(1, 0.95, 0.8);
+        gm.emissiveIntensity = this.glint * this.glint * 0.5;
+      }
+    }
 
     const flashOn = f.sinceShot < 0.05;
     this.flash.visible = flashOn;

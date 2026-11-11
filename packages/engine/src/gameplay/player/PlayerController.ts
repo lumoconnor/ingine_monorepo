@@ -94,6 +94,8 @@ export class PlayerController extends Component {
 
   /** Set by combat: weapon handling slows you (aiming, heavy weapons). 1 = normal. */
   speedScale = 1;
+  /** A shove from outside (stepping into a swing, a blow, a blast): m/s added to walking, fading in a fraction of a second. */
+  readonly knock = new THREE.Vector3();
   /** Set by combat: aiming down sights narrows the view. 1 = normal FOV. */
   fovScale = 1;
   spawnPoint = new THREE.Vector3();
@@ -146,7 +148,18 @@ export class PlayerController extends Component {
     return this.airTime;
   }
 
+  /** Shove the player: `speed` m/s along `dir` (flattened), fading out over about a third of a second. */
+  shove(dir: { x: number; z: number }, speed: number): void {
+    const l = Math.hypot(dir.x, dir.z);
+    if (l < 1e-4) return;
+    this.knock.x += (dir.x / l) * speed;
+    this.knock.z += (dir.z / l) * speed;
+    const k = this.knock.length();
+    if (k > 10) this.knock.multiplyScalar(10 / k);
+  }
+
   respawn(): void {
+    this.knock.set(0, 0, 0);
     this.placeAt(this.spawnPoint, this.spawnYaw, 0);
   }
 
@@ -199,6 +212,11 @@ export class PlayerController extends Component {
     else this.updateVelocity(dt);
 
     _vec.copy(this.velocity).multiplyScalar(dt);
+    if (this.knock.lengthSq() > 0) {
+      if (!this.ladder && !this.zipline && !this.mantling) _vec.addScaledVector(this.knock, dt);
+      this.knock.multiplyScalar(Math.exp(-dt * 8));
+      if (this.knock.lengthSq() < 0.01) this.knock.set(0, 0, 0);
+    }
     this.landedOnPlatform = false;
     const p0 = this.feetPosition.clone();
     const kccMoved = this.moveBy(_vec);

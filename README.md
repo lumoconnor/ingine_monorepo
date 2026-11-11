@@ -133,7 +133,7 @@ src/
     FistViewmodel.ts         what you hold: fist or weapon model, swings, kick, reload dip, bow draw
     describe.ts, HazardVolume.ts, TrainingDummy.ts
     Bag.ts                   where a Combatant's weapons and ammo live: the player's inventory, or an NPC's LocalBag
-    feel/                    presentation only: CombatFeel (hit-stop, view shake), CombatFx (particles), CombatAudio (synth sounds)
+    feel/                    presentation only: CombatFeel (view kicks, lean, shake), CombatFx (particles), CombatAudio (synth sounds)
     ai/                      enemies: Perception (sight, hearing, shouts), EnemyBrain (utility AI), NpcBody (movement), NpcRig (looks), factions
   dialogue/
     types.ts                 the JSON format for conversations (DialogueTree / Node / Choice / Condition / Effect)
@@ -422,9 +422,27 @@ the fire and a marksman with a flintlock musket on the rocks.
 
 Nothing here changes the simulation; it all listens to `combat:*` events.
 
-- Hit-stop (CombatFeel): a landed melee blow near-freezes time for 50 ms
-  (90 ms on a kill, 120 ms on a parry, 60 ms when you take a big hit), via
-  `game.timeScale`, on real time.
+- Hit-stop is the attacker's own (`Combatant.hitPause`): the blade hangs in
+  the target for 30 to 90 ms by how hard it hit (120 ms on a kill) while the
+  world carries on. `game.timeScale` is no longer touched.
+- Responsiveness: a light swing starts on press (holding through its
+  wind-up turns it into the heavy), and the player's presses are remembered
+  for 0.18 s (`inputBuffer`), so a click made a moment early still counts.
+  Views are drawn between fixed steps (`progressAt`, `Projectile.render`).
+- Camera (CombatFeel): leans with your swings, kicks along the cut when a
+  blow lands, and is thrown the way a blow that hits you was going.
+- Reactions: struck enemies are knocked back (`NpcBody.push`), recoil from
+  the blow and fall the way the killing hit went; blasts and blows shove
+  the player too (`PlayerController.shove`). A swing turned by a guard or a
+  wall stops there, springs back and recovers 0.15 s slower.
+- Combos: `trigger.cancel` lets a queued swing cut the recovery short,
+  `trigger.finisher` makes the last step hit harder, `timing.lunge` steps
+  you into the blow.
+- Ranged: tracers, marks and per-surface impacts (tag an entity
+  `surface:wood|stone|dirt|metal`; terrain is dirt), arrow and blade trails,
+  a hit confirm at your ear, spread that widens on the move and in the air,
+  `holdStamina` for a held bow (plus sway), fuse ticks and a fuse bar for a
+  cooking grenade, near-miss cracks, and blasts that deafen and white out.
 - View shake: trauma from your own shots (by recoil), blows you take, and
   blasts nearby; shake grows with trauma squared and fades in about a
   second. Recoil: 45% of each kick settles back by itself.

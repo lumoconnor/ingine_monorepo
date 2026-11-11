@@ -69,6 +69,19 @@ export class PlayerCombat extends Component {
         this.settle += r.pitch * DEG * 0.45;
         this.kickYaw += (this.game.getSystem<import('./CombatSystem').CombatSystem>('combat')!.rng() * 2 - 1) * (r.yaw ?? 0) * DEG;
       }),
+      // Step into the blow as the blade goes in.
+      ev.on('combat:swing', ({ attacker }) => {
+        const lunge = this.fighter.currentMode?.timing?.lunge ?? 0;
+        if (attacker !== this.entity || lunge <= 0 || !this.ctrl.grounded) return;
+        const yaw = this.ctrl.yaw;
+        this.ctrl.shove({ x: -Math.sin(yaw), z: -Math.cos(yaw) }, lunge * 8);
+      }),
+      // Blows drive you back a little; a blast throws you.
+      ev.on('combat:hit', ({ hit, target, result }) => {
+        if (target !== this.entity || !hit.direction || result.damage <= 0) return;
+        if (hit.delivery === 'area') this.ctrl.shove(hit.direction, Math.min(9, 3 + result.damage * 0.08));
+        else if (hit.delivery === 'sweep') this.ctrl.shove(hit.direction, Math.min(3, result.damage * 0.05));
+      }),
       // Picking up your first weapon while empty-handed draws it.
       ev.on('state:changed', ({ kind, key }) => {
         if (kind !== 'item' || this.fighter.equipped || !Items[key]?.weapon) return;
@@ -129,7 +142,14 @@ export class PlayerCombat extends Component {
 
     // Aiming and handling slow you and zoom the view.
     const h = this.fighter.weapon.handling;
-    this.ctrl.fovScale = (this.fighter.aiming ? (h?.ads ?? 1) : 1) * (1 + this.punch);
+    // A drawn bow narrows the view a touch: your eye is on the mark.
+    const cm = this.fighter.state === 'charging' ? this.fighter.currentMode : null;
+    const draw = cm && cm.delivery.kind === 'projectile' && !cm.trigger.cook ? this.fighter.charge : 0;
+    this.ctrl.fovScale = (this.fighter.aiming ? (h?.ads ?? 1) : 1) * (1 + this.punch) * (1 - 0.05 * draw);
+    // Accuracy: worse on the move, much worse in the air, a little better crouched and still.
+    const move = THREE.MathUtils.clamp(this.ctrl.horizontalSpeed / this.ctrl.cfg.sprintSpeed, 0, 1);
+    const target = !this.ctrl.grounded && !this.ctrl.swimming ? 2 : (1 + 0.6 * move) * (this.ctrl.crouched ? 0.8 : 1);
+    this.fighter.spreadScale += (target - this.fighter.spreadScale) * (1 - Math.exp(-dt * 12));
     this.punch *= Math.exp(-dt * 9);
     if (this.punch < 0.001) this.punch = 0;
     this.ctrl.speedScale =

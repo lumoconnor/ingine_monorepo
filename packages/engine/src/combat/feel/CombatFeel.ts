@@ -170,6 +170,13 @@ export class CombatFeel extends Component {
 
     let px = this.lean.x + this.kick.x;
     let py = this.lean.y + this.kick.y;
+    // A bow held at full draw starts to wander: a little after two seconds, worse as your arm tires.
+    if (f && f.state === 'charging' && f.heldFull > 0 && f.currentMode?.delivery.kind === 'projectile' && !f.currentMode.trigger.cook) {
+      const tired = 1 - f.stamina / f.maxStamina;
+      const amt = (THREE.MathUtils.clamp((f.heldFull - 2) / 3, 0, 1) * 0.5 + tired * tired * 0.7) * DEG;
+      px += (Math.sin(this.t * 2.3) + Math.sin(this.t * 3.7 + 1) * 0.5) * amt;
+      py += (Math.sin(this.t * 1.7 + 2) + Math.sin(this.t * 4.1) * 0.5) * amt;
+    }
     let pz = this.lean.z + this.kick.z;
     this.trauma = Math.max(0, this.trauma - FeelConfig.shakeDecay * dt);
     if (this.trauma > 0) {

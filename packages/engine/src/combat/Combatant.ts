@@ -36,6 +36,11 @@ type Input = 'attack' | 'altAttack';
 export type Aimer = (origin: THREE.Vector3, dir: THREE.Vector3) => void;
 
 const EQUIP_TIME = 0.35;
+
+/** Seconds between a fuse's ticks with `left` seconds to go: about two a second, quickening to a rattle. */
+export function fuseInterval(left: number): number {
+  return THREE.MathUtils.clamp(left * 0.16, 0.07, 0.5);
+}
 const DEG = Math.PI / 180;
 const _o = new THREE.Vector3();
 const _d = new THREE.Vector3();
@@ -70,6 +75,18 @@ export class Combatant extends Component implements Saveable {
   aimer: Aimer;
   /** Name of the running mode (primary, heavy...), for views. */
   mode: string | null = null;
+  /** Seconds the current hold has lasted (charging, cooking). */
+  get heldTime(): number {
+    return this.state === 'charging' ? this.held : 0;
+  }
+
+  /** The last swing of a combo of two or more: the one that hits hardest. */
+  get finishing(): boolean {
+    const t = this.modeDef?.trigger;
+    const n = t?.steps?.length ?? 0;
+    return t?.kind === 'combo' && n > 1 && this.comboIndex === n - 1;
+  }
+
   /** 0..1 how far through the current state, for views. */
   progress = 0;
   /** 0..1 charge of a charge mode (held time). */
@@ -112,6 +129,11 @@ export class Combatant extends Component implements Saveable {
   private pause = 0;
   /** How far along its arc (0..1) the last swing got, and whether it bounced off a guard or a wall. */
   swingEnd = 1;
+  /** Multiplies every spread (the player's brain sets it: moving, in the air, crouched). */
+  spreadScale = 1;
+  /** Seconds held at full charge (a bow at full draw). */
+  heldFull = 0;
+  private fuseTick = 0;
   rebounded = false;
   private worldStruck = false;
   private struck = new Set<Damageable>();
@@ -254,6 +276,11 @@ export class Combatant extends Component implements Saveable {
         if (this.tick(dt) || this.sweepBlocked) this.toRecovery();
         break;
       case 'recovery':
+        // A queued combo swing cuts the follow-through short: blows flow into each other.
+        if (this.queued && this.modeDef?.trigger.kind === 'combo' && this.progress >= (this.modeDef.trigger.cancel ?? 1)) {
+          this.afterRecovery();
+          break;
+        }
         // Guard straight out of a swing's follow-through.
         if (i.alt && !i.attackPressed && !this.queued && this.modeDef?.delivery.kind === 'sweep' && this.canBlock()) {
           this.toIdle();
@@ -530,7 +557,10 @@ export class Combatant extends Component implements Saveable {
     this.modeDef = m;
     this.held = already;
     this.charge = 0;
+    this.heldFull = 0;
+    this.fuseTick = 0;
     this.releaseEarly = false;
+    this.game.events.emit('combat:charge', { entity: this.entity, item: this.itemId, mode: name, full: false });
     this.pendingInput = (m.input ?? (name === 'secondary' ? 'altAttack' : 'attack')) as Input;
   }
 
@@ -541,8 +571,28 @@ export class Combatant extends Component implements Saveable {
     this.held += dt;
     const min = t.min ?? 0;
     const max = Math.max(min + 0.01, t.max ?? 1);
+    const was = this.charge;
     this.charge = THREE.MathUtils.clamp((this.held - min) / (max - min), 0, 1);
     this.progress = this.charge;
+    if (this.charge >= 1) {
+      if (was < 1) this.game.events.emit('combat:charge', { entity: this.entity, item: this.itemId, mode: this.mode ?? '', full: true });
+      this.heldFull += dt;
+      // Holding a full draw is work: it drains you, and with nothing left the string slips.
+      if (t.holdStamina) {
+        this.spendStamina(t.holdStamina * dt);
+        if (this.stamina <= 0) this.releaseEarly = true;
+      }
+    }
+    // A cooking fuse ticks, faster as it runs down.
+    if (t.cook && m.delivery.fuse !== undefined) {
+      this.fuseTick -= dt;
+      if (this.fuseTick <= 0) {
+        const left = m.delivery.fuse - this.held;
+        this.fuseTick = fuseInterval(left);
+        this.aimer(_o, _d);
+        this.game.events.emit('combat:fusetick', { point: { x: _o.x, y: _o.y - 0.2, z: _o.z }, left });
+      }
+    }
     // A cooked grenade held past its fuse goes off in your hand.
     const fuse = m.delivery.fuse;
     if (t.cook && fuse !== undefined && this.held >= fuse) {
@@ -615,7 +665,8 @@ export class Combatant extends Component implements Saveable {
     const t = m.trigger;
     const interval = t.rpm ? 60 / t.rpm : 0;
     // Bounced off a guard or a wall: a moment longer to gather the blade back.
-    const rec = Math.max(m.timing?.recovery ?? 0, interval, 1 / 60) + (this.rebounded ? 0.15 : 0);
+    const fin = this.finishing ? (t.finisher?.recovery ?? 1) : 1;
+    const rec = Math.max((m.timing?.recovery ?? 0) * fin, interval, 1 / 60) + (this.rebounded ? 0.15 : 0);
     if (m.delivery.kind === 'sweep') this.swingEnd = this.sweepT;
     this.state = 'recovery';
     this.timer = this.duration = rec;
@@ -856,7 +907,8 @@ export class Combatant extends Component implements Saveable {
   private packets(m: AttackModeDef, charge: number): { packets: DamagePacket[]; payload: PayloadDef } {
     const ammo = m.feeder && m.feeder.kind !== 'self' ? this.loadedAmmo() : null;
     const payload = (ammo && Items[ammo]?.payload) || m.payload || { damage: [] };
-    const packets = payload.damage.map((d) => ({ type: d.type, amount: d.amount * (1 + ((d.chargeScale ?? 1) - 1) * charge) }));
+    const fin = this.finishing ? (m.trigger.finisher?.damage ?? 1) : 1;
+    const packets = payload.damage.map((d) => ({ type: d.type, amount: d.amount * (1 + ((d.chargeScale ?? 1) - 1) * charge) * fin }));
     return { packets, payload };
   }
 
@@ -865,7 +917,7 @@ export class Combatant extends Component implements Saveable {
     const s = m?.delivery.spread;
     if (!s) return 0;
     const base = this.aiming ? (s.ads ?? s.hip) : s.hip;
-    return base + Math.min(this.bloom, s.bloomMax ?? 4);
+    return base * this.spreadScale + Math.min(this.bloom, s.bloomMax ?? 4);
   }
 
   /** Fire a ranged (or thrown) mode once. `cooked`: seconds already held (grenade fuse). */

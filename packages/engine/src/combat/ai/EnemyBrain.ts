@@ -124,6 +124,11 @@ export class EnemyBrain extends Component implements Saveable {
       ev.on('combat:attack', ({ attacker }) => {
         if (attacker === this.eyes.target) this.attackSerial++;
       }),
+      // Steps into its own blows.
+      ev.on('combat:swing', ({ attacker }) => {
+        const lunge = this.fighter.currentMode?.timing?.lunge ?? 0;
+        if (attacker === this.entity && lunge > 0) this.body.push({ x: Math.sin(this.body.yaw), z: Math.cos(this.body.yaw) }, lunge * 5);
+      }),
       // Hurt mid-swing: a hard blow knocks it off its stroke.
       ev.on('combat:hit', ({ target, result, hit }) => {
         if (target !== this.entity || this.health.dead) return;

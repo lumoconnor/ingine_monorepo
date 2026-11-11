@@ -16,6 +16,7 @@ function projectileModel(id: string): THREE.Object3D {
 import { Damageable } from './Damageable';
 import { registerDeliveryRunner, type AttackSpec, type CombatSystem } from './CombatSystem';
 import type { DeliveryDef } from './weaponTypes';
+import { fuseInterval } from './Combatant';
 
 const G = 9.81;
 const _p = new THREE.Vector3();
@@ -43,6 +44,7 @@ export class Projectile {
   private spin = new THREE.Vector3();
   /** A thin streak behind a fast arrow, longer the faster it flies, so the eye can follow it. */
   private trail: THREE.Mesh | null = null;
+  private fuseTick = 0;
 
   constructor(
     private combat: CombatSystem,
@@ -95,6 +97,14 @@ export class Projectile {
     this.age += dt;
     this.prev.copy(this.pos);
     if (d.fuse !== undefined && this.age + this.cooked >= d.fuse) return this.detonate();
+    if (d.fuse !== undefined) {
+      this.fuseTick -= dt;
+      if (this.fuseTick <= 0) {
+        const left = d.fuse - this.age - this.cooked;
+        this.fuseTick = fuseInterval(left);
+        this.combat.game.events.emit('combat:fusetick', { point: { x: this.pos.x, y: this.pos.y, z: this.pos.z }, left });
+      }
+    }
     if (this.resting) return;
     if (this.age > 20) return void (this.done = true);
     this.vel.y -= G * (d.gravity ?? 1) * dt;
@@ -138,6 +148,7 @@ export class Projectile {
     _n.set(0, 1, 0);
     if (hit) _n.set(hit.normal.x, hit.normal.y, hit.normal.z);
     const vn = this.vel.dot(_n);
+    if (Math.abs(vn) > 0.6) this.combat.game.events.emit('combat:bounce', { point: { x: this.pos.x, y: this.pos.y, z: this.pos.z }, speed: Math.abs(vn) });
     this.vel.addScaledVector(_n, -1.35 * vn).multiplyScalar(0.6);
     this.pos.addScaledVector(_n, 0.03);
     this.spin.multiplyScalar(0.6);

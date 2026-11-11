@@ -187,7 +187,80 @@ const { chromium } = require('playwright');
     tp(d3.x, 0.05, d3.z - 6, Math.PI); aim(d3.x, 1.15, d3.z);
     click(20);
     check('your shot finding its mark is heard at your ear', (audio.played.confirm ?? 0) + (audio.played.confirm_head ?? 0) > cf0, JSON.stringify(audio.played));
-    //@@NEXT
+
+    // 9. Depth: combos flow and finish hard, you step into swings, moving spoils your aim, a held bow tires you,
+    //    grenades tick and clink, blasts throw you, near misses crack.
+    HP.revive(); HP.invulnerable = true; step(60 * 3);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0;
+    F.equip(S.instancesOf('longsword')[0].uid); step(40);
+    const starts = [];
+    let tick9 = 0;
+    game.events.on('combat:swing', () => starts.push(tick9));
+    const x0 = player.object3d.position.x;
+    mdown(); step(1); mup(); tick9++;
+    for (let k = 0; k < 120; k++) { if (k === 20 || k === 50) { mdown(); step(1); mup(); } else step(1); tick9++; }
+    const gaps = [starts[1] - starts[0], starts[2] - starts[1]];
+    check('a queued swing cuts the follow-through short (under 0.62 s between cuts)', starts.length === 3 && gaps.every((g) => g < 37 && g > 20), JSON.stringify(gaps));
+    check('you step into your swings', Math.abs(player.object3d.position.x - x0) > 0.5, Math.abs(player.object3d.position.x - x0).toFixed(2));
+    const d9 = at('dummy-1');
+    dHP('dummy-1').revive();
+    tp(d9.x, 0.05, d9.z - 1.9, Math.PI); aim(d9.x, 1.15, d9.z);
+    const dm = [];
+    game.events.on('combat:hit', (e) => e.target.name === 'dummy-1' && dm.push(e.result.damage));
+    mdown(); step(1); mup();
+    for (let k = 0; k < 150; k++) { if (k === 20 || k === 50) { mdown(); step(1); mup(); } else step(1); }
+    check('the last swing of the combo hits hardest', dm.length === 3 && dm[2] > dm[0] * 1.2 && dm[2] > dm[1] * 1.2, JSON.stringify(dm));
+
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    tp(32, 0.05, 39, Math.PI / 2); step(30);
+    const still = F.spreadDeg();
+    game.input._locked = true;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' })); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }));
+    step(40);
+    const running = F.spreadDeg();
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft' }));
+    step(40);
+    check('running opens your spread, standing closes it again', running > still * 1.4 && Math.abs(F.spreadDeg() - still) < 0.05, `${still.toFixed(2)} -> ${running.toFixed(2)} -> ${F.spreadDeg().toFixed(2)}`);
+
+    if (!S.instancesOf('longbow').length) { take('longbow'); take('arrows'); }
+    F.equip(S.instancesOf('longbow')[0].uid); step(80);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0.3; step(60 * 3);
+    const cr0 = audio.played.creak ?? 0, rd0 = audio.played.ready ?? 0;
+    const sb = F.stamina;
+    mdown(); step(60 * 3);
+    check('drawing a bow creaks, and full draw is signalled', (audio.played.creak ?? 0) > cr0 && (audio.played.ready ?? 0) > rd0, JSON.stringify(audio.played));
+    check('holding a full draw drains stamina', F.state === 'charging' && sb - F.stamina > 10, (sb - F.stamina).toFixed(1));
+    mup(); step(30);
+
+    const tk0 = audio.played.tick ?? 0, cl0 = audio.played.clink ?? 0;
+    if (!S.itemCount('grenade')) take('grenade');
+    F.equip('grenade'); step(40);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0.2; frame();
+    HP.invulnerable = true;
+    mdown(); step(50);
+    const bar = document.querySelector('.weapon .wbar');
+    check('a cooking grenade ticks and shows its fuse', (audio.played.tick ?? 0) > tk0 && bar.classList.contains('fuse'));
+    mup(); step(60 * 4);
+    check('...and clinks as it bounces', (audio.played.clink ?? 0) > cl0, JSON.stringify(audio.played));
+
+    tp(32, 0.05, 39, Math.PI / 2); step(10);
+    HP.invulnerable = false; HP.revive();
+    const pb = player.object3d.position.clone();
+    combat.deliver({ kind: 'area', radius: 6, falloff: 'linear', lineOfSight: false }, { origin: new T(pb.x + 2.5, 0.3, pb.z), dir: new T(0, 1, 0), spreadDeg: 0, charge: 0, cooked: 0, attack: { attacker: null, source: 'test', packets: [{ type: 'blast', amount: 40 }] } });
+    frame();
+    const white = Number(document.querySelector('.blast-flash').style.opacity);
+    step(30);
+    const thrown = player.object3d.position.x - pb.x;
+    check('a blast beside you throws you away from it', thrown < -0.4, thrown.toFixed(2));
+    check('...whites out the view and dulls your hearing', white > 0.1 && audio.deafened > 0.3, `${white} ${audio.deafened.toFixed(2)}`);
+    HP.revive();
+
+    const ck0 = audio.played.crack ?? 0;
+    const eye = game.renderer.camera.position;
+    game.events.emit('combat:tracer', { attacker: b2, from: { x: eye.x - 20, y: eye.y + 0.5, z: eye.z }, to: { x: eye.x + 20, y: eye.y + 0.5, z: eye.z } });
+    game.events.emit('combat:tracer', { attacker: b2, from: { x: eye.x - 20, y: eye.y + 6, z: eye.z }, to: { x: eye.x + 20, y: eye.y + 6, z: eye.z } });
+    check('a shot passing close cracks past your ear; one well wide does not', (audio.played.crack ?? 0) === ck0 + 1);
+
     return r;
   });
   console.log(out.join('\n'));

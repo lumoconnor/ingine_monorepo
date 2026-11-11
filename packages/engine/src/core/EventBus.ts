@@ -64,6 +64,12 @@ export interface GameEvents {
   'combat:equip': { entity: import('../entities/Entity').Entity; item: string | null };
   /** A melee swing's blade started moving (its wind-up is over). `charge` 0..1 for a heavy. */
   'combat:swing': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string; charge: number };
+  /** A hold began (a bow drawn, a heavy raised, a grenade's pin pulled), or reached full (`full`). */
+  'combat:charge': { entity: import('../entities/Entity').Entity; item: string | null; mode: string; full: boolean };
+  /** A fuse ticking, in the hand or in flight: `left` seconds to go. */
+  'combat:fusetick': { point: { x: number; y: number; z: number }; left: number };
+  /** Something thrown bounced off the world at `speed` m/s. */
+  'combat:bounce': { point: { x: number; y: number; z: number }; speed: number };
   /** A shot or throw left (after any trigger delay). */
   'combat:fired': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string };
   /** Pulled the trigger and nothing happened. */
