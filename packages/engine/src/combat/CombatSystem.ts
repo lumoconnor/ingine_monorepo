@@ -158,6 +158,7 @@ export class CombatSystem implements System {
 
   update(time: import('../core/Time').FrameTime): void {
     const dt = Math.min(time.delta, 0.1);
+    for (const p of this.projectiles) p.render(time.alpha);
     this.blasts = this.blasts.filter((b) => {
       b.age += dt;
       const t = b.age / 0.45;

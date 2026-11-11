@@ -9,6 +9,7 @@ import type { Bag } from './Bag';
 import type { CombatSystem } from './CombatSystem';
 import type { AttackModeDef, FeederDef, PayloadDef, WeaponDef } from './weaponTypes';
 import type { DamagePacket } from './types';
+import { FIXED_DT } from '../core/Time';
 
 /** Bare hands: the weapon used when nothing is held. The game sets it with `setUnarmed`. */
 export const UNARMED = {} as WeaponDef;
@@ -101,6 +102,12 @@ export class Combatant extends Component implements Saveable {
   private comboIndex = -1;
   private comboUntil = 0;
   private queued = false;
+  /** Seconds a press is remembered when it can't be acted on yet (0 = not at all: NPCs). */
+  inputBuffer = 0;
+  private buffered: Record<'attack' | 'alt' | 'reload', number> = { attack: 0, alt: 0, reload: 0 };
+  /** A light swing started on press that turns into this charge mode if the button stays down through its wind-up. */
+  private upgrade: [string, AttackModeDef] | null = null;
+  private upgradeRefund = 0;
   private burstLeft = 0;
   private struck = new Set<Damageable>();
   private sweepBlocked = false;
@@ -113,8 +120,9 @@ export class Combatant extends Component implements Saveable {
   /** NPCs: wind-ups take this much longer, so a player can see a swing coming (and parry it). */
   windupScale = 1;
 
-  constructor(private opts: { faction?: string; aimer?: Aimer; maxStamina?: number; bag?: Bag; windupScale?: number } = {}) {
+  constructor(private opts: { faction?: string; aimer?: Aimer; maxStamina?: number; bag?: Bag; windupScale?: number; inputBuffer?: number } = {}) {
     super();
+    this.inputBuffer = opts.inputBuffer ?? 0;
     this.windupScale = opts.windupScale ?? 1;
     this.maxStamina = this.stamina = opts.maxStamina ?? 100;
     this.faction = opts.faction ?? 'neutral';
@@ -187,6 +195,12 @@ export class Combatant extends Component implements Saveable {
       this.cancel();
       return;
     }
+    // Remember presses for a moment, so one made just before a swing ends or a
+    // weapon is ready still counts (taken up in idle(), or by whoever uses it first).
+    const b = this.buffered;
+    b.attack = i.attackPressed ? this.inputBuffer : Math.max(0, b.attack - dt);
+    b.alt = i.altPressed ? this.inputBuffer : Math.max(0, b.alt - dt);
+    b.reload = i.reload ? this.inputBuffer : Math.max(0, b.reload - dt);
     // The weapon went away (dropped, thrown the last one): back to bare hands.
     if (this.equipped && !this.itemId) {
       this.equipped = null;
@@ -215,11 +229,12 @@ export class Combatant extends Component implements Saveable {
         this.updateCharging(dt);
         break;
       case 'windup':
-        if (this.modeDef?.trigger.kind === 'combo' && i.attackPressed) this.queued = true;
+        if (this.updateUpgrade(dt)) break;
+        if (this.modeDef?.trigger.kind === 'combo' && i.attackPressed) this.queue();
         if (this.tick(dt)) this.release();
         break;
       case 'active':
-        if (this.modeDef?.trigger.kind === 'combo' && i.attackPressed) this.queued = true;
+        if (this.modeDef?.trigger.kind === 'combo' && i.attackPressed) this.queue();
         this.sweep(dt);
         if (this.tick(dt) || this.sweepBlocked) this.toRecovery();
         break;
@@ -230,7 +245,7 @@ export class Combatant extends Component implements Saveable {
           this.startBlock();
           break;
         }
-        if ((this.modeDef?.trigger.kind === 'combo') && i.attackPressed) this.queued = true;
+        if ((this.modeDef?.trigger.kind === 'combo') && i.attackPressed) this.queue();
         if (this.tick(dt)) this.afterRecovery();
         break;
       case 'reloading':
@@ -245,6 +260,59 @@ export class Combatant extends Component implements Saveable {
     }
     this.progress = this.duration > 0 ? 1 - Math.max(0, this.timer) / this.duration : 0;
     i.attackPressed = i.altPressed = i.reload = false;
+  }
+
+  /** A click during a combo swing: the next one follows it. */
+  private queue(): void {
+    this.queued = true;
+    this.buffered.attack = 0;
+  }
+
+  /**
+   * A light swing that began on press, with a heavy on the same button: let
+   * go during the wind-up and it stays a light swing; still holding when the
+   * wind-up ends and it becomes the heavy, already part charged. Returns true
+   * once it has turned into the charge.
+   */
+  private updateUpgrade(dt: number): boolean {
+    if (!this.upgrade) return false;
+    this.held += dt;
+    const input = this.pendingInput === 'altAttack' ? this.intents.alt : this.intents.attack;
+    if (!input) {
+      this.upgrade = null;
+      return false;
+    }
+    if (this.timer - dt > 0) return false;
+    const [name, m] = this.upgrade;
+    const held = this.held;
+    // The light swing never happened: give back what it cost.
+    this.stamina = Math.min(this.maxStamina, this.stamina + this.upgradeRefund);
+    this.upgrade = null;
+    this.step = null;
+    this.startCharge(name, m, held);
+    return true;
+  }
+
+  /** True while a light swing may still turn into a heavy (the button is still down in its wind-up). */
+  get upgrading(): AttackModeDef | null {
+    return this.state === 'windup' && this.upgrade ? this.upgrade[1] : null;
+  }
+
+  /**
+   * `progress` (or `charge`, or `sinceShot`) as it will be `alpha` of a fixed
+   * step from now, so views drawn between steps move smoothly.
+   */
+  progressAt(alpha: number): number {
+    if (this.duration <= 0 || this.state === 'charging' || this.state === 'blocking' || this.state === 'idle') return this.progress;
+    return Math.min(1, this.progress + (alpha * FIXED_DT) / this.duration);
+  }
+
+  chargeAt(alpha: number): number {
+    const t = this.modeDef?.trigger;
+    if (this.state !== 'charging' || !t) return this.charge;
+    const min = t.min ?? 0;
+    const max = Math.max(min + 0.01, t.max ?? 1);
+    return this.held < min ? 0 : Math.min(1, this.charge + (alpha * FIXED_DT) / (max - min));
   }
 
   /** Counts down; true when the state's time is up. */
@@ -266,6 +334,7 @@ export class Combatant extends Component implements Saveable {
   cancel(): void {
     this.toIdle();
     this.queued = false;
+    this.upgrade = null;
     this.burstLeft = 0;
     this.reloadStep = null;
     this.pendingInput = null;
@@ -291,17 +360,35 @@ export class Combatant extends Component implements Saveable {
 
   private idle(): void {
     const i = this.intents;
-    if (i.reload) return void this.startReload(true);
+    const b = this.buffered;
+    if (i.reload || b.reload > 0) {
+      b.reload = 0;
+      return void this.startReload(true);
+    }
+    const attackPressed = i.attackPressed || b.attack > 0;
     // Hold the other button to guard, with a weapon that can (sword, fists).
-    if (i.alt && !i.attackPressed && this.canBlock()) return this.startBlock();
+    if (i.alt && !attackPressed && this.canBlock()) return this.startBlock();
     for (const input of ['attack', 'altAttack'] as Input[]) {
-      const pressed = input === 'attack' ? i.attackPressed : i.altPressed;
+      const pressed = input === 'attack' ? attackPressed : i.altPressed || b.alt > 0;
       if (!pressed) continue;
       const modes = this.modesOn(input);
       if (!modes.length) continue;
+      b[input === 'attack' ? 'attack' : 'alt'] = 0;
       const charge = modes.find(([, m]) => m.trigger.kind === 'charge');
       const tap = modes.find(([, m]) => m.trigger.kind !== 'charge');
-      if (charge && tap) {
+      const down = input === 'attack' ? i.attack : i.alt;
+      if (charge && tap && tap[1].delivery.kind === 'sweep' && (tap[1].timing?.windup ?? 0.1) > 0) {
+        // A swing with a heavy behind it: the light swing starts at once, and
+        // becomes the heavy if the button is still down when its wind-up ends.
+        const before = this.stamina;
+        this.begin(tap[0], tap[1]);
+        if (this.state === 'windup' && down) {
+          this.upgrade = charge;
+          this.upgradeRefund = before - this.stamina;
+          this.pendingInput = input;
+          this.held = 0;
+        }
+      } else if (charge && tap) {
         // Tap or hold? Decided on release, or once held long enough.
         this.state = 'pending';
         this.pendingInput = input;
@@ -338,7 +425,7 @@ export class Combatant extends Component implements Saveable {
     const i = this.intents;
     if (!i.alt || !this.canBlock()) return this.toIdle();
     // Attack straight out of a guard.
-    if (i.attackPressed) {
+    if (i.attackPressed || this.buffered.attack > 0) {
       this.toIdle();
       this.idle();
     }
@@ -457,6 +544,7 @@ export class Combatant extends Component implements Saveable {
     this.modeDef = m;
     this.charge = charge;
     this.queued = false;
+    this.upgrade = null;
     this.struck.clear();
     this.sweepBlocked = false;
     if (m.trigger.kind === 'combo') {
@@ -484,6 +572,7 @@ export class Combatant extends Component implements Saveable {
       this.state = 'active';
       this.timer = this.duration = Math.max(1 / 60, m.timing?.active ?? 0.1);
       this.sweepT = 0;
+      this.game.events.emit('combat:swing', { attacker: this.entity, item: this.itemId, mode: this.mode ?? '', charge: this.charge });
       return;
     }
     this.fire(m, this.charge, 0);

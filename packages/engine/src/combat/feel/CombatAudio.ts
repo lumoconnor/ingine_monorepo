@@ -9,6 +9,9 @@ const _r = new THREE.Vector3();
 
 type Voice = (ctx: AudioContext, out: AudioNode, t: number, v: number) => void;
 
+/** Pitch of the sound being made (set per play: no two swings or shots sound quite alike). */
+let PITCH = 1;
+
 /** A burst of white noise through a filter, with a fast attack and an exponential tail. */
 function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; type: BiquadFilterType; freq: number; freqEnd?: number; q?: number; gain: number }): void {
   const n = Math.ceil(ctx.sampleRate * o.dur);
@@ -19,8 +22,8 @@ function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; t
   src.buffer = buf;
   const f = ctx.createBiquadFilter();
   f.type = o.type;
-  f.frequency.setValueAtTime(o.freq, t);
-  if (o.freqEnd) f.frequency.exponentialRampToValueAtTime(o.freqEnd, t + o.dur);
+  f.frequency.setValueAtTime(o.freq * PITCH, t);
+  if (o.freqEnd) f.frequency.exponentialRampToValueAtTime(o.freqEnd * PITCH, t + o.dur);
   f.Q.value = o.q ?? 1;
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t);
@@ -35,8 +38,8 @@ function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; t
 function tone(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; type: OscillatorType; freq: number; freqEnd?: number; gain: number }): void {
   const osc = ctx.createOscillator();
   osc.type = o.type;
-  osc.frequency.setValueAtTime(o.freq, t);
-  if (o.freqEnd) osc.frequency.exponentialRampToValueAtTime(o.freqEnd, t + o.dur);
+  osc.frequency.setValueAtTime(o.freq * PITCH, t);
+  if (o.freqEnd) osc.frequency.exponentialRampToValueAtTime(o.freqEnd * PITCH, t + o.dur);
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(o.gain, t + 0.004);
@@ -49,6 +52,15 @@ function tone(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; ty
 /** Every combat sound, synthesised (no audio files to ship). `v` is loudness 0..1. */
 export const Sounds: Record<string, Voice> = {
   swing: (c, o, t, v) => noise(c, o, t, { dur: 0.18, type: 'bandpass', freq: 500, freqEnd: 1800, q: 1.2, gain: 0.35 * v }),
+  /** A heavy blade coming down: lower, longer, with some weight under it. */
+  swing_heavy: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.3, type: 'bandpass', freq: 320, freqEnd: 1300, q: 1.1, gain: 0.5 * v });
+    tone(c, o, t, { dur: 0.22, type: 'sine', freq: 90, freqEnd: 55, gain: 0.25 * v });
+  },
+  /** A fist or a thrown thing: short and soft. */
+  swing_light: (c, o, t, v) => noise(c, o, t, { dur: 0.1, type: 'bandpass', freq: 900, freqEnd: 2000, q: 0.9, gain: 0.22 * v }),
+  /** The effort before a blow: cloth and breath as the arm draws back. */
+  effort: (c, o, t, v) => noise(c, o, t, { dur: 0.14, type: 'lowpass', freq: 520, freqEnd: 260, gain: 0.16 * v }),
   punch: (c, o, t, v) => tone(c, o, t, { dur: 0.1, type: 'sine', freq: 140, freqEnd: 60, gain: 0.6 * v }),
   flesh: (c, o, t, v) => {
     tone(c, o, t, { dur: 0.14, type: 'sine', freq: 110, freqEnd: 50, gain: 0.7 * v });
@@ -110,10 +122,16 @@ export class CombatAudio implements System {
     ev.on('combat:attack', ({ attacker }) => {
       const item = this.itemOf(attacker);
       const kind = item ? Object.values(Items[item]?.weapon?.modes ?? {})[0]?.delivery?.kind : 'sweep';
-      if (kind === 'sweep') this.play(item ? 'swing' : 'swing', attacker, item ? 1 : 0.6);
+      // The wind-up is the tell: the whoosh waits for the blade to move (combat:swing).
+      if (kind === 'sweep') this.play('effort', attacker, item ? 1 : 0.6);
+    });
+    ev.on('combat:swing', ({ attacker, item, mode, charge }) => {
+      if (!item) return this.play('swing_light', attacker);
+      if (mode === 'heavy' || charge > 0) return this.play('swing_heavy', attacker, 0.8 + 0.2 * charge);
+      this.play('swing', attacker);
     });
     ev.on('combat:fired', ({ attacker, item }) => {
-      const sound = item === 'musket' ? 'musket' : item === 'longbow' ? 'bow' : item === 'grenade' ? 'swing' : item && Items[item]?.weapon ? 'pistol' : null;
+      const sound = item === 'musket' ? 'musket' : item === 'longbow' ? 'bow' : item === 'grenade' ? 'swing_light' : item && Items[item]?.weapon ? 'pistol' : null;
       if (sound) this.play(sound, attacker);
     });
     ev.on('combat:hit', ({ hit, target, result }) => {
@@ -170,7 +188,9 @@ export class CombatAudio implements System {
     pan.pan.value = side * 0.8;
     pan.connect(this.master);
     try {
-      voice(ctx, pan, ctx.currentTime + 0.005, gain);
+      // A little different every time, in pitch and loudness.
+      PITCH = 0.94 + Math.random() * 0.12;
+      voice(ctx, pan, ctx.currentTime + 0.005, gain * (0.88 + Math.random() * 0.12));
     } catch {
       /* audio isn't essential */
     }

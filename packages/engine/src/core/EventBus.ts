@@ -50,6 +50,8 @@ export interface GameEvents {
   'combat:revived': { target: import('../entities/Entity').Entity };
   /** A combatant drew a weapon (item id) or put it away (null). */
   'combat:equip': { entity: import('../entities/Entity').Entity; item: string | null };
+  /** A melee swing's blade started moving (its wind-up is over). `charge` 0..1 for a heavy. */
+  'combat:swing': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string; charge: number };
   /** A shot or throw left (after any trigger delay). */
   'combat:fired': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string };
   /** Pulled the trigger and nothing happened. */

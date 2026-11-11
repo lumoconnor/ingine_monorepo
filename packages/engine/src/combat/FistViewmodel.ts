@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Component } from '../entities/Component';
-import type { FrameTime } from '../core/Time';
+import { FIXED_DT, type FrameTime } from '../core/Time';
 import { Items } from '../inventory/catalog';
 import { buildModel, hasModel } from '../render/models/ModelRegistry';
 import { Arcs } from './blocks';
@@ -102,6 +102,13 @@ export class FistViewmodel extends Component {
   private drawBlend = 0;
   private sightPos = new THREE.Vector3(0, -0.11, -0.4);
   private fistRest = new THREE.Vector3(0.22, -0.34, -0.3);
+  /** Cross-fade out of the last pose when a light wind-up turns into a held heavy. */
+  private fade = 0;
+  private fadePos = new THREE.Vector3();
+  private fadeQuat = new THREE.Quaternion();
+  private lastPos = new THREE.Vector3();
+  private lastQuat = new THREE.Quaternion();
+  private lastState = 'idle';
 
   constructor() {
     super();
@@ -186,17 +193,27 @@ export class FistViewmodel extends Component {
     const dead = this.player.dead;
     this.pivot.visible = !dead;
     const st = f.state;
+    // Between fixed steps: where the swing, draw and kick will be by the time this frame shows.
+    const prog = f.progressAt(time.alpha);
+    const chargeNow = f.chargeAt(time.alpha);
+    const sinceShot = f.sinceShot + time.alpha * FIXED_DT;
+    if (st === 'charging' && this.lastState === 'windup' && this.model) {
+      this.fade = 1;
+      this.fadePos.copy(this.lastPos);
+      this.fadeQuat.copy(this.lastQuat);
+    }
+    this.lastState = st;
     const m = f.currentMode;
     const melee = m?.delivery.kind === 'sweep';
     const arcName = f.step ?? m?.delivery.arc ?? 'jab';
     const arc = Arcs[arcName] ?? Arcs.jab;
     // Fists: the whole view jabs along the arc (it's straight ahead).
     let swing = 0;
-    if (st === 'windup') swing = f.progress;
+    if (st === 'windup') swing = prog;
     else if (st === 'active') swing = 1;
-    else if (st === 'recovery') swing = 1 - f.progress;
+    else if (st === 'recovery') swing = 1 - prog;
     if (!melee) swing = 0;
-    const a = arc(st === 'windup' ? 0 : st === 'active' ? f.progress : 1);
+    const a = arc(st === 'windup' ? 0 : st === 'active' ? prog : 1);
     const fistSwing = this.model ? 0 : swing;
     // Guard comes up fast; a stagger knocks the view about.
     const k = 1 - Math.exp(-dt * 18);
@@ -260,11 +277,11 @@ export class FistViewmodel extends Component {
       const fromHeld = f.currentMode?.trigger.kind === 'charge';
       if (st === 'windup') {
         // Into the cocked pose (already there after holding a heavy).
-        poseAmt = fromHeld ? 1 : smooth(Math.min(1, f.progress * 1.25));
+        poseAmt = fromHeld ? 1 : smooth(Math.min(1, prog * 1.25));
         bladePose(arc, 0, 1, this.posePos, this.poseQ);
       } else if (st === 'active') {
         poseAmt = 1;
-        const p = f.progress;
+        const p = prog;
         bladePose(arc, p, 0, this.posePos, this.poseQ);
         // Uncoil out of the windup over the first part of the cut.
         const u = smooth(p / 0.3);
@@ -274,12 +291,12 @@ export class FistViewmodel extends Component {
           this.posePos.lerpVectors(this.posePos2, this.posePos, u);
         }
       } else {
-        poseAmt = 1 - smooth(f.progress);
+        poseAmt = 1 - smooth(prog);
         bladePose(arc, 1, 0, this.posePos, this.poseQ);
       }
     } else if (heldArc && (st === 'pending' || st === 'charging')) {
       // Holding for a heavy: the blade starts lifting the moment you press.
-      const h = st === 'pending' ? 0.45 * smooth(f.pendingHold()?.t ?? 0) : 0.45 + 0.55 * smooth(f.charge * 1.4);
+      const h = st === 'pending' ? 0.45 * smooth(f.pendingHold()?.t ?? 0) : 0.45 + 0.55 * smooth(chargeNow * 1.4);
       poseAmt = h;
       bladePose(heldArc, 0, 1, this.posePos, this.poseQ);
       if (st === 'charging' && f.charge >= 1) this.posePos.y += Math.sin(performance.now() / 30) * 0.002;
@@ -298,17 +315,17 @@ export class FistViewmodel extends Component {
       rot.z += (-18 * DEG - rot.z) * g;
     }
     // Shots kick it up and back.
-    const kick = Math.exp(-f.sinceShot * 18);
+    const kick = Math.exp(-sinceShot * 18);
     pos.z += 0.06 * kick;
     rot.x += 9 * DEG * kick * (1 - this.aimBlend * 0.6);
     // Drawing it, and reloading: it dips out of view.
-    const dip = st === 'equipping' ? 1 - f.progress : st === 'reloading' ? Math.sin(Math.min(1, f.progress) * Math.PI) * 0.9 + 0.1 : 0;
+    const dip = st === 'equipping' ? 1 - prog : st === 'reloading' ? Math.sin(Math.min(1, prog) * Math.PI) * 0.9 + 0.1 : 0;
     pos.y -= 0.22 * dip;
     rot.x -= 35 * DEG * dip;
     // A bow or a throw pulls back while charging; a bow comes in toward the
     // eye as it's drawn, the arrow just left of the crosshair.
     const charging = st === 'charging' && !heldArc;
-    const drawT = charging ? f.charge : 0;
+    const drawT = charging ? chargeNow : 0;
     this.drawBlend += ((charging ? 1 : 0) - this.drawBlend) * (1 - Math.exp(-dt * 16));
     if (this.drawPos) pos.lerp(this.drawPos, this.drawBlend);
     else pos.z += 0.04 * drawT;
@@ -316,6 +333,15 @@ export class FistViewmodel extends Component {
     const ud = this.model.userData;
     ud.draw?.(drawT);
     ud.nocked?.(st !== 'reloading' && st !== 'equipping' && f.loaded() > 0);
+
+    if (this.fade > 0) {
+      const k = smooth(this.fade);
+      pos.lerp(this.fadePos, k);
+      this.holder.quaternion.slerp(this.fadeQuat, k);
+      this.fade = Math.max(0, this.fade - dt / 0.12);
+    }
+    this.lastPos.copy(pos);
+    this.lastQuat.copy(this.holder.quaternion);
 
     const flashOn = f.sinceShot < 0.05;
     this.flash.visible = flashOn;

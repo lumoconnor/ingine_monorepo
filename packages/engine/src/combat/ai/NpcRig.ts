@@ -180,6 +180,7 @@ export class NpcRig extends Component {
     }
     const f = this.f;
     const st = f.state;
+    const prog = f.progressAt(time.alpha);
     // Dead: fall over backwards.
     const down = this.hp.dead ? 1 : 0;
     this.fall += (down - this.fall) * (1 - Math.exp(-dt * (down ? 6 : 4)));
@@ -195,7 +196,7 @@ export class NpcRig extends Component {
     this.armL.rotation.set(-swing * 0.6, 0, 0.08);
 
     // Lean back when staggered.
-    const reel = st === 'staggered' ? Math.sin(f.progress * Math.PI) : 0;
+    const reel = st === 'staggered' ? Math.sin(prog * Math.PI) : 0;
     this.torso.rotation.x = -0.25 * reel;
     this.head.rotation.x = -0.3 * reel;
 
@@ -208,16 +209,16 @@ export class NpcRig extends Component {
     let az = 0;
     if (st === 'windup' && m?.delivery.kind === 'sweep') {
       // The tell: arm drawn back high before the blow.
-      const k = f.progress;
+      const k = prog;
       ax = THREE.MathUtils.lerp(-0.55, -2.5, k);
       ay = (arc(0).yaw * DEG) * 0.6 * k;
     } else if (st === 'active' && m?.delivery.kind === 'sweep') {
-      const a = arc(f.progress);
-      ax = THREE.MathUtils.lerp(-2.5, -0.7, f.progress);
+      const a = arc(prog);
+      ax = THREE.MathUtils.lerp(-2.5, -0.7, prog);
       ay = a.yaw * DEG * 0.7;
     } else if (st === 'recovery' && m?.delivery.kind === 'sweep') {
-      ax = THREE.MathUtils.lerp(-0.7, -0.55, f.progress);
-      ay = arc(1).yaw * DEG * 0.7 * (1 - f.progress);
+      ax = THREE.MathUtils.lerp(-0.7, -0.55, prog);
+      ay = arc(1).yaw * DEG * 0.7 * (1 - prog);
     } else if (st === 'charging') {
       ax = -2.7;
     } else if (st === 'blocking') {

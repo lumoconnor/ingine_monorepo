@@ -127,6 +127,27 @@ const { chromium } = require('playwright');
     check('an enemy flashes when hit', rig.mats.some((m) => m.emissiveIntensity > 0.1));
     for (let k = 0; k < 30; k++) frame();
     check('...briefly', rig.mats.every((m) => m.emissiveIntensity < 0.01));
+
+    // 7. Responsiveness: swings start on press; presses made a moment early still count.
+    HP.revive(); HP.invulnerable = true;
+    tp(32, 0.05, 39, Math.PI / 2);
+    F.equip(S.instancesOf('longsword')[0].uid); step(40);
+    mdown(); step(1);
+    check('a sword click starts its swing on press, not release', F.state === 'windup' && F.mode === 'primary', `${F.state} ${F.mode}`);
+    mup(); step(200);
+    const st7 = F.stamina;
+    mdown(); step(14);
+    check('still holding when the wind-up ends: it becomes the heavy', F.state === 'charging' && F.mode === 'heavy', `${F.state} ${F.mode}`);
+    check('...and the light swing that never happened costs nothing', Math.abs(F.stamina - st7) < 0.5, (st7 - F.stamina).toFixed(1));
+    mup(); step(90);
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    let shots = 0;
+    game.events.on('combat:fired', () => shots++);
+    mdown(); step(1); mup(); step(3);
+    const inRecovery = F.state === 'recovery';
+    mdown(); step(1); mup(); step(20);
+    check('a click during the recovery fires as soon as it can', inRecovery && shots === 2, `${inRecovery} ${shots}`);
+    //@@NEXT
     return r;
   });
   console.log(out.join('\n'));

@@ -32,6 +32,8 @@ const _look = new THREE.Vector3();
 export class Projectile {
   readonly pos = new THREE.Vector3();
   readonly vel = new THREE.Vector3();
+  /** Where it was a step ago, for drawing between steps. */
+  readonly prev = new THREE.Vector3();
   age = 0;
   done = false;
   private resting = false;
@@ -52,11 +54,18 @@ export class Projectile {
     modelName: string,
   ) {
     this.pos.copy(origin);
+    this.prev.copy(origin);
     this.vel.copy(velocity);
     this.mesh = projectileModel(modelName);
     this.mesh.position.copy(origin);
     if (d.onImpact === 'bounce') this.spin.set(combat.rng() * 12 - 6, combat.rng() * 12 - 6, combat.rng() * 12 - 6);
     this.orient();
+  }
+
+  /** Draw it part way between its last two steps. */
+  render(alpha: number): void {
+    if (this.done) return;
+    this.mesh.position.lerpVectors(this.prev, this.pos, alpha);
   }
 
   private orient(): void {
@@ -68,6 +77,7 @@ export class Projectile {
     if (this.done) return;
     const d = this.d;
     this.age += dt;
+    this.prev.copy(this.pos);
     if (d.fuse !== undefined && this.age + this.cooked >= d.fuse) return this.detonate();
     if (this.resting) return;
     if (this.age > 20) return void (this.done = true);
