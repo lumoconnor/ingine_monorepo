@@ -109,6 +109,11 @@ export class Combatant extends Component implements Saveable {
   private upgrade: [string, AttackModeDef] | null = null;
   private upgradeRefund = 0;
   private burstLeft = 0;
+  private pause = 0;
+  /** How far along its arc (0..1) the last swing got, and whether it bounced off a guard or a wall. */
+  swingEnd = 1;
+  rebounded = false;
+  private worldStruck = false;
   private struck = new Set<Damageable>();
   private sweepBlocked = false;
   private clock = 0;
@@ -201,6 +206,16 @@ export class Combatant extends Component implements Saveable {
     b.attack = i.attackPressed ? this.inputBuffer : Math.max(0, b.attack - dt);
     b.alt = i.altPressed ? this.inputBuffer : Math.max(0, b.alt - dt);
     b.reload = i.reload ? this.inputBuffer : Math.max(0, b.reload - dt);
+    if (this.pause > 0) {
+      this.pause -= dt;
+      if (this.state === 'active' || this.state === 'recovery') {
+        // A click in the freeze still chains the combo.
+        if (this.modeDef?.trigger.kind === 'combo' && i.attackPressed) this.queue();
+        i.attackPressed = i.altPressed = i.reload = false;
+        return;
+      }
+      this.pause = 0;
+    }
     // The weapon went away (dropped, thrown the last one): back to bare hands.
     if (this.equipped && !this.itemId) {
       this.equipped = null;
@@ -262,6 +277,19 @@ export class Combatant extends Component implements Saveable {
     i.attackPressed = i.altPressed = i.reload = false;
   }
 
+  /**
+   * Hit-stop, for this fighter only: its swing hangs for a moment where the
+   * blow landed (the blade bites), while the rest of the world carries on.
+   */
+  hitPause(seconds: number): void {
+    this.pause = Math.max(this.pause, seconds);
+  }
+
+  /** In a hit-stop right now. */
+  get paused(): boolean {
+    return this.pause > 0;
+  }
+
   /** A click during a combo swing: the next one follows it. */
   private queue(): void {
     this.queued = true;
@@ -303,7 +331,7 @@ export class Combatant extends Component implements Saveable {
    * step from now, so views drawn between steps move smoothly.
    */
   progressAt(alpha: number): number {
-    if (this.duration <= 0 || this.state === 'charging' || this.state === 'blocking' || this.state === 'idle') return this.progress;
+    if (this.pause > 0 || this.duration <= 0 || this.state === 'charging' || this.state === 'blocking' || this.state === 'idle') return this.progress;
     return Math.min(1, this.progress + (alpha * FIXED_DT) / this.duration);
   }
 
@@ -376,13 +404,12 @@ export class Combatant extends Component implements Saveable {
       b[input === 'attack' ? 'attack' : 'alt'] = 0;
       const charge = modes.find(([, m]) => m.trigger.kind === 'charge');
       const tap = modes.find(([, m]) => m.trigger.kind !== 'charge');
-      const down = input === 'attack' ? i.attack : i.alt;
       if (charge && tap && tap[1].delivery.kind === 'sweep' && (tap[1].timing?.windup ?? 0.1) > 0) {
         // A swing with a heavy behind it: the light swing starts at once, and
         // becomes the heavy if the button is still down when its wind-up ends.
         const before = this.stamina;
         this.begin(tap[0], tap[1]);
-        if (this.state === 'windup' && down) {
+        if (this.state === 'windup') {
           this.upgrade = charge;
           this.upgradeRefund = before - this.stamina;
           this.pendingInput = input;
@@ -547,6 +574,9 @@ export class Combatant extends Component implements Saveable {
     this.upgrade = null;
     this.struck.clear();
     this.sweepBlocked = false;
+    this.worldStruck = false;
+    this.rebounded = false;
+    this.swingEnd = 1;
     if (m.trigger.kind === 'combo') {
       const steps = m.trigger.steps ?? ['jab'];
       this.comboIndex = this.clock <= this.comboUntil ? (this.comboIndex + 1) % steps.length : 0;
@@ -584,7 +614,9 @@ export class Combatant extends Component implements Saveable {
     if (!m) return this.toIdle();
     const t = m.trigger;
     const interval = t.rpm ? 60 / t.rpm : 0;
-    const rec = Math.max(m.timing?.recovery ?? 0, interval, 1 / 60);
+    // Bounced off a guard or a wall: a moment longer to gather the blade back.
+    const rec = Math.max(m.timing?.recovery ?? 0, interval, 1 / 60) + (this.rebounded ? 0.15 : 0);
+    if (m.delivery.kind === 'sweep') this.swingEnd = this.sweepT;
     this.state = 'recovery';
     this.timer = this.duration = rec;
   }
@@ -901,11 +933,31 @@ export class Combatant extends Component implements Saveable {
         _dir,
         d.reach ?? 1.5,
         { attacker: this.entity, source: this.sourceName(), packets, impulse: payload.impulse, payload, delivery: 'sweep' },
-        { exclude: body, radius: d.radius ?? 0.1, skip: this.struck },
+        { exclude: body, radius: d.radius ?? 0.1, skip: this.struck, silent: this.worldStruck },
       );
-      if (r.trace?.target) this.struck.add(r.trace.target);
-      // Steel on stone: the swing stops at a wall.
-      else if (r.trace && !r.trace.target && r.trace.distance < (d.reach ?? 1.5) * 0.8) this.sweepBlocked = true;
+      if (r.trace?.target) {
+        this.struck.add(r.trace.target);
+        const res = r.result;
+        if (res) {
+          const blocked = res.tags.includes('blocked') || res.tags.includes('parried');
+          // The blade bites: longer for a harder blow, longest for the one that kills.
+          if (res.damage > 0 || blocked) this.hitPause(res.killed ? 0.12 : THREE.MathUtils.clamp(0.025 + res.damage / 1600, 0.03, 0.09));
+          // Turned by a guard: the swing ends there and bounces off.
+          if (blocked && !res.killed && this.state === 'active') {
+            this.sweepBlocked = true;
+            this.rebounded = true;
+            this.sweepT = p;
+          }
+        }
+      } else if (r.trace && !r.trace.target) {
+        this.worldStruck = true;
+        // Steel on stone: the swing stops at a wall.
+        if (r.trace.distance < (d.reach ?? 1.5) * 0.8) {
+          this.sweepBlocked = true;
+          this.rebounded = true;
+          this.sweepT = p;
+        }
+      }
     }
     if (this.sweepT >= 1) this.timer = 0;
   }

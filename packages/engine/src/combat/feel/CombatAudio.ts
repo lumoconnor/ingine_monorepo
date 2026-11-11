@@ -88,6 +88,33 @@ export const Sounds: Record<string, Voice> = {
     tone(c, o, t, { dur: 0.16, type: 'triangle', freq: 220, freqEnd: 120, gain: 0.35 * v });
     noise(c, o, t, { dur: 0.22, type: 'bandpass', freq: 900, freqEnd: 400, q: 2, gain: 0.15 * v });
   },
+  /** Shot or arrow into wood, earth, stone, metal. */
+  hit_wood: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.08, type: 'triangle', freq: 260, freqEnd: 120, gain: 0.3 * v });
+    noise(c, o, t, { dur: 0.05, type: 'bandpass', freq: 1800, q: 2, gain: 0.2 * v });
+  },
+  hit_dirt: (c, o, t, v) => noise(c, o, t, { dur: 0.12, type: 'lowpass', freq: 700, freqEnd: 200, gain: 0.4 * v }),
+  hit_stone: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.06, type: 'highpass', freq: 2200, gain: 0.28 * v });
+    tone(c, o, t, { dur: 0.05, type: 'square', freq: 900, freqEnd: 500, gain: 0.07 * v });
+  },
+  hit_metal: (c, o, t, v) => {
+    for (const [f, g] of [[1250, 0.2], [2870, 0.14], [4310, 0.08]]) tone(c, o, t, { dur: 0.25, type: 'sine', freq: f, gain: g * v });
+  },
+  /** Heard at your own ear when your shot or arrow finds its mark, however far off. */
+  confirm: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.05, type: 'sine', freq: 420, freqEnd: 240, gain: 0.3 * v });
+    noise(c, o, t, { dur: 0.03, type: 'bandpass', freq: 2400, q: 3, gain: 0.12 * v });
+  },
+  confirm_head: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.07, type: 'sine', freq: 640, freqEnd: 300, gain: 0.34 * v });
+    noise(c, o, t, { dur: 0.04, type: 'bandpass', freq: 3200, q: 3, gain: 0.16 * v });
+  },
+  /** The one that puts them down. */
+  kill: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.22, type: 'sine', freq: 150, freqEnd: 48, gain: 0.55 * v });
+    noise(c, o, t + 0.01, { dur: 0.12, type: 'lowpass', freq: 900, freqEnd: 200, gain: 0.25 * v });
+  },
   thunk: (c, o, t, v) => tone(c, o, t, { dur: 0.09, type: 'square', freq: 180, freqEnd: 90, gain: 0.15 * v }),
   blast: (c, o, t, v) => {
     noise(c, o, t, { dur: 1.4, type: 'lowpass', freq: 1800, freqEnd: 60, gain: 1.0 * v });
@@ -141,8 +168,19 @@ export class CombatAudio implements System {
       if (t.includes('parried')) return this.play('parry', at);
       if (t.includes('blocked') || (t.includes('armour') && result.damage < 8)) this.play('clang', at, 0.8);
       if (result.damage > 0) this.play(target.tags.has('dummy') ? 'straw' : hit.source === 'fists' ? 'punch' : 'flesh', at, Math.min(1, 0.5 + result.damage / 50));
+      // Your own shots: a hit far away is too faint to hear, so it's also confirmed at your ear.
+      const ranged = hit.delivery === 'hitscan' || hit.delivery === 'projectile';
+      if (ranged && result.damage > 0 && hit.attacker?.name === 'player' && target !== hit.attacker) this.playHere(hit.zone === 'head' ? 'confirm_head' : 'confirm', 0.8);
     });
-    ev.on('combat:impact', ({ point }) => this.play('thunk', point, 0.6));
+    ev.on('combat:killed', ({ target, attacker }) => {
+      if (attacker?.name === 'player' && target !== attacker && !target.tags.has('dummy')) this.playHere('kill', 0.8);
+    });
+    ev.on('combat:impact', ({ point, surface, delivery }) => {
+      const s = surface ?? 'stone';
+      // A blade on stone or metal rings; on anything else it thuds like a shot would.
+      if (delivery === 'sweep' && (s === 'stone' || s === 'metal')) return this.play('clang', point, 0.55);
+      this.play(Sounds[`hit_${s}`] ? `hit_${s}` : 'thunk', point, 0.7);
+    });
     ev.on('combat:explosion', ({ point }) => this.play('blast', point));
     ev.on('combat:dry', ({ entity }) => this.play('click', entity));
     ev.on('combat:reload', ({ entity, step }) => this.play(step ? 'ratchet' : 'click', entity, 0.7));
@@ -169,6 +207,11 @@ export class CombatAudio implements System {
     } catch {
       this.ctx = null;
     }
+  }
+
+  /** Play a sound at the listener: no distance, no side. */
+  playHere(name: string, loud = 1): void {
+    this.play(name, this.game.renderer.camera.position, loud);
   }
 
   /** Play a sound at an entity or a point: quieter with distance, panned to its side. */

@@ -22,6 +22,8 @@ const _p = new THREE.Vector3();
 const _seg = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const trailGeo = new THREE.BoxGeometry(0.007, 0.007, 1).translate(0, 0, -0.5);
+const trailMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false });
 
 /**
  * A thing in flight: arrow, ball, grenade. Simulated on the fixed step with
@@ -39,6 +41,8 @@ export class Projectile {
   private resting = false;
   readonly mesh: THREE.Object3D;
   private spin = new THREE.Vector3();
+  /** A thin streak behind a fast arrow, longer the faster it flies, so the eye can follow it. */
+  private trail: THREE.Mesh | null = null;
 
   constructor(
     private combat: CombatSystem,
@@ -58,6 +62,11 @@ export class Projectile {
     this.vel.copy(velocity);
     this.mesh = projectileModel(modelName);
     this.mesh.position.copy(origin);
+    if (d.onImpact !== 'bounce') {
+      this.trail = new THREE.Mesh(trailGeo, trailMat);
+      this.trail.scale.z = 0.01;
+      this.mesh.add(this.trail);
+    }
     if (d.onImpact === 'bounce') this.spin.set(combat.rng() * 12 - 6, combat.rng() * 12 - 6, combat.rng() * 12 - 6);
     this.orient();
   }
@@ -65,6 +74,13 @@ export class Projectile {
   /** Draw it part way between its last two steps. */
   render(alpha: number): void {
     if (this.done) return;
+    if (this.trail) {
+      // Grows out behind it over its first moments (so it never pokes back through the bow).
+      const len = Math.min(this.vel.length() * 0.035, this.age * this.vel.length() * 0.8);
+      const s = this.mesh.scale.z || 1;
+      this.trail.scale.z = Math.max(0.01, len / s);
+      this.trail.visible = len > 0.3;
+    }
     this.mesh.position.lerpVectors(this.prev, this.pos, alpha);
   }
 
@@ -106,7 +122,7 @@ export class Projectile {
     if (t.target && !t.target.dead) {
       t.target.applyHit({ attacker: this.attack.attacker, packets: this.attack.packets, zone: t.zone, source: this.attack.source, point: t.point.clone(), direction: dir, delivery: 'projectile', status: this.attack.payload?.status });
     } else {
-      this.combat.game.events.emit('combat:impact', { source: this.attack.source, point: { x: t.point.x, y: t.point.y, z: t.point.z } });
+      this.combat.game.events.emit('combat:impact', this.combat.impactOf(t, this.attack.source, 'projectile'));
     }
     const body = t.collider.parent();
     if (this.attack.impulse && body?.isDynamic()) body.applyImpulseAtPoint(dir.multiplyScalar(this.attack.impulse), t.point, true);

@@ -32,6 +32,8 @@ export class PlayerCombat extends Component {
   private kickYaw = 0;
   /** Part of each kick settles back on its own (the rest you pull down yourself). */
   private settle = 0;
+  /** A hard-kicking gun jolts the view wider for an instant (a fraction of the FOV, fading fast). */
+  private punch = 0;
 
   onAttach(): void {
     this.ctrl = this.entity.require(PlayerController);
@@ -63,6 +65,7 @@ export class PlayerCombat extends Component {
         const r = Items[item]?.weapon?.handling?.recoil;
         if (!r) return;
         this.kickPitch += r.pitch * DEG;
+        this.punch = Math.min(0.07, r.pitch * 0.014);
         this.settle += r.pitch * DEG * 0.45;
         this.kickYaw += (this.game.getSystem<import('./CombatSystem').CombatSystem>('combat')!.rng() * 2 - 1) * (r.yaw ?? 0) * DEG;
       }),
@@ -126,7 +129,9 @@ export class PlayerCombat extends Component {
 
     // Aiming and handling slow you and zoom the view.
     const h = this.fighter.weapon.handling;
-    this.ctrl.fovScale = this.fighter.aiming ? (h?.ads ?? 1) : 1;
+    this.ctrl.fovScale = (this.fighter.aiming ? (h?.ads ?? 1) : 1) * (1 + this.punch);
+    this.punch *= Math.exp(-dt * 9);
+    if (this.punch < 0.001) this.punch = 0;
     this.ctrl.speedScale =
       (h?.move ?? 1) * (this.fighter.aiming ? (h?.adsMove ?? 1) : 1) * (this.fighter.state === 'blocking' ? 0.6 : 1) * (this.armour?.moveScale ?? 1);
 

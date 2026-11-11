@@ -68,10 +68,14 @@ const { chromium } = require('playwright');
     tp(d1.x, 0.05, d1.z - 1.3, Math.PI); aim(d1.x, 1.15, d1.z);
     const sw0 = audio.played.swing ?? 0, st0 = audio.played.straw ?? 0;
     let stopped = false;
-    mdown(); step(1); mup(); for (let k = 0; k < 40; k++) { step(1); if (game.timeScale < 1) stopped = true; }
-    check('a landed blow freezes time for a moment (hit-stop)', stopped);
-    await wait(150); frame();
-    check('...and lets go again', game.timeScale === 1);
+    const p1 = player.object3d.position.clone();
+    let slowed = false, kicked = 0;
+    mdown(); step(1); mup(); for (let k = 0; k < 55; k++) { step(1); if (F.paused) stopped = true; if (game.timeScale < 1) slowed = true; kicked = Math.max(kicked, feel.kick.length()); }
+    check('a landed blow hangs the blade for a moment (hit-stop)', stopped);
+    check('...the world itself never slows', !slowed && game.timeScale === 1);
+    check('...and lets go again', !F.paused && F.state === 'idle', F.state);
+    check('the view kicks along the cut', kicked > 0.004, kicked.toFixed(4));
+    void p1; void wait;
     check('swing and hit sounds', (audio.played.swing ?? 0) > sw0 && (audio.played.straw ?? 0) > st0, JSON.stringify(audio.played));
     check('straw flies from a dummy', fx.live > 0, String(fx.live));
     // (This check's frame() doesn't run systems, so age the particles by hand.)
@@ -147,6 +151,42 @@ const { chromium } = require('playwright');
     const inRecovery = F.state === 'recovery';
     mdown(); step(1); mup(); step(20);
     check('a click during the recovery fires as soon as it can', inRecovery && shots === 2, `${inRecovery} ${shots}`);
+
+    // 8. Impact: a struck bandit is driven back and rocked; bullets leave a streak and a mark; walls turn a blade.
+    const b2 = game.world.find('bandit-sword');
+    const B = comp(b2, 'NpcBody'), BH = comp(b2, 'Damageable'), R2 = comp(b2, 'NpcRig');
+    BH.revive(); step(5);
+    const bp = B.position.clone();
+    const away = new T(0, 0, 1).applyQuaternion(b2.object3d.quaternion).negate();
+    BH.applyHit({ attacker: player, packets: [{ type: 'slash', amount: 30 }], zone: 'torso', source: 'test', delivery: 'sweep', point: bp.clone().setY(1.2), direction: away.clone() });
+    const rocked = R2.flinch > 0.3;
+    const shove = B.knock.clone();
+    check('a struck bandit is knocked back, away from the blow', shove.length() > 1.5 && shove.clone().normalize().dot(away) > 0.9, shove.length().toFixed(2));
+    step(30);
+    check('...and the shove dies away', B.knock.length() < 0.2, B.knock.length().toFixed(2));
+    check('...and recoils from it', rocked);
+    BH.applyHit({ attacker: player, packets: [{ type: 'slash', amount: 500 }], zone: 'torso', source: 'test', delivery: 'sweep', point: B.position.clone().setY(1.2), direction: new T(1, 0, 0).applyQuaternion(b2.object3d.quaternion) });
+    for (let k = 0; k < 60; k++) frame();
+    const top = new T(0, 1, 0).applyQuaternion(R2.figure.quaternion);
+    check('killed, it falls the way it was struck', top.x > 0.7, `${top.x.toFixed(2)} ${top.z.toFixed(2)}`);
+    tp(32, 0.05, 39, Math.PI / 2);
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    C.pitch = -0.5; frame();
+    const im = [];
+    game.events.on('combat:impact', (e) => im.push(e));
+    const cf0 = audio.played.confirm ?? 0;
+    for (let k = 0; k < 30; k++) fx.update({ delta: 0.016, elapsed, alpha: 1 });
+    const mk0 = fx.marksLeft;
+    click(1);
+    check('a bullet leaves a streak in the air', fx.tracersLive === 1, String(fx.tracersLive));
+    check('...strikes the ground as dirt, and leaves a mark', im.length === 1 && im[0].surface === 'dirt' && fx.marksLeft === mk0 + 1, JSON.stringify(im[0]));
+    for (let k = 0; k < 30; k++) fx.update({ delta: 0.016, elapsed, alpha: 1 });
+    check('...the streak is gone in a moment', fx.tracersLive === 0);
+    const d3 = at('dummy-1');
+    dHP('dummy-1').revive();
+    tp(d3.x, 0.05, d3.z - 6, Math.PI); aim(d3.x, 1.15, d3.z);
+    click(20);
+    check('your shot finding its mark is heard at your ear', (audio.played.confirm ?? 0) + (audio.played.confirm_head ?? 0) > cf0, JSON.stringify(audio.played));
     //@@NEXT
     return r;
   });

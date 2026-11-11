@@ -44,7 +44,19 @@ export interface GameEvents {
     result: import('../combat/types').HitResult;
   };
   /** An attack struck something that can't be hurt (wall, crate). */
-  'combat:impact': { source: string; point: { x: number; y: number; z: number } };
+  'combat:impact': {
+    source: string;
+    point: { x: number; y: number; z: number };
+    /** How it got there (sweep, hitscan, projectile). */
+    delivery?: string;
+    /** What it struck: stone, wood, dirt, metal... */
+    surface?: string;
+    /** The surface's normal, and whether it stays put (a mark can be left on it). */
+    normal?: { x: number; y: number; z: number };
+    fixed?: boolean;
+  };
+  /** The line a bullet took, from the eye to where it stopped. */
+  'combat:tracer': { attacker: import('../entities/Entity').Entity | null; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } };
   'combat:killed': { target: import('../entities/Entity').Entity; attacker: import('../entities/Entity').Entity | null; source: string };
   'combat:healed': { target: import('../entities/Entity').Entity; amount: number; health: number };
   'combat:revived': { target: import('../entities/Entity').Entity };

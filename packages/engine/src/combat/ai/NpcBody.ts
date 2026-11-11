@@ -27,6 +27,8 @@ export class NpcBody extends Component {
   /** Set when dead: no more moving, and the capsule stops blocking. */
   limp = false;
   private vy = 0;
+  /** Being knocked back: a shove (m/s) that dies away in a fraction of a second. */
+  readonly knock = new THREE.Vector3();
   private rb!: RigidBodyComponent;
   private collider!: RAPIER.Collider;
   private kcc!: RAPIER.KinematicCharacterController;
@@ -90,6 +92,16 @@ export class NpcBody extends Component {
     return dir;
   }
 
+  /** Shove it: `speed` m/s along `dir` (flattened), fading out over about a third of a second. */
+  push(dir: { x: number; z: number }, speed: number): void {
+    const l = Math.hypot(dir.x, dir.z);
+    if (l < 1e-4 || this.limp) return;
+    this.knock.x += (dir.x / l) * speed;
+    this.knock.z += (dir.z / l) * speed;
+    const k = this.knock.length();
+    if (k > 9) this.knock.multiplyScalar(9 / k);
+  }
+
   fixedUpdate(dt: number): void {
     if (this.limp) return;
     // Turn.
@@ -101,7 +113,9 @@ export class NpcBody extends Component {
     this.velocity.x += (this.desired.x - this.velocity.x) * k;
     this.velocity.z += (this.desired.z - this.velocity.z) * k;
     this.vy = this.grounded ? -1 : this.vy - GRAVITY * dt;
-    _d.set(this.velocity.x * dt, this.vy * dt, this.velocity.z * dt);
+    _d.set((this.velocity.x + this.knock.x) * dt, this.vy * dt, (this.velocity.z + this.knock.z) * dt);
+    this.knock.multiplyScalar(Math.exp(-dt * 8));
+    if (this.knock.lengthSq() < 0.01) this.knock.set(0, 0, 0);
     this.kcc.computeColliderMovement(this.collider, _d, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS);
     const m = this.kcc.computedMovement();
     this.grounded = this.kcc.computedGrounded();
@@ -115,8 +129,8 @@ export class NpcBody extends Component {
     this.game.physics.world.propagateModifiedBodyPositionsToColliders();
     // What actually happened (walls stop you).
     if (dt > 0) {
-      this.velocity.x = m.x / dt;
-      this.velocity.z = m.z / dt;
+      this.velocity.x = m.x / dt - this.knock.x;
+      this.velocity.z = m.z / dt - this.knock.z;
     }
   }
 
@@ -125,6 +139,7 @@ export class NpcBody extends Component {
     this.limp = on;
     this.desired.set(0, 0, 0);
     this.velocity.set(0, 0, 0);
+    this.knock.set(0, 0, 0);
     this.collider.setSensor(on);
   }
 
