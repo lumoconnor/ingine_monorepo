@@ -68,10 +68,14 @@ const { chromium } = require('playwright');
     tp(d1.x, 0.05, d1.z - 1.3, Math.PI); aim(d1.x, 1.15, d1.z);
     const sw0 = audio.played.swing ?? 0, st0 = audio.played.straw ?? 0;
     let stopped = false;
-    mdown(); step(1); mup(); for (let k = 0; k < 40; k++) { step(1); if (game.timeScale < 1) stopped = true; }
-    check('a landed blow freezes time for a moment (hit-stop)', stopped);
-    await wait(150); frame();
-    check('...and lets go again', game.timeScale === 1);
+    const p1 = player.object3d.position.clone();
+    let slowed = false, kicked = 0;
+    mdown(); step(1); mup(); for (let k = 0; k < 55; k++) { step(1); if (F.paused) stopped = true; if (game.timeScale < 1) slowed = true; kicked = Math.max(kicked, feel.kick.length()); }
+    check('a landed blow hangs the blade for a moment (hit-stop)', stopped);
+    check('...the world itself never slows', !slowed && game.timeScale === 1);
+    check('...and lets go again', !F.paused && F.state === 'idle', F.state);
+    check('the view kicks along the cut', kicked > 0.004, kicked.toFixed(4));
+    void p1; void wait;
     check('swing and hit sounds', (audio.played.swing ?? 0) > sw0 && (audio.played.straw ?? 0) > st0, JSON.stringify(audio.played));
     check('straw flies from a dummy', fx.live > 0, String(fx.live));
     // (This check's frame() doesn't run systems, so age the particles by hand.)
@@ -127,6 +131,136 @@ const { chromium } = require('playwright');
     check('an enemy flashes when hit', rig.mats.some((m) => m.emissiveIntensity > 0.1));
     for (let k = 0; k < 30; k++) frame();
     check('...briefly', rig.mats.every((m) => m.emissiveIntensity < 0.01));
+
+    // 7. Responsiveness: swings start on press; presses made a moment early still count.
+    HP.revive(); HP.invulnerable = true;
+    tp(32, 0.05, 39, Math.PI / 2);
+    F.equip(S.instancesOf('longsword')[0].uid); step(40);
+    mdown(); step(1);
+    check('a sword click starts its swing on press, not release', F.state === 'windup' && F.mode === 'primary', `${F.state} ${F.mode}`);
+    mup(); step(200);
+    const st7 = F.stamina;
+    mdown(); step(14);
+    check('still holding when the wind-up ends: it becomes the heavy', F.state === 'charging' && F.mode === 'heavy', `${F.state} ${F.mode}`);
+    check('...and the light swing that never happened costs nothing', Math.abs(F.stamina - st7) < 0.5, (st7 - F.stamina).toFixed(1));
+    mup(); step(90);
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    let shots = 0;
+    game.events.on('combat:fired', () => shots++);
+    mdown(); step(1); mup(); step(3);
+    const inRecovery = F.state === 'recovery';
+    mdown(); step(1); mup(); step(20);
+    check('a click during the recovery fires as soon as it can', inRecovery && shots === 2, `${inRecovery} ${shots}`);
+
+    // 8. Impact: a struck bandit is driven back and rocked; bullets leave a streak and a mark; walls turn a blade.
+    const b2 = game.world.find('bandit-sword');
+    const B = comp(b2, 'NpcBody'), BH = comp(b2, 'Damageable'), R2 = comp(b2, 'NpcRig');
+    BH.revive(); step(5);
+    const bp = B.position.clone();
+    const away = new T(0, 0, 1).applyQuaternion(b2.object3d.quaternion).negate();
+    BH.applyHit({ attacker: player, packets: [{ type: 'slash', amount: 30 }], zone: 'torso', source: 'test', delivery: 'sweep', point: bp.clone().setY(1.2), direction: away.clone() });
+    const rocked = R2.flinch > 0.3;
+    const shove = B.knock.clone();
+    check('a struck bandit is knocked back, away from the blow', shove.length() > 1.5 && shove.clone().normalize().dot(away) > 0.9, shove.length().toFixed(2));
+    step(30);
+    check('...and the shove dies away', B.knock.length() < 0.2, B.knock.length().toFixed(2));
+    check('...and recoils from it', rocked);
+    BH.applyHit({ attacker: player, packets: [{ type: 'slash', amount: 500 }], zone: 'torso', source: 'test', delivery: 'sweep', point: B.position.clone().setY(1.2), direction: new T(1, 0, 0).applyQuaternion(b2.object3d.quaternion) });
+    for (let k = 0; k < 60; k++) frame();
+    const top = new T(0, 1, 0).applyQuaternion(R2.figure.quaternion);
+    check('killed, it falls the way it was struck', top.x > 0.7, `${top.x.toFixed(2)} ${top.z.toFixed(2)}`);
+    tp(32, 0.05, 39, Math.PI / 2);
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    C.pitch = -0.5; frame();
+    const im = [];
+    game.events.on('combat:impact', (e) => im.push(e));
+    const cf0 = audio.played.confirm ?? 0;
+    for (let k = 0; k < 30; k++) fx.update({ delta: 0.016, elapsed, alpha: 1 });
+    const mk0 = fx.marksLeft;
+    click(1);
+    check('a bullet leaves a streak in the air', fx.tracersLive === 1, String(fx.tracersLive));
+    check('...strikes the ground as dirt, and leaves a mark', im.length === 1 && im[0].surface === 'dirt' && fx.marksLeft === mk0 + 1, JSON.stringify(im[0]));
+    for (let k = 0; k < 30; k++) fx.update({ delta: 0.016, elapsed, alpha: 1 });
+    check('...the streak is gone in a moment', fx.tracersLive === 0);
+    const d3 = at('dummy-1');
+    dHP('dummy-1').revive();
+    tp(d3.x, 0.05, d3.z - 6, Math.PI); aim(d3.x, 1.15, d3.z);
+    click(20);
+    check('your shot finding its mark is heard at your ear', (audio.played.confirm ?? 0) + (audio.played.confirm_head ?? 0) > cf0, JSON.stringify(audio.played));
+
+    // 9. Depth: combos flow and finish hard, you step into swings, moving spoils your aim, a held bow tires you,
+    //    grenades tick and clink, blasts throw you, near misses crack.
+    HP.revive(); HP.invulnerable = true; step(60 * 3);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0;
+    F.equip(S.instancesOf('longsword')[0].uid); step(40);
+    const starts = [];
+    let tick9 = 0;
+    game.events.on('combat:swing', () => starts.push(tick9));
+    const x0 = player.object3d.position.x;
+    mdown(); step(1); mup(); tick9++;
+    for (let k = 0; k < 120; k++) { if (k === 20 || k === 50) { mdown(); step(1); mup(); } else step(1); tick9++; }
+    const gaps = [starts[1] - starts[0], starts[2] - starts[1]];
+    check('a queued swing cuts the follow-through short (under 0.62 s between cuts)', starts.length === 3 && gaps.every((g) => g < 37 && g > 20), JSON.stringify(gaps));
+    check('you step into your swings', Math.abs(player.object3d.position.x - x0) > 0.5, Math.abs(player.object3d.position.x - x0).toFixed(2));
+    const d9 = at('dummy-1');
+    dHP('dummy-1').revive();
+    tp(d9.x, 0.05, d9.z - 1.9, Math.PI); aim(d9.x, 1.15, d9.z);
+    const dm = [];
+    game.events.on('combat:hit', (e) => e.target.name === 'dummy-1' && dm.push(e.result.damage));
+    mdown(); step(1); mup();
+    for (let k = 0; k < 150; k++) { if (k === 20 || k === 50) { mdown(); step(1); mup(); } else step(1); }
+    check('the last swing of the combo hits hardest', dm.length === 3 && dm[2] > dm[0] * 1.2 && dm[2] > dm[1] * 1.2, JSON.stringify(dm));
+
+    F.equip(S.instancesOf('pistol')[0].uid); step(40);
+    tp(32, 0.05, 39, Math.PI / 2); step(30);
+    const still = F.spreadDeg();
+    game.input._locked = true;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' })); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }));
+    step(40);
+    const running = F.spreadDeg();
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft' }));
+    step(40);
+    check('running opens your spread, standing closes it again', running > still * 1.4 && Math.abs(F.spreadDeg() - still) < 0.05, `${still.toFixed(2)} -> ${running.toFixed(2)} -> ${F.spreadDeg().toFixed(2)}`);
+
+    if (!S.instancesOf('longbow').length) { take('longbow'); take('arrows'); }
+    F.equip(S.instancesOf('longbow')[0].uid); step(80);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0.3; step(60 * 3);
+    const cr0 = audio.played.creak ?? 0, rd0 = audio.played.ready ?? 0;
+    const sb = F.stamina;
+    mdown(); step(60 * 3);
+    check('drawing a bow creaks, and full draw is signalled', (audio.played.creak ?? 0) > cr0 && (audio.played.ready ?? 0) > rd0, JSON.stringify(audio.played));
+    check('holding a full draw drains stamina', F.state === 'charging' && sb - F.stamina > 10, (sb - F.stamina).toFixed(1));
+    mup(); step(30);
+
+    const tk0 = audio.played.tick ?? 0, cl0 = audio.played.clink ?? 0;
+    if (!S.itemCount('grenade')) take('grenade');
+    F.equip('grenade'); step(40);
+    tp(32, 0.05, 39, Math.PI / 2); C.pitch = 0.2; frame();
+    HP.invulnerable = true;
+    mdown(); step(50);
+    const bar = document.querySelector('.weapon .wbar');
+    check('a cooking grenade ticks and shows its fuse', (audio.played.tick ?? 0) > tk0 && bar.classList.contains('fuse'));
+    mup(); step(60 * 4);
+    check('...and clinks as it bounces', (audio.played.clink ?? 0) > cl0, JSON.stringify(audio.played));
+
+    tp(32, 0.05, 39, Math.PI / 2); step(10);
+    HP.invulnerable = false; HP.revive();
+    const pb = player.object3d.position.clone();
+    combat.deliver({ kind: 'area', radius: 6, falloff: 'linear', lineOfSight: false }, { origin: new T(pb.x + 2.5, 0.3, pb.z), dir: new T(0, 1, 0), spreadDeg: 0, charge: 0, cooked: 0, attack: { attacker: null, source: 'test', packets: [{ type: 'blast', amount: 40 }] } });
+    frame();
+    const white = Number(document.querySelector('.blast-flash').style.opacity);
+    step(30);
+    const thrown = player.object3d.position.x - pb.x;
+    check('a blast beside you throws you away from it', thrown < -0.4, thrown.toFixed(2));
+    check('...whites out the view and dulls your hearing', white > 0.1 && audio.deafened > 0.3, `${white} ${audio.deafened.toFixed(2)}`);
+    HP.revive();
+
+    const ck0 = audio.played.crack ?? 0;
+    const eye = game.renderer.camera.position;
+    game.events.emit('combat:tracer', { attacker: b2, from: { x: eye.x - 20, y: eye.y + 0.5, z: eye.z }, to: { x: eye.x + 20, y: eye.y + 0.5, z: eye.z } });
+    game.events.emit('combat:tracer', { attacker: b2, from: { x: eye.x - 20, y: eye.y + 6, z: eye.z }, to: { x: eye.x + 20, y: eye.y + 6, z: eye.z } });
+    check('a shot passing close cracks past your ear; one well wide does not', (audio.played.crack ?? 0) === ck0 + 1);
+
     return r;
   });
   console.log(out.join('\n'));

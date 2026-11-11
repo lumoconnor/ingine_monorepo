@@ -16,12 +16,15 @@ function projectileModel(id: string): THREE.Object3D {
 import { Damageable } from './Damageable';
 import { registerDeliveryRunner, type AttackSpec, type CombatSystem } from './CombatSystem';
 import type { DeliveryDef } from './weaponTypes';
+import { fuseInterval } from './Combatant';
 
 const G = 9.81;
 const _p = new THREE.Vector3();
 const _seg = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const trailGeo = new THREE.BoxGeometry(0.007, 0.007, 1).translate(0, 0, -0.5);
+const trailMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false });
 
 /**
  * A thing in flight: arrow, ball, grenade. Simulated on the fixed step with
@@ -32,11 +35,16 @@ const _look = new THREE.Vector3();
 export class Projectile {
   readonly pos = new THREE.Vector3();
   readonly vel = new THREE.Vector3();
+  /** Where it was a step ago, for drawing between steps. */
+  readonly prev = new THREE.Vector3();
   age = 0;
   done = false;
   private resting = false;
   readonly mesh: THREE.Object3D;
   private spin = new THREE.Vector3();
+  /** A thin streak behind a fast arrow, longer the faster it flies, so the eye can follow it. */
+  private trail: THREE.Mesh | null = null;
+  private fuseTick = 0;
 
   constructor(
     private combat: CombatSystem,
@@ -52,11 +60,30 @@ export class Projectile {
     modelName: string,
   ) {
     this.pos.copy(origin);
+    this.prev.copy(origin);
     this.vel.copy(velocity);
     this.mesh = projectileModel(modelName);
     this.mesh.position.copy(origin);
+    if (d.onImpact !== 'bounce') {
+      this.trail = new THREE.Mesh(trailGeo, trailMat);
+      this.trail.scale.z = 0.01;
+      this.mesh.add(this.trail);
+    }
     if (d.onImpact === 'bounce') this.spin.set(combat.rng() * 12 - 6, combat.rng() * 12 - 6, combat.rng() * 12 - 6);
     this.orient();
+  }
+
+  /** Draw it part way between its last two steps. */
+  render(alpha: number): void {
+    if (this.done) return;
+    if (this.trail) {
+      // Grows out behind it over its first moments (so it never pokes back through the bow).
+      const len = Math.min(this.vel.length() * 0.035, this.age * this.vel.length() * 0.8);
+      const s = this.mesh.scale.z || 1;
+      this.trail.scale.z = Math.max(0.01, len / s);
+      this.trail.visible = len > 0.3;
+    }
+    this.mesh.position.lerpVectors(this.prev, this.pos, alpha);
   }
 
   private orient(): void {
@@ -68,7 +95,16 @@ export class Projectile {
     if (this.done) return;
     const d = this.d;
     this.age += dt;
+    this.prev.copy(this.pos);
     if (d.fuse !== undefined && this.age + this.cooked >= d.fuse) return this.detonate();
+    if (d.fuse !== undefined) {
+      this.fuseTick -= dt;
+      if (this.fuseTick <= 0) {
+        const left = d.fuse - this.age - this.cooked;
+        this.fuseTick = fuseInterval(left);
+        this.combat.game.events.emit('combat:fusetick', { point: { x: this.pos.x, y: this.pos.y, z: this.pos.z }, left });
+      }
+    }
     if (this.resting) return;
     if (this.age > 20) return void (this.done = true);
     this.vel.y -= G * (d.gravity ?? 1) * dt;
@@ -96,7 +132,7 @@ export class Projectile {
     if (t.target && !t.target.dead) {
       t.target.applyHit({ attacker: this.attack.attacker, packets: this.attack.packets, zone: t.zone, source: this.attack.source, point: t.point.clone(), direction: dir, delivery: 'projectile', status: this.attack.payload?.status });
     } else {
-      this.combat.game.events.emit('combat:impact', { source: this.attack.source, point: { x: t.point.x, y: t.point.y, z: t.point.z } });
+      this.combat.game.events.emit('combat:impact', this.combat.impactOf(t, this.attack.source, 'projectile'));
     }
     const body = t.collider.parent();
     if (this.attack.impulse && body?.isDynamic()) body.applyImpulseAtPoint(dir.multiplyScalar(this.attack.impulse), t.point, true);
@@ -112,6 +148,7 @@ export class Projectile {
     _n.set(0, 1, 0);
     if (hit) _n.set(hit.normal.x, hit.normal.y, hit.normal.z);
     const vn = this.vel.dot(_n);
+    if (Math.abs(vn) > 0.6) this.combat.game.events.emit('combat:bounce', { point: { x: this.pos.x, y: this.pos.y, z: this.pos.z }, speed: Math.abs(vn) });
     this.vel.addScaledVector(_n, -1.35 * vn).multiplyScalar(0.6);
     this.pos.addScaledVector(_n, 0.03);
     this.spin.multiplyScalar(0.6);

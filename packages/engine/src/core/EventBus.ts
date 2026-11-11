@@ -44,12 +44,32 @@ export interface GameEvents {
     result: import('../combat/types').HitResult;
   };
   /** An attack struck something that can't be hurt (wall, crate). */
-  'combat:impact': { source: string; point: { x: number; y: number; z: number } };
+  'combat:impact': {
+    source: string;
+    point: { x: number; y: number; z: number };
+    /** How it got there (sweep, hitscan, projectile). */
+    delivery?: string;
+    /** What it struck: stone, wood, dirt, metal... */
+    surface?: string;
+    /** The surface's normal, and whether it stays put (a mark can be left on it). */
+    normal?: { x: number; y: number; z: number };
+    fixed?: boolean;
+  };
+  /** The line a bullet took, from the eye to where it stopped. */
+  'combat:tracer': { attacker: import('../entities/Entity').Entity | null; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } };
   'combat:killed': { target: import('../entities/Entity').Entity; attacker: import('../entities/Entity').Entity | null; source: string };
   'combat:healed': { target: import('../entities/Entity').Entity; amount: number; health: number };
   'combat:revived': { target: import('../entities/Entity').Entity };
   /** A combatant drew a weapon (item id) or put it away (null). */
   'combat:equip': { entity: import('../entities/Entity').Entity; item: string | null };
+  /** A melee swing's blade started moving (its wind-up is over). `charge` 0..1 for a heavy. */
+  'combat:swing': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string; charge: number };
+  /** A hold began (a bow drawn, a heavy raised, a grenade's pin pulled), or reached full (`full`). */
+  'combat:charge': { entity: import('../entities/Entity').Entity; item: string | null; mode: string; full: boolean };
+  /** A fuse ticking, in the hand or in flight: `left` seconds to go. */
+  'combat:fusetick': { point: { x: number; y: number; z: number }; left: number };
+  /** Something thrown bounced off the world at `speed` m/s. */
+  'combat:bounce': { point: { x: number; y: number; z: number }; speed: number };
   /** A shot or throw left (after any trigger delay). */
   'combat:fired': { attacker: import('../entities/Entity').Entity; item: string | null; mode: string };
   /** Pulled the trigger and nothing happened. */

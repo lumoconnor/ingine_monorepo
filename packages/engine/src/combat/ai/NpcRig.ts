@@ -15,6 +15,7 @@ import { EnemyBrain } from './EnemyBrain';
 const mat = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
 const skin = mat(0xd5a583);
 const DEG = Math.PI / 180;
+const _qi = new THREE.Quaternion();
 
 function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
   const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -54,6 +55,10 @@ export class NpcRig extends Component {
   private eyes!: Perception;
   private brain!: EnemyBrain;
   private flash = 0;
+  /** Recoiling from a blow: which way it came (in the body's own frame), and how fresh it is. */
+  private flinch = 0;
+  private flinchDir = new THREE.Vector3(0, 0, -1);
+  private fallAxis = new THREE.Vector3(-1, 0, 0);
   private mats: THREE.MeshStandardMaterial[] = [];
   private unsub: (() => void) | null = null;
 
@@ -109,7 +114,17 @@ export class NpcRig extends Component {
       }
     });
     this.unsub = this.game.events.on('combat:hit', ({ target, result, hit }) => {
-      if (target === this.entity && result.damage > 0 && hit.delivery !== 'status') this.flash = 1;
+      if (target !== this.entity || hit.delivery === 'status') return;
+      if (result.damage > 0) this.flash = 1;
+      if (hit.direction && (result.damage > 0 || result.tags.includes('blocked'))) {
+        // The blow's direction as the body sees it (z forward, x to its left).
+        this.flinchDir.copy(hit.direction).setY(0).applyQuaternion(_qi.copy(this.entity.object3d.quaternion).invert());
+        if (this.flinchDir.lengthSq() < 1e-4) this.flinchDir.set(0, 0, -1);
+        this.flinchDir.normalize();
+        this.flinch = Math.min(1, 0.35 + result.damage / 60);
+        // If this one kills, it falls the way it was struck.
+        this.fallAxis.set(-this.flinchDir.z, 0, this.flinchDir.x).negate();
+      }
     });
   }
 
@@ -180,10 +195,11 @@ export class NpcRig extends Component {
     }
     const f = this.f;
     const st = f.state;
+    const prog = f.progressAt(time.alpha);
     // Dead: fall over backwards.
     const down = this.hp.dead ? 1 : 0;
     this.fall += (down - this.fall) * (1 - Math.exp(-dt * (down ? 6 : 4)));
-    this.figure.rotation.x = -this.fall * (Math.PI / 2) * 0.95;
+    this.figure.quaternion.setFromAxisAngle(this.fallAxis, this.fall * (Math.PI / 2) * 0.95);
     this.figure.position.y = this.fall * 0.12;
 
     // Walk.
@@ -195,9 +211,14 @@ export class NpcRig extends Component {
     this.armL.rotation.set(-swing * 0.6, 0, 0.08);
 
     // Lean back when staggered.
-    const reel = st === 'staggered' ? Math.sin(f.progress * Math.PI) : 0;
-    this.torso.rotation.x = -0.25 * reel;
-    this.head.rotation.x = -0.3 * reel;
+    const reel = st === 'staggered' ? Math.sin(prog * Math.PI) : 0;
+    // Rocked by a blow: the body snaps away from it and comes back.
+    this.flinch = Math.max(0, this.flinch - dt * 3.2);
+    const fl = this.flinch * this.flinch * (1 - this.fall);
+    this.torso.rotation.x = -0.25 * reel + this.flinchDir.z * 0.4 * fl;
+    this.torso.rotation.z = -this.flinchDir.x * 0.4 * fl;
+    this.head.rotation.x = -0.3 * reel + this.flinchDir.z * 0.55 * fl;
+    this.head.rotation.z = -this.flinchDir.x * 0.5 * fl;
 
     // The weapon arm.
     const m = f.currentMode;
@@ -208,16 +229,16 @@ export class NpcRig extends Component {
     let az = 0;
     if (st === 'windup' && m?.delivery.kind === 'sweep') {
       // The tell: arm drawn back high before the blow.
-      const k = f.progress;
+      const k = prog;
       ax = THREE.MathUtils.lerp(-0.55, -2.5, k);
       ay = (arc(0).yaw * DEG) * 0.6 * k;
     } else if (st === 'active' && m?.delivery.kind === 'sweep') {
-      const a = arc(f.progress);
-      ax = THREE.MathUtils.lerp(-2.5, -0.7, f.progress);
+      const a = arc(prog);
+      ax = THREE.MathUtils.lerp(-2.5, -0.7, prog);
       ay = a.yaw * DEG * 0.7;
     } else if (st === 'recovery' && m?.delivery.kind === 'sweep') {
-      ax = THREE.MathUtils.lerp(-0.7, -0.55, f.progress);
-      ay = arc(1).yaw * DEG * 0.7 * (1 - f.progress);
+      ax = THREE.MathUtils.lerp(-0.7, -0.55, prog);
+      ay = arc(1).yaw * DEG * 0.7 * (1 - prog);
     } else if (st === 'charging') {
       ax = -2.7;
     } else if (st === 'blocking') {

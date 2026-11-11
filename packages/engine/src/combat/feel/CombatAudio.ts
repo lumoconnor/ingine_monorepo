@@ -9,6 +9,9 @@ const _r = new THREE.Vector3();
 
 type Voice = (ctx: AudioContext, out: AudioNode, t: number, v: number) => void;
 
+/** Pitch of the sound being made (set per play: no two swings or shots sound quite alike). */
+let PITCH = 1;
+
 /** A burst of white noise through a filter, with a fast attack and an exponential tail. */
 function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; type: BiquadFilterType; freq: number; freqEnd?: number; q?: number; gain: number }): void {
   const n = Math.ceil(ctx.sampleRate * o.dur);
@@ -19,8 +22,8 @@ function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; t
   src.buffer = buf;
   const f = ctx.createBiquadFilter();
   f.type = o.type;
-  f.frequency.setValueAtTime(o.freq, t);
-  if (o.freqEnd) f.frequency.exponentialRampToValueAtTime(o.freqEnd, t + o.dur);
+  f.frequency.setValueAtTime(o.freq * PITCH, t);
+  if (o.freqEnd) f.frequency.exponentialRampToValueAtTime(o.freqEnd * PITCH, t + o.dur);
   f.Q.value = o.q ?? 1;
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t);
@@ -35,8 +38,8 @@ function noise(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; t
 function tone(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; type: OscillatorType; freq: number; freqEnd?: number; gain: number }): void {
   const osc = ctx.createOscillator();
   osc.type = o.type;
-  osc.frequency.setValueAtTime(o.freq, t);
-  if (o.freqEnd) osc.frequency.exponentialRampToValueAtTime(o.freqEnd, t + o.dur);
+  osc.frequency.setValueAtTime(o.freq * PITCH, t);
+  if (o.freqEnd) osc.frequency.exponentialRampToValueAtTime(o.freqEnd * PITCH, t + o.dur);
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(o.gain, t + 0.004);
@@ -49,6 +52,15 @@ function tone(ctx: AudioContext, out: AudioNode, t: number, o: { dur: number; ty
 /** Every combat sound, synthesised (no audio files to ship). `v` is loudness 0..1. */
 export const Sounds: Record<string, Voice> = {
   swing: (c, o, t, v) => noise(c, o, t, { dur: 0.18, type: 'bandpass', freq: 500, freqEnd: 1800, q: 1.2, gain: 0.35 * v }),
+  /** A heavy blade coming down: lower, longer, with some weight under it. */
+  swing_heavy: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.3, type: 'bandpass', freq: 320, freqEnd: 1300, q: 1.1, gain: 0.5 * v });
+    tone(c, o, t, { dur: 0.22, type: 'sine', freq: 90, freqEnd: 55, gain: 0.25 * v });
+  },
+  /** A fist or a thrown thing: short and soft. */
+  swing_light: (c, o, t, v) => noise(c, o, t, { dur: 0.1, type: 'bandpass', freq: 900, freqEnd: 2000, q: 0.9, gain: 0.22 * v }),
+  /** The effort before a blow: cloth and breath as the arm draws back. */
+  effort: (c, o, t, v) => noise(c, o, t, { dur: 0.14, type: 'lowpass', freq: 520, freqEnd: 260, gain: 0.16 * v }),
   punch: (c, o, t, v) => tone(c, o, t, { dur: 0.1, type: 'sine', freq: 140, freqEnd: 60, gain: 0.6 * v }),
   flesh: (c, o, t, v) => {
     tone(c, o, t, { dur: 0.14, type: 'sine', freq: 110, freqEnd: 50, gain: 0.7 * v });
@@ -76,6 +88,51 @@ export const Sounds: Record<string, Voice> = {
     tone(c, o, t, { dur: 0.16, type: 'triangle', freq: 220, freqEnd: 120, gain: 0.35 * v });
     noise(c, o, t, { dur: 0.22, type: 'bandpass', freq: 900, freqEnd: 400, q: 2, gain: 0.15 * v });
   },
+  /** Shot or arrow into wood, earth, stone, metal. */
+  hit_wood: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.08, type: 'triangle', freq: 260, freqEnd: 120, gain: 0.3 * v });
+    noise(c, o, t, { dur: 0.05, type: 'bandpass', freq: 1800, q: 2, gain: 0.2 * v });
+  },
+  hit_dirt: (c, o, t, v) => noise(c, o, t, { dur: 0.12, type: 'lowpass', freq: 700, freqEnd: 200, gain: 0.4 * v }),
+  hit_stone: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.06, type: 'highpass', freq: 2200, gain: 0.28 * v });
+    tone(c, o, t, { dur: 0.05, type: 'square', freq: 900, freqEnd: 500, gain: 0.07 * v });
+  },
+  hit_metal: (c, o, t, v) => {
+    for (const [f, g] of [[1250, 0.2], [2870, 0.14], [4310, 0.08]]) tone(c, o, t, { dur: 0.25, type: 'sine', freq: f, gain: g * v });
+  },
+  /** Heard at your own ear when your shot or arrow finds its mark, however far off. */
+  confirm: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.05, type: 'sine', freq: 420, freqEnd: 240, gain: 0.3 * v });
+    noise(c, o, t, { dur: 0.03, type: 'bandpass', freq: 2400, q: 3, gain: 0.12 * v });
+  },
+  confirm_head: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.07, type: 'sine', freq: 640, freqEnd: 300, gain: 0.34 * v });
+    noise(c, o, t, { dur: 0.04, type: 'bandpass', freq: 3200, q: 3, gain: 0.16 * v });
+  },
+  /** The one that puts them down. */
+  kill: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.22, type: 'sine', freq: 150, freqEnd: 48, gain: 0.55 * v });
+    noise(c, o, t + 0.01, { dur: 0.12, type: 'lowpass', freq: 900, freqEnd: 200, gain: 0.25 * v });
+  },
+  /** A blade or a bowstring at its limit: ready. */
+  ready: (c, o, t, v) => tone(c, o, t, { dur: 0.18, type: 'sine', freq: 1500, freqEnd: 1900, gain: 0.1 * v }),
+  /** A bow bending as it's drawn. */
+  creak: (c, o, t, v) => noise(c, o, t, { dur: 0.6, type: 'bandpass', freq: 240, freqEnd: 620, q: 9, gain: 0.5 * v }),
+  /** A fuse: one tick. */
+  tick: (c, o, t, v) => tone(c, o, t, { dur: 0.025, type: 'square', freq: 3100, gain: 0.14 * v }),
+  /** Iron on the ground. */
+  clink: (c, o, t, v) => {
+    for (const [f, g] of [[1900, 0.2], [3300, 0.12]]) tone(c, o, t, { dur: 0.09, type: 'triangle', freq: f, gain: g * v });
+    tone(c, o, t, { dur: 0.06, type: 'sine', freq: 190, freqEnd: 110, gain: 0.3 * v });
+  },
+  /** A ball going past your head: the crack, then the whine. */
+  crack: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.035, type: 'highpass', freq: 3500, gain: 0.7 * v });
+    tone(c, o, t + 0.02, { dur: 0.28, type: 'sine', freq: 2600, freqEnd: 700, gain: 0.12 * v });
+  },
+  /** Ears ringing after a blast close by. */
+  ring: (c, o, t, v) => tone(c, o, t, { dur: 1.8, type: 'sine', freq: 3400, gain: 0.07 * v }),
   thunk: (c, o, t, v) => tone(c, o, t, { dur: 0.09, type: 'square', freq: 180, freqEnd: 90, gain: 0.15 * v }),
   blast: (c, o, t, v) => {
     noise(c, o, t, { dur: 1.4, type: 'lowpass', freq: 1800, freqEnd: 60, gain: 1.0 * v });
@@ -96,6 +153,9 @@ export class CombatAudio implements System {
   readonly name = 'combat-audio';
   ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private muffle: BiquadFilterNode | null = null;
+  /** How deafened you were by the last blast, 0..1 (for checks). */
+  deafened = 0;
   private game!: Game;
   /** How many sounds were asked for (for checks; counts even without audio). */
   played: Record<string, number> = {};
@@ -110,10 +170,16 @@ export class CombatAudio implements System {
     ev.on('combat:attack', ({ attacker }) => {
       const item = this.itemOf(attacker);
       const kind = item ? Object.values(Items[item]?.weapon?.modes ?? {})[0]?.delivery?.kind : 'sweep';
-      if (kind === 'sweep') this.play(item ? 'swing' : 'swing', attacker, item ? 1 : 0.6);
+      // The wind-up is the tell: the whoosh waits for the blade to move (combat:swing).
+      if (kind === 'sweep') this.play('effort', attacker, item ? 1 : 0.6);
+    });
+    ev.on('combat:swing', ({ attacker, item, mode, charge }) => {
+      if (!item) return this.play('swing_light', attacker);
+      if (mode === 'heavy' || charge > 0) return this.play('swing_heavy', attacker, 0.8 + 0.2 * charge);
+      this.play('swing', attacker);
     });
     ev.on('combat:fired', ({ attacker, item }) => {
-      const sound = item === 'musket' ? 'musket' : item === 'longbow' ? 'bow' : item === 'grenade' ? 'swing' : item && Items[item]?.weapon ? 'pistol' : null;
+      const sound = item === 'musket' ? 'musket' : item === 'longbow' ? 'bow' : item === 'grenade' ? 'swing_light' : item && Items[item]?.weapon ? 'pistol' : null;
       if (sound) this.play(sound, attacker);
     });
     ev.on('combat:hit', ({ hit, target, result }) => {
@@ -123,9 +189,49 @@ export class CombatAudio implements System {
       if (t.includes('parried')) return this.play('parry', at);
       if (t.includes('blocked') || (t.includes('armour') && result.damage < 8)) this.play('clang', at, 0.8);
       if (result.damage > 0) this.play(target.tags.has('dummy') ? 'straw' : hit.source === 'fists' ? 'punch' : 'flesh', at, Math.min(1, 0.5 + result.damage / 50));
+      // Your own shots: a hit far away is too faint to hear, so it's also confirmed at your ear.
+      const ranged = hit.delivery === 'hitscan' || hit.delivery === 'projectile';
+      if (ranged && result.damage > 0 && hit.attacker?.name === 'player' && target !== hit.attacker) this.playHere(hit.zone === 'head' ? 'confirm_head' : 'confirm', 0.8);
     });
-    ev.on('combat:impact', ({ point }) => this.play('thunk', point, 0.6));
-    ev.on('combat:explosion', ({ point }) => this.play('blast', point));
+    ev.on('combat:killed', ({ target, attacker }) => {
+      if (attacker?.name === 'player' && target !== attacker && !target.tags.has('dummy')) this.playHere('kill', 0.8);
+    });
+    ev.on('combat:impact', ({ point, surface, delivery }) => {
+      const s = surface ?? 'stone';
+      // A blade on stone or metal rings; on anything else it thuds like a shot would.
+      if (delivery === 'sweep' && (s === 'stone' || s === 'metal')) return this.play('clang', point, 0.55);
+      this.play(Sounds[`hit_${s}`] ? `hit_${s}` : 'thunk', point, 0.7);
+    });
+    ev.on('combat:explosion', ({ point, radius }) => {
+      this.play('blast', point);
+      // Close by: the world goes dull for a second or two, and your ears ring.
+      const d = this.game.renderer.camera.position.distanceTo(_p.set(point.x, point.y, point.z));
+      if (d < radius * 1.6) this.deafen(1 - d / (radius * 1.6));
+    });
+    ev.on('combat:charge', ({ entity, item, full }) => {
+      const m = item ? Object.values(Items[item]?.weapon?.modes ?? {})[0] : undefined;
+      const bow = m?.delivery?.kind === 'projectile' && !m.trigger?.cook;
+      if (full) this.play('ready', entity, bow ? 0.6 : 1);
+      else if (bow) this.play('creak', entity, 0.7);
+    });
+    ev.on('combat:fusetick', ({ point }) => this.play('tick', point));
+    ev.on('combat:bounce', ({ point, speed }) => this.play('clink', point, Math.min(1, 0.3 + speed / 8)));
+    // Someone else's shot passing close: you hear how near it came.
+    ev.on('combat:tracer', ({ attacker, from, to }) => {
+      if (attacker?.name === 'player') return;
+      const cam = this.game.renderer.camera.position;
+      _p.set(from.x, from.y, from.z);
+      _r.set(to.x - from.x, to.y - from.y, to.z - from.z);
+      const len2 = _r.lengthSq();
+      if (len2 < 1) return;
+      const k = (cam.x - _p.x) * _r.x + (cam.y - _p.y) * _r.y + (cam.z - _p.z) * _r.z;
+      const u = k / len2;
+      // It has to go past you: not one that stopped in you, or short of you.
+      if (u <= 0.02 || u >= 0.97) return;
+      _p.addScaledVector(_r, u);
+      const miss = _p.distanceTo(cam);
+      if (miss < 1.6) this.play('crack', { x: _p.x, y: _p.y, z: _p.z }, 1 - miss / 3);
+    });
     ev.on('combat:dry', ({ entity }) => this.play('click', entity));
     ev.on('combat:reload', ({ entity, step }) => this.play(step ? 'ratchet' : 'click', entity, 0.7));
   }
@@ -147,10 +253,32 @@ export class CombatAudio implements System {
       // A gentle limiter so a blast doesn't clip.
       const comp = this.ctx.createDynamicsCompressor();
       comp.threshold.value = -10;
-      this.master.connect(comp).connect(this.ctx.destination);
+      // Everything passes a filter that's wide open, except just after a blast close by.
+      this.muffle = this.ctx.createBiquadFilter();
+      this.muffle.type = 'lowpass';
+      this.muffle.frequency.value = 20000;
+      this.master.connect(this.muffle).connect(comp).connect(this.ctx.destination);
     } catch {
       this.ctx = null;
     }
+  }
+
+  /** Muffle everything for a moment (`amount` 0..1), coming back over a couple of seconds, with a ringing in the ears. */
+  deafen(amount: number): void {
+    this.deafened = amount;
+    const ctx = this.ctx;
+    if (amount < 0.25 || !ctx || !this.muffle) return;
+    const t = ctx.currentTime;
+    const f = this.muffle.frequency;
+    f.cancelScheduledValues(t);
+    f.setValueAtTime(THREE.MathUtils.lerp(2500, 350, amount), t + 0.05);
+    f.exponentialRampToValueAtTime(20000, t + 0.8 + amount * 1.8);
+    this.playHere('ring', amount);
+  }
+
+  /** Play a sound at the listener: no distance, no side. */
+  playHere(name: string, loud = 1): void {
+    this.play(name, this.game.renderer.camera.position, loud);
   }
 
   /** Play a sound at an entity or a point: quieter with distance, panned to its side. */
@@ -170,7 +298,9 @@ export class CombatAudio implements System {
     pan.pan.value = side * 0.8;
     pan.connect(this.master);
     try {
-      voice(ctx, pan, ctx.currentTime + 0.005, gain);
+      // A little different every time, in pitch and loudness.
+      PITCH = 0.94 + Math.random() * 0.12;
+      voice(ctx, pan, ctx.currentTime + 0.005, gain * (0.88 + Math.random() * 0.12));
     } catch {
       /* audio isn't essential */
     }

@@ -52,7 +52,7 @@ export function createPlayer(game: Game, spawn: THREE.Vector3, yaw = 0): Entity 
       },
     }),
   );
-  player.add(new Combatant({ faction: 'player' }));
+  player.add(new Combatant({ faction: 'player', inputBuffer: 0.18 }));
   player.add(new PlayerCombat());
   player.add(new FistViewmodel());
   // Last, so older saves (keyed by component position) still line up.

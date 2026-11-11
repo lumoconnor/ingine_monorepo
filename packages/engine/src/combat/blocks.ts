@@ -22,7 +22,7 @@ export const Triggers: Record<string, KindDef> = {
   'hold-auto': { params: { rpm: num(false), delay: num(), misfire: num(), jam: num() } },
   burst: { params: { rpm: num(false), count: num(false), misfire: num(), jam: num() } },
   charge: { params: { min: num(), max: num(false), cook: 'any', holdStamina: num(), misfire: num() } },
-  combo: { params: { steps: 'any', window: num() } },
+  combo: { params: { steps: 'any', window: num(), cancel: num(), finisher: 'any' } },
 };
 
 export const Feeders: Record<string, KindDef> = {

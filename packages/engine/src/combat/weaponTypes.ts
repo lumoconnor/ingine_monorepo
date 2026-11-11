@@ -54,6 +54,10 @@ export interface TriggerDef {
   /** combo: the swings in order (names of arcs), and seconds after a swing during which another click continues it. */
   steps?: string[];
   window?: number;
+  /** combo: a queued swing may start once this fraction of the recovery has passed (default 1: wait it all out). */
+  cancel?: number;
+  /** combo: the last step hits harder and leaves you open longer (multipliers). */
+  finisher?: { damage?: number; recovery?: number };
   /** Delay between pulling the trigger and the shot (a flintlock's pan flash). */
   delay?: number;
   /** Chance per shot of a misfire (the shot is lost) or a jam (needs clearing with reload). */
@@ -70,6 +74,8 @@ export interface TimingDef {
   windup?: number;
   active?: number;
   recovery?: number;
+  /** Melee: metres you step forward as the blow goes in. */
+  lunge?: number;
 }
 
 export interface FeederDef {

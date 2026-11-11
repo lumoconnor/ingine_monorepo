@@ -64,6 +64,8 @@ export class Hud implements System {
   private deathEl!: HTMLDivElement;
   private numbers: FloatingNumber[] = [];
   private hurt = 0;
+  private blastEl!: HTMLDivElement;
+  private blast = 0;
   private marker = 0;
   private shownHp = -1;
   private weaponEl!: HTMLDivElement;
@@ -83,6 +85,7 @@ export class Hud implements System {
     this.root.innerHTML = `
       <div class="underwater hidden"></div>
       <div class="hurt"></div>
+      <div class="blast-flash"></div>
       <div class="crosshair"></div>
       <div class="spread hidden"><i class="n"></i><i class="e"></i><i class="s"></i><i class="w"></i></div>
       <div class="hitmarker"></div>
@@ -137,6 +140,7 @@ export class Hud implements System {
     this.healthFill = this.root.querySelector('.health .fill')!;
     this.healthText = this.root.querySelector('.health .hp')!;
     this.hurtEl = this.root.querySelector('.hurt')!;
+    this.blastEl = this.root.querySelector('.blast-flash')!;
     this.hitmarker = this.root.querySelector('.hitmarker')!;
     this.numbersEl = this.root.querySelector('.numbers')!;
     this.deathEl = this.root.querySelector('.death')!;
@@ -258,6 +262,13 @@ export class Hud implements System {
         if (hit.point) this.spawnNumber(hit.point, result.damage, hit.zone === 'head');
       }
     });
+    // A blast close by whites out the view for an instant.
+    game.events.on('combat:explosion', ({ point, radius }) => {
+      const p = game.world.find('player')?.object3d.position;
+      if (!p) return;
+      const d = Math.hypot(p.x - point.x, p.y + 1.5 - point.y, p.z - point.z);
+      this.blast = Math.max(this.blast, THREE.MathUtils.clamp(1.15 - d / (radius * 1.3), 0, 0.9));
+    });
     // Which way the blow came from: a red arc at the edge of the view.
     game.events.on('combat:hit', ({ hit, target, result }) => {
       if (!isPlayer(target) || !hit.attacker || isPlayer(hit.attacker) || (result.damage <= 0 && !result.tags.length)) return;
@@ -319,7 +330,11 @@ export class Hud implements System {
     const showBar = f.state === 'reloading' || f.state === 'charging';
     const key = [item, loaded, reserve, thrown, f.equipped, slots.join(','), f.state === 'reloading' ? f.reloadStep : '', showBar, this.game.input.locked].join('|');
     const bar = this.weaponEl.querySelector<HTMLDivElement>('.wbar')!;
-    if (showBar) bar.querySelector<HTMLDivElement>('.wfill')!.style.width = `${Math.round(100 * (f.state === 'charging' ? f.charge : f.progress))}%`;
+    // A cooking grenade shows its fuse running down, not how hard you'll throw.
+    const cm = f.state === 'charging' ? f.currentMode : null;
+    const fuse = cm?.trigger.cook && cm.delivery.fuse ? Math.max(0, 1 - f.heldTime / cm.delivery.fuse) : null;
+    bar.classList.toggle('fuse', fuse !== null);
+    if (showBar) bar.querySelector<HTMLDivElement>('.wfill')!.style.width = `${Math.round(100 * (fuse ?? (f.state === 'charging' ? f.charge : f.progress)))}%`;
     if (key === this.weaponKey) return;
     this.weaponKey = key;
     this.weaponEl.classList.toggle('hidden', !this.game.input.locked || (!def && !slots.length));
@@ -434,6 +449,8 @@ export class Hud implements System {
     this.updateVitals(dt);
     this.hurt = Math.max(0, this.hurt - dt * 1.6);
     this.hurtEl.style.opacity = String(this.hurt);
+    this.blast = Math.max(0, this.blast - dt * 2.2);
+    this.blastEl.style.opacity = String(this.blast * this.blast);
     this.marker = Math.max(0, this.marker - dt * 5);
     this.hitmarker.style.opacity = String(this.marker);
 

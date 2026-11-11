@@ -32,7 +32,34 @@ const Puffs = {
   straw: { color: 0xd8bf7a, n: 7, speed: 2.4, life: 0.6, size: 0.03, grow: 0, gravity: 5, drag: 2.5 },
   smoke: { color: 0xc9c9c4, n: 10, speed: 1.2, life: 1.6, size: 0.07, grow: 0.5, gravity: -0.3, drag: 1.5 },
   debris: { color: 0x5a5046, n: 24, speed: 9, life: 1.0, size: 0.06, grow: 0, gravity: 12, drag: 0.6 },
+  splinters: { color: 0xb08a55, n: 7, speed: 3.2, life: 0.55, size: 0.022, grow: 0, gravity: 9, drag: 1.5 },
+  dirt: { color: 0x5c4a33, n: 8, speed: 2.6, life: 0.5, size: 0.035, grow: 0.05, gravity: 9, drag: 1.5 },
+  chips: { color: 0xa9a59c, n: 6, speed: 3.4, life: 0.4, size: 0.02, grow: 0, gravity: 10, drag: 1 },
 } as const;
+
+/** What flies off each kind of surface when something strikes it. */
+const SurfacePuffs: Record<string, PuffKind[]> = {
+  stone: ['dust', 'chips'],
+  wood: ['splinters'],
+  dirt: ['dirt', 'dust'],
+  metal: ['sparks'],
+};
+
+const TRACER_SPEED = 280;
+const TRACER_LENGTH = 9;
+const MAX_MARKS = 48;
+const _a = new THREE.Vector3();
+const _b = new THREE.Vector3();
+const _z = new THREE.Vector3(0, 0, 1);
+
+interface Tracer {
+  mesh: THREE.Mesh;
+  from: THREE.Vector3;
+  dir: THREE.Vector3;
+  length: number;
+  /** Metres its head has travelled. */
+  head: number;
+}
 export type PuffKind = keyof typeof Puffs;
 
 /**
@@ -45,6 +72,13 @@ export class CombatFx implements System {
   private game!: Game;
   private mesh!: THREE.InstancedMesh;
   private parts: Particle[] = [];
+  private tracers: Tracer[] = [];
+  private tracerGeo = new THREE.BoxGeometry(0.012, 0.012, 1);
+  private tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending });
+  /** Marks left where shots and blades struck things that stay put; the oldest go first. */
+  private marks: THREE.Mesh[] = [];
+  private markGeo = new THREE.CircleGeometry(1, 10);
+  private markMat = new THREE.MeshBasicMaterial({ color: 0x15120f, transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 
   init(game: Game): void {
     this.game = game;
@@ -55,7 +89,16 @@ export class CombatFx implements System {
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX * 3), 3);
     game.renderer.scene.add(this.mesh);
     const ev = game.events;
-    ev.on('combat:impact', ({ point }) => this.puff('dust', point));
+    ev.on('combat:impact', ({ point, surface, delivery, normal, fixed }) => {
+      const n = normal ? _a.set(normal.x, normal.y, normal.z) : undefined;
+      for (const kind of SurfacePuffs[surface ?? 'stone'] ?? SurfacePuffs.stone) this.puff(kind, point, delivery === 'sweep' ? 0.7 : 1, n);
+      // Steel on stone throws sparks.
+      if (delivery === 'sweep' && (surface ?? 'stone') === 'stone') this.puff('sparks', point, 0.7, n);
+      if (normal && fixed && delivery === 'hitscan') this.mark(point, normal);
+    });
+    ev.on('combat:tracer', ({ attacker, from, to }) => this.tracer(attacker?.name === 'player', from, to));
+    ev.on('level:loaded', () => this.clearMarks());
+    ev.on('game:loaded', () => this.clearMarks());
     ev.on('combat:hit', ({ hit, target, result }) => {
       if (!hit.point || hit.delivery === 'status' || hit.delivery === 'hazard') return;
       const t = result.tags;
@@ -112,12 +155,77 @@ export class CombatFx implements System {
     }
   }
 
+  /** A bullet's streak: a short bright line that runs from the muzzle to where the shot stopped. */
+  private tracer(mine: boolean, from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }): void {
+    _a.set(from.x, from.y, from.z);
+    _b.set(to.x, to.y, to.z);
+    if (mine) {
+      // Yours leaves from the gun, low and right of the eye, and meets the line of the shot.
+      const cam = this.game.renderer.camera;
+      _a.add(_p.set(0.14, -0.13, -0.6).applyQuaternion(cam.quaternion));
+    }
+    const length = _a.distanceTo(_b);
+    if (length < 2.5) return;
+    const mesh = new THREE.Mesh(this.tracerGeo, this.tracerMat);
+    mesh.frustumCulled = false;
+    const dir = _b.clone().sub(_a).divideScalar(length);
+    mesh.quaternion.setFromUnitVectors(_z, dir);
+    this.game.renderer.scene.add(mesh);
+    const t: Tracer = { mesh, from: _a.clone(), dir, length, head: Math.min(length, 1.5) };
+    this.tracers.push(t);
+    this.placeTracer(t);
+  }
+
+  private placeTracer(t: Tracer): void {
+    const tail = Math.max(0, t.head - TRACER_LENGTH);
+    const head = Math.min(t.head, t.length);
+    t.mesh.scale.set(1, 1, Math.max(0.01, head - tail));
+    t.mesh.position.copy(t.from).addScaledVector(t.dir, (head + tail) / 2);
+  }
+
+  /** A dark mark on a surface that stays put. */
+  private mark(point: { x: number; y: number; z: number }, normal: { x: number; y: number; z: number }): void {
+    let m = this.marks.length >= MAX_MARKS ? this.marks.shift()! : null;
+    if (!m) {
+      m = new THREE.Mesh(this.markGeo, this.markMat);
+      this.game.renderer.scene.add(m);
+    }
+    _a.set(normal.x, normal.y, normal.z).normalize();
+    m.position.set(point.x, point.y, point.z).addScaledVector(_a, 0.004);
+    m.quaternion.setFromUnitVectors(_z, _a);
+    m.scale.setScalar(0.022 + Math.random() * 0.01);
+    this.marks.push(m);
+  }
+
+  private clearMarks(): void {
+    for (const m of this.marks) m.removeFromParent();
+    this.marks = [];
+    for (const t of this.tracers) t.mesh.removeFromParent();
+    this.tracers = [];
+  }
+
+  get marksLeft(): number {
+    return this.marks.length;
+  }
+
+  get tracersLive(): number {
+    return this.tracers.length;
+  }
+
   get live(): number {
     return this.parts.length;
   }
 
   update(time: FrameTime): void {
     const dt = Math.min(time.delta, 0.1);
+    if (this.tracers.length) {
+      this.tracers = this.tracers.filter((t) => {
+        t.head += TRACER_SPEED * dt;
+        if (t.head - TRACER_LENGTH >= t.length) return void t.mesh.removeFromParent(), false;
+        this.placeTracer(t);
+        return true;
+      });
+    }
     this.parts = this.parts.filter((p) => (p.age += dt) < p.life);
     let i = 0;
     for (const p of this.parts) {

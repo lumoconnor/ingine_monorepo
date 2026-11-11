@@ -32,6 +32,8 @@ export class PlayerCombat extends Component {
   private kickYaw = 0;
   /** Part of each kick settles back on its own (the rest you pull down yourself). */
   private settle = 0;
+  /** A hard-kicking gun jolts the view wider for an instant (a fraction of the FOV, fading fast). */
+  private punch = 0;
 
   onAttach(): void {
     this.ctrl = this.entity.require(PlayerController);
@@ -63,8 +65,22 @@ export class PlayerCombat extends Component {
         const r = Items[item]?.weapon?.handling?.recoil;
         if (!r) return;
         this.kickPitch += r.pitch * DEG;
+        this.punch = Math.min(0.07, r.pitch * 0.014);
         this.settle += r.pitch * DEG * 0.45;
         this.kickYaw += (this.game.getSystem<import('./CombatSystem').CombatSystem>('combat')!.rng() * 2 - 1) * (r.yaw ?? 0) * DEG;
+      }),
+      // Step into the blow as the blade goes in.
+      ev.on('combat:swing', ({ attacker }) => {
+        const lunge = this.fighter.currentMode?.timing?.lunge ?? 0;
+        if (attacker !== this.entity || lunge <= 0 || !this.ctrl.grounded) return;
+        const yaw = this.ctrl.yaw;
+        this.ctrl.shove({ x: -Math.sin(yaw), z: -Math.cos(yaw) }, lunge * 8);
+      }),
+      // Blows drive you back a little; a blast throws you.
+      ev.on('combat:hit', ({ hit, target, result }) => {
+        if (target !== this.entity || !hit.direction || result.damage <= 0) return;
+        if (hit.delivery === 'area') this.ctrl.shove(hit.direction, Math.min(9, 3 + result.damage * 0.08));
+        else if (hit.delivery === 'sweep') this.ctrl.shove(hit.direction, Math.min(3, result.damage * 0.05));
       }),
       // Picking up your first weapon while empty-handed draws it.
       ev.on('state:changed', ({ kind, key }) => {
@@ -126,7 +142,16 @@ export class PlayerCombat extends Component {
 
     // Aiming and handling slow you and zoom the view.
     const h = this.fighter.weapon.handling;
-    this.ctrl.fovScale = this.fighter.aiming ? (h?.ads ?? 1) : 1;
+    // A drawn bow narrows the view a touch: your eye is on the mark.
+    const cm = this.fighter.state === 'charging' ? this.fighter.currentMode : null;
+    const draw = cm && cm.delivery.kind === 'projectile' && !cm.trigger.cook ? this.fighter.charge : 0;
+    this.ctrl.fovScale = (this.fighter.aiming ? (h?.ads ?? 1) : 1) * (1 + this.punch) * (1 - 0.05 * draw);
+    // Accuracy: worse on the move, much worse in the air, a little better crouched and still.
+    const move = THREE.MathUtils.clamp(this.ctrl.horizontalSpeed / this.ctrl.cfg.sprintSpeed, 0, 1);
+    const target = !this.ctrl.grounded && !this.ctrl.swimming ? 2 : (1 + 0.6 * move) * (this.ctrl.crouched ? 0.8 : 1);
+    this.fighter.spreadScale += (target - this.fighter.spreadScale) * (1 - Math.exp(-dt * 12));
+    this.punch *= Math.exp(-dt * 9);
+    if (this.punch < 0.001) this.punch = 0;
     this.ctrl.speedScale =
       (h?.move ?? 1) * (this.fighter.aiming ? (h?.adsMove ?? 1) : 1) * (this.fighter.state === 'blocking' ? 0.6 : 1) * (this.armour?.moveScale ?? 1);
 

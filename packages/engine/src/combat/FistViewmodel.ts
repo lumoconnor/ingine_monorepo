@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Component } from '../entities/Component';
-import type { FrameTime } from '../core/Time';
+import { FIXED_DT, type FrameTime } from '../core/Time';
 import { Items } from '../inventory/catalog';
 import { buildModel, hasModel } from '../render/models/ModelRegistry';
 import { Arcs } from './blocks';
@@ -19,6 +19,10 @@ const _y = new THREE.Vector3();
 const _z = new THREE.Vector3();
 const _d = new THREE.Vector3();
 const _t = new THREE.Vector3();
+const _box = new THREE.Box3();
+const TRAIL_MAX = 12;
+/** Seconds a blade's smear lasts: short, so it reads as speed, not as a painted fan. */
+const TRAIL_LIFE = 0.05;
 const smooth = (x: number) => {
   const c = THREE.MathUtils.clamp(x, 0, 1);
   return c * c * (3 - 2 * c);
@@ -74,7 +78,21 @@ export class FistViewmodel extends Component {
   private pivot = new THREE.Group();
   private holder = new THREE.Group();
   private fist = new THREE.Group();
-  private flash: THREE.Mesh;
+  private flash = new THREE.Group();
+  private flashRoll = 0;
+  private flashSize = 1;
+  private kickRoll = 1;
+  private lastSinceShot = 99;
+  /** A faint smear behind a blade as it cuts: the last few places its edge has been. */
+  private trail!: THREE.Mesh;
+  private trailPts: { base: THREE.Vector3; tip: THREE.Vector3; age: number }[] = [];
+  private bladeTip = new THREE.Vector3();
+  private bladeBase = new THREE.Vector3();
+  private hasBlade = false;
+  /** A glint down the weapon the moment a hold reaches full. */
+  private glint = 0;
+  private glintMats: THREE.MeshStandardMaterial[] = [];
+  private unsub: (() => void) | null = null;
   private flashLight = new THREE.PointLight(0xffc070, 0, 6, 2);
   private model: THREE.Object3D | null = null;
   private shownItem: string | null | undefined = undefined;
@@ -102,14 +120,40 @@ export class FistViewmodel extends Component {
   private drawBlend = 0;
   private sightPos = new THREE.Vector3(0, -0.11, -0.4);
   private fistRest = new THREE.Vector3(0.22, -0.34, -0.3);
+  /** Cross-fade out of the last pose when a light wind-up turns into a held heavy. */
+  private fade = 0;
+  private fadePos = new THREE.Vector3();
+  private fadeQuat = new THREE.Quaternion();
+  private lastPos = new THREE.Vector3();
+  private lastQuat = new THREE.Quaternion();
+  private lastState = 'idle';
 
   constructor() {
     super();
-    this.flash = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 8, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9, depthTest: false }),
+    // Muzzle flash: two crossed four-pointed flares, turned and sized afresh for each shot.
+    const flare = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const core = new THREE.MeshBasicMaterial({ color: 0xfff3d0, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const a = new THREE.Mesh(new THREE.CircleGeometry(0.075, 4), flare);
+    a.scale.set(1, 0.32, 1);
+    const b = new THREE.Mesh(new THREE.CircleGeometry(0.06, 4), flare);
+    b.scale.set(0.32, 1, 1);
+    const c = new THREE.Mesh(new THREE.CircleGeometry(0.028, 8), core);
+    for (const m of [a, b, c]) m.renderOrder = 21;
+    this.flash.add(a, b, c);
+    this.flash.visible = false;
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 2 * 3), 3));
+    trailGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 2 * 3), 3));
+    const idx: number[] = [];
+    for (let i = 0; i < TRAIL_MAX - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    trailGeo.setIndex(idx);
+    this.trail = new THREE.Mesh(
+      trailGeo,
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
     );
-    this.flash.renderOrder = 21;
+    this.trail.frustumCulled = false;
+    this.trail.renderOrder = 19;
+    this.trail.visible = false;
   }
 
   onAttach(): void {
@@ -126,14 +170,46 @@ export class FistViewmodel extends Component {
     hand.position.z = -0.025;
     this.fist.add(fore, hand);
     this.fist.rotation.set(0.05, 0.12, 0);
-    this.pivot.add(this.fist, this.holder, this.flashLight);
+    this.pivot.add(this.fist, this.holder, this.flashLight, this.trail);
     const cam = this.game.renderer.camera;
     if (!cam.parent) this.game.renderer.scene.add(cam);
     cam.add(this.pivot);
+    this.unsub = this.game.events.on('combat:charge', ({ entity, full }) => {
+      if (entity === this.entity && full) this.glint = 1;
+    });
   }
 
   onDetach(): void {
     this.pivot.removeFromParent();
+    this.unsub?.();
+  }
+
+  /** The smear behind a cutting blade: a ribbon through where its edge has just been, fading in a twentieth of a second. */
+  private updateTrail(dt: number, cutting: boolean): void {
+    const pts = this.trailPts;
+    for (const p of pts) p.age += dt;
+    while (pts.length && pts[0].age > TRAIL_LIFE) pts.shift();
+    if (cutting && this.hasBlade && this.model) {
+      this.holder.updateMatrix();
+      if (pts.length >= TRAIL_MAX) pts.shift();
+      pts.push({ base: this.bladeBase.clone().applyMatrix4(this.holder.matrix), tip: this.bladeTip.clone().applyMatrix4(this.holder.matrix), age: 0 });
+    }
+    this.trail.visible = pts.length >= 2;
+    if (!this.trail.visible) return;
+    const geo = this.trail.geometry;
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const col = geo.getAttribute('color') as THREE.BufferAttribute;
+    pts.forEach((p, i) => {
+      pos.setXYZ(i * 2, p.base.x, p.base.y, p.base.z);
+      pos.setXYZ(i * 2 + 1, p.tip.x, p.tip.y, p.tip.z);
+      // Additive: brightness is its opacity. Faint at the grip end, brightest at the tip, gone with age.
+      const k = Math.max(0, 1 - p.age / TRAIL_LIFE);
+      col.setXYZ(i * 2, 0.01 * k, 0.01 * k, 0.01 * k);
+      col.setXYZ(i * 2 + 1, 0.13 * k, 0.13 * k, 0.14 * k);
+    });
+    geo.setDrawRange(0, (pts.length - 1) * 6);
+    pos.needsUpdate = true;
+    col.needsUpdate = true;
   }
 
   /** Swap the held model when the weapon changes. */
@@ -143,6 +219,7 @@ export class FistViewmodel extends Component {
     this.shownItem = item;
     this.model?.removeFromParent();
     this.model = null;
+    this.glintMats = [];
     const def = item ? Items[item] : undefined;
     const view = def?.weapon?.view;
     const name = view?.model ?? def?.model;
@@ -156,6 +233,7 @@ export class FistViewmodel extends Component {
         o.castShadow = false;
         o.material = (o.material as THREE.Material).clone();
         (o.material as THREE.Material).depthTest = false;
+        if (o.material instanceof THREE.MeshStandardMaterial) this.glintMats.push(o.material);
       }
     });
     this.fist.traverse((o) => {
@@ -173,10 +251,26 @@ export class FistViewmodel extends Component {
     const sp = view?.sight ?? [0, -0.11, p[2]];
     this.sightPos.set(sp[0], sp[1], sp[2]);
     this.holder.add(this.model);
-    // Muzzle at the front of the model.
-    const box = new THREE.Box3().setFromObject(this.model);
-    this.flash.position.set(0, (box.max.y + box.min.y) / 2 + 0.01, box.min.z - 0.03);
+    // The model's extent in the holder's own space (it runs along -Z from the grip).
     this.model.add(this.flash);
+    this.model.updateMatrixWorld(true);
+    const local = new THREE.Box3();
+    const inv = new THREE.Matrix4().copy(this.holder.matrixWorld).invert();
+    this.model.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || o.parent === this.flash) return;
+      o.geometry.computeBoundingBox();
+      local.union(_box.copy(o.geometry.boundingBox!).applyMatrix4(_m.multiplyMatrices(inv, o.matrixWorld)));
+    });
+    // Muzzle at the front of the model (the flash is the model's child, so in its unscaled space).
+    const sc = this.model.scale.x || 1;
+    this.flash.position.set(0, ((local.max.y + local.min.y) / 2 + 0.01) / sc, (local.min.z - 0.03) / sc);
+    // A blade's edge: its outer part, out to the tip.
+    this.hasBlade = Object.values(def.weapon?.modes ?? {}).some((m) => m.delivery?.kind === 'sweep');
+    this.trailPts.length = 0;
+    if (this.hasBlade) {
+      this.bladeTip.set(0, (local.max.y + local.min.y) / 2, local.min.z);
+      this.bladeBase.set(0, this.bladeTip.y, local.min.z * 0.6);
+    }
   }
 
   update(time: FrameTime): void {
@@ -186,17 +280,27 @@ export class FistViewmodel extends Component {
     const dead = this.player.dead;
     this.pivot.visible = !dead;
     const st = f.state;
+    // Between fixed steps: where the swing, draw and kick will be by the time this frame shows.
+    const prog = f.progressAt(time.alpha);
+    const chargeNow = f.chargeAt(time.alpha);
+    const sinceShot = f.sinceShot + time.alpha * FIXED_DT;
+    if (st === 'charging' && this.lastState === 'windup' && this.model) {
+      this.fade = 1;
+      this.fadePos.copy(this.lastPos);
+      this.fadeQuat.copy(this.lastQuat);
+    }
+    this.lastState = st;
     const m = f.currentMode;
     const melee = m?.delivery.kind === 'sweep';
     const arcName = f.step ?? m?.delivery.arc ?? 'jab';
     const arc = Arcs[arcName] ?? Arcs.jab;
     // Fists: the whole view jabs along the arc (it's straight ahead).
     let swing = 0;
-    if (st === 'windup') swing = f.progress;
+    if (st === 'windup') swing = prog;
     else if (st === 'active') swing = 1;
-    else if (st === 'recovery') swing = 1 - f.progress;
+    else if (st === 'recovery') swing = 1 - prog;
     if (!melee) swing = 0;
-    const a = arc(st === 'windup' ? 0 : st === 'active' ? f.progress : 1);
+    const a = arc(st === 'windup' ? 0 : st === 'active' ? prog : 1);
     const fistSwing = this.model ? 0 : swing;
     // Guard comes up fast; a stagger knocks the view about.
     const k = 1 - Math.exp(-dt * 18);
@@ -260,11 +364,11 @@ export class FistViewmodel extends Component {
       const fromHeld = f.currentMode?.trigger.kind === 'charge';
       if (st === 'windup') {
         // Into the cocked pose (already there after holding a heavy).
-        poseAmt = fromHeld ? 1 : smooth(Math.min(1, f.progress * 1.25));
+        poseAmt = fromHeld ? 1 : smooth(Math.min(1, prog * 1.25));
         bladePose(arc, 0, 1, this.posePos, this.poseQ);
       } else if (st === 'active') {
         poseAmt = 1;
-        const p = f.progress;
+        const p = prog;
         bladePose(arc, p, 0, this.posePos, this.poseQ);
         // Uncoil out of the windup over the first part of the cut.
         const u = smooth(p / 0.3);
@@ -274,12 +378,14 @@ export class FistViewmodel extends Component {
           this.posePos.lerpVectors(this.posePos2, this.posePos, u);
         }
       } else {
-        poseAmt = 1 - smooth(f.progress);
-        bladePose(arc, 1, 0, this.posePos, this.poseQ);
+        // From where the cut ended (short of its arc if a wall or a guard stopped it, and then it springs back off).
+        poseAmt = 1 - smooth(prog);
+        const back = f.rebounded ? 0.3 * Math.sin(Math.min(1, prog * 4) * Math.PI * 0.5) : 0;
+        bladePose(arc, Math.max(0, f.swingEnd - back), 0, this.posePos, this.poseQ);
       }
     } else if (heldArc && (st === 'pending' || st === 'charging')) {
       // Holding for a heavy: the blade starts lifting the moment you press.
-      const h = st === 'pending' ? 0.45 * smooth(f.pendingHold()?.t ?? 0) : 0.45 + 0.55 * smooth(f.charge * 1.4);
+      const h = st === 'pending' ? 0.45 * smooth(f.pendingHold()?.t ?? 0) : 0.45 + 0.55 * smooth(chargeNow * 1.4);
       poseAmt = h;
       bladePose(heldArc, 0, 1, this.posePos, this.poseQ);
       if (st === 'charging' && f.charge >= 1) this.posePos.y += Math.sin(performance.now() / 30) * 0.002;
@@ -298,17 +404,27 @@ export class FistViewmodel extends Component {
       rot.z += (-18 * DEG - rot.z) * g;
     }
     // Shots kick it up and back.
-    const kick = Math.exp(-f.sinceShot * 18);
-    pos.z += 0.06 * kick;
-    rot.x += 9 * DEG * kick * (1 - this.aimBlend * 0.6);
+    // Shots kick it up and back, harder for a gun that kicks harder, with a twist that differs shot to shot.
+    const recoil = Items[this.shownItem ?? '']?.weapon?.handling?.recoil?.pitch ?? 1.6;
+    const hard = Math.pow(THREE.MathUtils.clamp(recoil / 1.6, 0.5, 3), 0.7);
+    if (f.sinceShot < this.lastSinceShot) {
+      this.kickRoll = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+      this.flashRoll = Math.random() * Math.PI;
+      this.flashSize = (0.8 + Math.random() * 0.5) * Math.sqrt(hard);
+    }
+    this.lastSinceShot = f.sinceShot;
+    const kick = Math.exp(-sinceShot * 18);
+    pos.z += 0.06 * kick * hard;
+    rot.x += 9 * DEG * kick * hard * (1 - this.aimBlend * 0.6);
+    rot.z += 3.5 * DEG * kick * hard * this.kickRoll * (1 - this.aimBlend * 0.5);
     // Drawing it, and reloading: it dips out of view.
-    const dip = st === 'equipping' ? 1 - f.progress : st === 'reloading' ? Math.sin(Math.min(1, f.progress) * Math.PI) * 0.9 + 0.1 : 0;
+    const dip = st === 'equipping' ? 1 - prog : st === 'reloading' ? Math.sin(Math.min(1, prog) * Math.PI) * 0.9 + 0.1 : 0;
     pos.y -= 0.22 * dip;
     rot.x -= 35 * DEG * dip;
     // A bow or a throw pulls back while charging; a bow comes in toward the
     // eye as it's drawn, the arrow just left of the crosshair.
     const charging = st === 'charging' && !heldArc;
-    const drawT = charging ? f.charge : 0;
+    const drawT = charging ? chargeNow : 0;
     this.drawBlend += ((charging ? 1 : 0) - this.drawBlend) * (1 - Math.exp(-dt * 16));
     if (this.drawPos) pos.lerp(this.drawPos, this.drawBlend);
     else pos.z += 0.04 * drawT;
@@ -317,8 +433,31 @@ export class FistViewmodel extends Component {
     ud.draw?.(drawT);
     ud.nocked?.(st !== 'reloading' && st !== 'equipping' && f.loaded() > 0);
 
+    if (this.fade > 0) {
+      const k = smooth(this.fade);
+      pos.lerp(this.fadePos, k);
+      this.holder.quaternion.slerp(this.fadeQuat, k);
+      this.fade = Math.max(0, this.fade - dt / 0.12);
+    }
+    this.lastPos.copy(pos);
+    this.lastQuat.copy(this.holder.quaternion);
+
+    this.updateTrail(dt, melee && st === 'active' && !f.paused);
+    if (this.glint > 0 || this.glintMats[0]?.emissiveIntensity) {
+      this.glint = Math.max(0, this.glint - dt * 5);
+      for (const gm of this.glintMats) {
+        gm.emissive.setRGB(1, 0.95, 0.8);
+        gm.emissiveIntensity = this.glint * this.glint * 0.5;
+      }
+    }
+
     const flashOn = f.sinceShot < 0.05;
     this.flash.visible = flashOn;
+    if (flashOn) {
+      this.flash.rotation.z = this.flashRoll;
+      const s = this.flashSize / (this.model.scale.x || 1);
+      this.flash.scale.setScalar(s * (1 - f.sinceShot * 8));
+    }
     this.flashLight.intensity = flashOn ? 6 : 0;
     this.flashLight.position.copy(pos).z -= 0.3;
   }

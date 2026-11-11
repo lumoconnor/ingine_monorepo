@@ -28,6 +28,8 @@ export interface TraceOptions {
   radius?: number;
   /** Targets already struck by this swing: passed through without effect. */
   skip?: Set<Damageable>;
+  /** Don't report an impact on the world (a swing that already scraped the wall this stroke). */
+  silent?: boolean;
 }
 
 /** What a trace found first along its line. */
@@ -40,6 +42,8 @@ export interface TraceHit {
   /** Set when it struck something that can be hurt. */
   target: Damageable | null;
   zone: string | null;
+  /** Surface normal where a thin ray met something solid (not for swept shapes or hit zones). */
+  normal?: THREE.Vector3;
 }
 
 export interface AttackSpec {
@@ -78,6 +82,15 @@ const _u = new THREE.Vector3();
 const _v = new THREE.Vector3();
 const _shot = new THREE.Vector3();
 
+/** What something is made of, for the sound and look of a hit on it: a `surface:<kind>` tag, or a guess from what it is. */
+export function surfaceOf(e: Entity | undefined): string {
+  if (!e) return 'stone';
+  for (const t of e.tags) if (t.startsWith('surface:')) return t.slice(8);
+  if (e.tags.has('terrain')) return 'dirt';
+  if (e.tags.has('door') || e.tags.has('chest') || e.tags.has('ladder') || e.tags.has('dummy')) return 'wood';
+  return 'stone';
+}
+
 type DeliveryRunner = (combat: CombatSystem, d: DeliveryDef, s: DeliverySpec) => void;
 
 /** How each delivery kind runs. Its parameters are declared in blocks.ts. */
@@ -86,7 +99,14 @@ export const Deliveries: Record<string, DeliveryRunner> = {
     const pellets = Math.max(1, d.pellets ?? 1);
     for (let i = 0; i < pellets; i++) {
       combat.spreadDir(s.dir, s.spreadDeg, _shot);
-      combat.strike(s.origin, _shot, d.range ?? 100, { ...s.attack, impulse: (s.attack.impulse ?? 0) / pellets }, { exclude: s.exclude });
+      const range = d.range ?? 100;
+      const r = combat.strike(s.origin, _shot, range, { ...s.attack, impulse: (s.attack.impulse ?? 0) / pellets }, { exclude: s.exclude });
+      const end = r.trace ? r.trace.point : _p.copy(s.origin).addScaledVector(_shot, range);
+      combat.game.events.emit('combat:tracer', {
+        attacker: s.attack.attacker,
+        from: { x: s.origin.x, y: s.origin.y, z: s.origin.z },
+        to: { x: end.x, y: end.y, z: end.z },
+      });
     }
   },
 };
@@ -158,6 +178,7 @@ export class CombatSystem implements System {
 
   update(time: import('../core/Time').FrameTime): void {
     const dt = Math.min(time.delta, 0.1);
+    for (const p of this.projectiles) p.render(time.alpha);
     this.blasts = this.blasts.filter((b) => {
       b.age += dt;
       const t = b.age / 0.45;
@@ -185,18 +206,18 @@ export class CombatSystem implements System {
     const cast = (flags: number, groups: number | undefined, pred?: (c: RAPIER.Collider) => boolean) => {
       if (r <= 0) {
         const ray = new RAPIER.Ray(origin, d);
-        const h = world.castRay(ray, range, true, flags, groups, undefined, opts.exclude, pred);
-        return h ? { collider: h.collider, distance: h.timeOfImpact } : null;
+        const h = world.castRayAndGetNormal(ray, range, true, flags, groups, undefined, opts.exclude, pred);
+        return h ? { collider: h.collider, distance: h.timeOfImpact, normal: h.normal as { x: number; y: number; z: number } | undefined } : null;
       }
       const h = world.castShape(origin, IDENTITY, { x: d.x * range, y: d.y * range, z: d.z * range }, new RAPIER.Ball(r), 0, 1, true, flags, groups, undefined, opts.exclude, pred);
-      return h ? { collider: h.collider, distance: h.time_of_impact * range } : null;
+      return h ? { collider: h.collider, distance: h.time_of_impact * range, normal: undefined as { x: number; y: number; z: number } | undefined } : null;
     };
     // Colliders with default groups match every group query, so also insist on a real hurtbox.
     const isHurtbox = (c: RAPIER.Collider) => this.game.physics.ownerOf(c)?.get(Damageable)?.zoneOf(c) != null;
     const zoneHit = cast(RAPIER.QueryFilterFlags.EXCLUDE_SOLIDS, HURTBOX_QUERY, isHurtbox);
     const solid = cast(RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined);
     const owner = (c: RAPIER.Collider) => this.game.physics.ownerOf(c);
-    const make = (h: { collider: RAPIER.Collider; distance: number }, zone: boolean): TraceHit => {
+    const make = (h: { collider: RAPIER.Collider; distance: number; normal?: { x: number; y: number; z: number } }, zone: boolean): TraceHit => {
       const entity = owner(h.collider);
       const target = entity?.get(Damageable) ?? null;
       const point = new THREE.Vector3().copy(origin).addScaledVector(d, h.distance);
@@ -208,6 +229,7 @@ export class CombatSystem implements System {
         target,
         // Struck the solid body: zone by height (capsule bodies), or torso for something with hurtboxes.
         zone: zone && target ? target.zoneOf(h.collider) : (target?.solidZone(point) ?? null),
+        normal: !zone && h.normal ? new THREE.Vector3(h.normal.x, h.normal.y, h.normal.z) : undefined,
       };
     };
     if (zoneHit) {
@@ -237,8 +259,21 @@ export class CombatSystem implements System {
       if (spec.payload?.onHit && spec.attacker?.name === 'player') runAll({ game: this.game, tree: 'combat' }, spec.payload.onHit);
       return { trace: t, result };
     }
-    this.game.events.emit('combat:impact', { source: spec.source, point: { x: t.point.x, y: t.point.y, z: t.point.z } });
+    if (!opts.silent) this.game.events.emit('combat:impact', this.impactOf(t, spec.source, spec.delivery));
     return { trace: t, result: null };
+  }
+
+  /** What an attack struck in the world: where, what it's made of, and (for a mark) the surface it left it on. */
+  impactOf(t: TraceHit, source: string, delivery?: string): import('../core/EventBus').GameEvents['combat:impact'] {
+    const body = t.collider.parent();
+    return {
+      source,
+      point: { x: t.point.x, y: t.point.y, z: t.point.z },
+      delivery,
+      surface: surfaceOf(t.entity),
+      normal: t.normal ? { x: t.normal.x, y: t.normal.y, z: t.normal.z } : undefined,
+      fixed: !!body?.isFixed(),
+    };
   }
 
   /**
