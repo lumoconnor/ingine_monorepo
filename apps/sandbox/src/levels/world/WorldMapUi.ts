@@ -208,13 +208,56 @@ export class WorldMapUi extends Component {
       ctx.lineWidth = 2.5;
       ctx.stroke();
     }
+    // Settlements: walls, then building footprints.
+    const px = PX / g.size;
+    for (const st of this.map.settlements) {
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = '#5d5a55';
+      for (const w of st.walls) {
+        ctx.lineWidth = Math.max(1.5, w.thickness * px);
+        ctx.beginPath();
+        ctx.moveTo(X(w.from[0]), Z(w.from[1]));
+        ctx.lineTo(X(w.to[0]), Z(w.to[1]));
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#5d5a55';
+      for (const t of st.towers) ctx.fillRect(X(t.x) - (t.size * px) / 2, Z(t.z) - (t.size * px) / 2, t.size * px, t.size * px);
+      for (const b of st.buildings) {
+        ctx.save();
+        ctx.translate(X(b.x), Z(b.z));
+        // World yaw turns +Z toward +X; on the map +Z is down, so the canvas angle is -yaw.
+        ctx.rotate(-b.yaw);
+        ctx.fillStyle = b.kind === 'keep' ? '#6f6a63' : '#8d4b36';
+        ctx.fillRect((-b.w * px) / 2, (-b.d * px) / 2, Math.max(1.2, b.w * px), Math.max(1.2, b.d * px));
+        ctx.restore();
+      }
+    }
+    ctx.lineCap = 'round';
+
     ctx.font = '600 12px system-ui, sans-serif';
     ctx.textAlign = 'center';
     for (const s of this.map.sites) {
+      const settled = s.kind === 'village' || s.kind === 'town';
       const info = SITE_INFO[s.kind];
       const x = X(s.x);
       const y = Z(s.z);
       const r = s.kind === 'town' ? 7 : 5;
+      if (settled) {
+        // The buildings show where it is; just a small dot for the square.
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = info.color;
+        ctx.strokeStyle = '#1a1d22';
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(15,18,24,0.85)';
+        ctx.strokeText(s.name, x, y - (s.kind === 'town' ? 20 : 13));
+        ctx.fillStyle = '#fff';
+        ctx.fillText(s.name, x, y - (s.kind === 'town' ? 20 : 13));
+        continue;
+      }
       ctx.beginPath();
       if (s.kind === 'camp') {
         ctx.moveTo(x, y - r);

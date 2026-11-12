@@ -10,6 +10,7 @@ import { WaterBody } from '@ingine/engine/world/water/WaterGrid';
 import { addBridge } from '@ingine/engine/world/bridges';
 import { addBox, addLabel } from '@ingine/engine/world/builders';
 import { SITE_INFO } from './sites';
+import { buildSettlements } from './buildSettlements';
 import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { generateWorld, type WorldMap } from './WorldGen';
@@ -22,7 +23,7 @@ export const DEFAULT_WORLD_SEED = 20261112;
  * The procedurally generated sandbox (`?level=world`, optionally `&seed=N`).
  * The whole world is generated from the seed when the level loads, then the
  * terrain streams in chunks around the player. See the plan doc for the
- * layers still to come (rivers, roads, settlements, camps, dressing, loot).
+ * layers still to come (camps, ruins, forests, secrets, loot).
  */
 export class WorldLevel implements Level {
   readonly name = 'Procedural World';
@@ -62,10 +63,12 @@ export class WorldLevel implements Level {
     for (const b of map.net.bridges) {
       addBridge(game, { from: [b.ax, b.az], to: [b.bx, b.bz], y: b.y, width: b.width, pierDepth: b.y - b.water + 2.5 });
     }
-    // Sites are spots with a name for now: a marker post until their buildings arrive.
+    // Villages and the town; camps and ruins are still a marker post until their milestone.
+    buildSettlements(game, map);
     for (const s of map.sites) {
-      addBox(game, { name: `site:${s.id}`, size: [0.3, 4, 0.3], position: [s.x, s.y + 2, s.z], color: 0x6b4f33 });
-      addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + 4.6, s.z], 2.2, SITE_INFO[s.kind].color);
+      const settled = s.kind === 'village' || s.kind === 'town';
+      if (!settled) addBox(game, { name: `site:${s.id}`, size: [0.3, 4, 0.3], position: [s.x, s.y + 2, s.z], color: 0x6b4f33 });
+      addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + (settled ? 7 : 4.6), s.z], 2.2, SITE_INFO[s.kind].color);
     }
 
     this.addBorder(game);

@@ -6,6 +6,7 @@ import { RigidBodyComponent } from '../physics/RigidBodyComponent';
 import { makeLabel } from '../render/labels';
 import { Interactable } from '../gameplay/interaction/Interactable';
 import { Npc } from '../gameplay/components/Npc';
+import { Wander, type WanderOptions } from '../gameplay/components/Wander';
 import type { DialogueSystem } from '../dialogue/DialogueSystem';
 
 type Vec3 = [number, number, number];
@@ -21,21 +22,38 @@ export interface NpcOptions {
   /** Which way they face when idle: 0 = +Z, 90 = +X, 180 = -Z, -90 = -X. */
   facingDeg: number;
   color: number;
+  /** Walk a loop instead of standing still. */
+  wander?: WanderOptions;
+  /** Words their dialogue can use as `{npc.key}`. */
+  vars?: Record<string, string>;
+  /** Show the name tag only within this range (crowds). Default: always. */
+  tagRange?: number;
+  /** Skin tone and a hat or helmet, for telling generic villagers apart. */
+  skin?: number;
+  hat?: { color: number; kind: 'cap' | 'helm' | 'hood' };
 }
 
-const skin = new THREE.MeshStandardMaterial({ color: 0xe0b48f, roughness: 0.8 });
+const skinDefault = new THREE.MeshStandardMaterial({ color: 0xe0b48f, roughness: 0.8 });
+const skins = new Map<number, THREE.MeshStandardMaterial>();
+const cloth = new Map<number, THREE.MeshStandardMaterial>();
+const mat = (cache: Map<number, THREE.MeshStandardMaterial>, color: number, roughness: number, metalness = 0) => {
+  let m = cache.get(color);
+  if (!m) cache.set(color, (m = new THREE.MeshStandardMaterial({ color, roughness, metalness })));
+  return m;
+};
 const dark = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.6 });
 
 /** A placeholder character: capsule body, head with a nose (so you can see where it looks), name tag. */
 export function addNpc(game: Game, o: NpcOptions): Entity {
   const root = new THREE.Group();
   root.position.set(...o.position);
+  const skin = o.skin === undefined ? skinDefault : mat(skins, o.skin, 0.8);
 
   const body = new THREE.Group();
   root.add(body);
   const torso = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.3, 0.75, 4, 12),
-    new THREE.MeshStandardMaterial({ color: o.color, roughness: 0.75 }),
+    mat(cloth, o.color, 0.75),
   );
   torso.position.y = 0.3 + 0.375 + 0.05;
   torso.castShadow = true;
@@ -56,6 +74,19 @@ export function addNpc(game: Game, o: NpcOptions): Entity {
     head.add(eye);
   }
 
+  if (o.hat) {
+    const helm = o.hat.kind === 'helm';
+    const hat = new THREE.Mesh(
+      o.hat.kind === 'cap'
+        ? new THREE.CylinderGeometry(0.17, 0.2, 0.12, 12)
+        : new THREE.SphereGeometry(0.225, 14, 8, 0, Math.PI * 2, 0, Math.PI * (helm ? 0.5 : 0.62)),
+      mat(cloth, o.hat.color, helm ? 0.4 : 0.8, helm ? 0.6 : 0),
+    );
+    hat.position.y = o.hat.kind === 'cap' ? 0.17 : 0.02;
+    hat.castShadow = true;
+    head.add(hat);
+  }
+
   const tag = makeLabel(o.name, { scale: 0.7, color: '#ffe7a8' });
   tag.position.y = 2.15;
   root.add(tag);
@@ -64,11 +95,18 @@ export function addNpc(game: Game, o: NpcOptions): Entity {
   e.tags.add('npc');
   e.add(
     new RigidBodyComponent({
-      type: 'fixed',
+      type: o.wander ? 'kinematicPosition' : 'fixed',
       colliders: [RAPIER.ColliderDesc.capsule(0.55, 0.3).setTranslation(0, 0.85, 0)],
     }),
   );
   const npc = e.add(new Npc(o.id, o.name, o.dialogue, body, head, THREE.MathUtils.degToRad(o.facingDeg)));
+  if (o.vars) npc.vars = o.vars;
+  if (o.tagRange !== undefined) {
+    npc.tag = tag;
+    npc.tagRange = o.tagRange;
+    tag.visible = false;
+  }
+  if (o.wander) e.add(new Wander(o.wander));
   e.add(
     new Interactable({
       prompt: `Talk to ${o.name}`,

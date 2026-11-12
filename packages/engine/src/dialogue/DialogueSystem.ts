@@ -13,6 +13,8 @@ export interface Speaker {
   /** World-space point to look at (roughly the eyes). */
   focusPoint(out: THREE.Vector3): THREE.Vector3;
   setTalking?(withEntity: Entity | null): void;
+  /** Words this speaker fills in as `{npc.key}`, in the tree's speaker name too. */
+  vars?: Record<string, string>;
 }
 
 interface Active {
@@ -96,7 +98,7 @@ export class DialogueSystem implements System {
     this.game.input.gameplayBlocked = true;
     const player = this.game.world.find('player') ?? null;
     speaker.setTalking?.(player);
-    this.game.events.emit('dialogue:start', { npc: npc.name, speaker: tree.speaker });
+    this.game.events.emit('dialogue:start', { npc: npc.name, speaker: this.format(tree.speaker) });
     this.enter(node);
     return true;
   }
@@ -174,7 +176,7 @@ export class DialogueSystem implements System {
     }
 
     this.game.events.emit('dialogue:line', {
-      speaker: node.speaker ?? a.tree.speaker,
+      speaker: this.format(node.speaker ?? a.tree.speaker),
       text: this.format(node.text),
       choices: a.choices.map(({ choice, index }) => ({
         text: this.format(choice.text),
@@ -184,10 +186,15 @@ export class DialogueSystem implements System {
     });
   }
 
-  /** `{var.name}` and `{item.id}` are replaced from WorldState. */
+  /** `{var.name}` and `{item.id}` are replaced from WorldState, `{npc.key}` from the speaker. */
   private format(text: string): string {
-    return text.replace(/\{(var|item)\.([\w.-]+)\}/g, (_, kind: string, key: string) =>
-      kind === 'var' ? String(this.game.state.getVar(key) ?? '') : String(this.game.state.itemCount(key)),
+    const vars = this.active?.speaker.vars;
+    return text.replace(/\{(var|item|npc)\.([\w.-]+)\}/g, (_, kind: string, key: string) =>
+      kind === 'var'
+        ? String(this.game.state.getVar(key) ?? '')
+        : kind === 'npc'
+          ? (vars?.[key] ?? '')
+          : String(this.game.state.itemCount(key)),
     );
   }
 }

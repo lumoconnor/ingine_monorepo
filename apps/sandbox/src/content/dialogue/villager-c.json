@@ -1,0 +1,23 @@
+{
+  "id": "villager-c",
+  "speaker": "{npc.name}",
+  "start": "hello",
+  "nodes": {
+    "hello": {
+      "text": "Lovely weather for it. Whatever 'it' is.",
+      "choices": [
+        { "text": "Have you lived here long?", "next": "long" },
+        { "text": "Heard anything interesting?", "next": "gossip" },
+        { "text": "Goodbye.", "next": null }
+      ]
+    },
+    "long": {
+      "text": "All my life. My mother was born in {npc.place}, and her mother too. I've never had cause to leave.",
+      "next": "hello"
+    },
+    "gossip": {
+      "text": "They say there's old stonework at {npc.ruin}, from before anyone remembers. Folk who go poking about up there come back with stories. Some don't come back at all.",
+      "next": "hello"
+    }
+  }
+}
