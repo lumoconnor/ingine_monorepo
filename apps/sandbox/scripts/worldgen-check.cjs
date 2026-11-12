@@ -116,6 +116,49 @@ const { chromium } = require('playwright');
     const along = ((p2.x - a.x) * (b.x - a.x) + (p2.z - a.z) * (b.z - a.z)) / Math.hypot(b.x - a.x, b.z - a.z);
     check('a river carries you downstream', along > 0.8 && C.waterDepth > 0, `drift=${along.toFixed(1)}m depth=${C.waterDepth.toFixed(2)} state=${C.state}`);
 
+    // 10. Sites, roads and bridges
+    const sites = map.sites, net = map.net;
+    const kinds = (k) => sites.filter((x) => x.kind === k).length;
+    check('sites: a town, villages, camps and ruins', kinds('town') === 1 && kinds('village') >= 3 && kinds('camp') >= 2 && kinds('ruin') >= 2,
+      sites.map((x) => x.id).join(' '));
+    const dry = sites.every((x) => !map.water.sample(x.x, x.y + 0.2, x.z, 0));
+    const flat = sites.every((x) => [0, 1, 2, 3].every((k) => Math.abs(map.heightAt(x.x + Math.cos(k * 1.57) * x.radius * 0.8, x.z + Math.sin(k * 1.57) * x.radius * 0.8) - x.y) < 0.6));
+    check('sites stand on dry, level ground', dry && flat);
+    const linked = new Set(net.roads.flatMap((r) => [r.from, r.to]));
+    check('every site is on the road network', sites.every((x) => linked.has(x.id)) && linked.has('spawn'), `roads=${net.roads.length}`);
+    let worstRoad = 0, worstPath = 0, off = 0;
+    for (const r of net.roads) for (let i = 1; i < r.points.length; i++) {
+      const a = r.points[i - 1], b = r.points[i];
+      const d = Math.hypot(b.x - a.x, b.z - a.z);
+      if (d < 0.5) continue;
+      const g = Math.abs(b.y - a.y) / d;
+      if (r.kind === 'road') worstRoad = Math.max(worstRoad, g); else worstPath = Math.max(worstPath, g);
+      if (!b.bridge) off = Math.max(off, Math.abs(map.heightAt(b.x, b.z) - b.y));
+    }
+    check('roads are gentle and paths are walkable', worstRoad < 0.3 && worstPath < 0.75, `steepest road=${(worstRoad * 100).toFixed(0)}% path=${(worstPath * 100).toFixed(0)}%`);
+    check('roads are pressed into the ground', off < 0.05, `worst=${off.toFixed(3)}`);
+    check('there are bridges, above the water', net.bridges.length >= 1 && net.bridges.every((b) => b.y > b.water + 0.8), `bridges=${net.bridges.length}`);
+    // Walk over the first bridge.
+    const br = net.bridges[0];
+    const bl = Math.hypot(br.bx - br.ax, br.bz - br.az), ux = (br.bx - br.ax) / bl, uz = (br.bz - br.az) / bl;
+    const s0x = br.ax - ux * 4, s0z = br.az - uz * 4;
+    C.placeAt(new V(s0x, Math.max(map.heightAt(s0x, s0z), br.y) + 0.3, s0z), Math.atan2(-ux, -uz), 0);
+    step(30);
+    let minY = Infinity, wet = false;
+    down('KeyW');
+    for (let i = 0; i < 60 * 12; i++) {
+      step(1);
+      C.yaw = Math.atan2(-ux, -uz);
+      const p = C.feetPosition;
+      const along = (p.x - br.ax) * ux + (p.z - br.az) * uz;
+      if (along > 1 && along < bl - 1) minY = Math.min(minY, p.y);
+      if (C.waterDepth > 0.2) wet = true;
+      if (along > bl + 4) break;
+    }
+    up('KeyW');
+    const endAlong = (C.feetPosition.x - br.ax) * ux + (C.feetPosition.z - br.az) * uz;
+    check('you can walk across a bridge and stay dry', endAlong > bl + 2 && !wet && minY > br.water, `crossed=${endAlong.toFixed(1)}/${bl.toFixed(1)}m deckMin=${minY.toFixed(2)} water=${br.water.toFixed(2)}`);
+
     // 7. The world edge holds
     const edge = map.grid.maxX - 20;
     C.placeAt(new V(edge, map.heightAt(edge, 0) + 2, 0), -Math.PI / 2, 0);

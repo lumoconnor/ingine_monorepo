@@ -6,6 +6,8 @@ import { hash2, subSeed } from '@ingine/engine/procgen/random';
 import type { TerrainSource } from '@ingine/engine/world/terrain/TerrainStreamer';
 import type { WaterGrid } from '@ingine/engine/world/water/WaterGrid';
 import { generateWater, type Hydrology } from './hydrology';
+import { placeSites, type Site } from './sites';
+import { buildRoads, type RoadNet } from './roads';
 
 /** Ground types. Later layers (forests, villages, camps) read these to decide what goes where. */
 export const Biome = {
@@ -19,6 +21,8 @@ export const Biome = {
   Water: 6,
   /** Sand and gravel at the water's edge. */
   Shore: 7,
+  /** Road or path surface. */
+  Road: 8,
 } as const;
 export type Biome = (typeof Biome)[keyof typeof Biome];
 
@@ -31,6 +35,7 @@ export const BIOME_INFO: { name: string; color: number }[] = [
   { name: 'Snow', color: 0xeef1f4 },
   { name: 'Water', color: 0x3a7fae },
   { name: 'Shore', color: 0xc2b588 },
+  { name: 'Road', color: 0x9a8160 },
 ];
 
 /** Ground colour under water (gravel and silt); the water surface is drawn over it. */
@@ -55,9 +60,9 @@ const palette = BIOME_INFO.map((b) => new THREE.Color(b.color));
  * The generated world: a height grid plus the maps later layers build on.
  * Same seed, same world, on every machine.
  *
- * Layers so far: land shape, then lakes/rivers/waterfalls (hydrology.ts),
- * then biomes. Roads, sites, dressing and loot will each add a pass that
- * reads and edits these maps.
+ * Layers so far: land shape, lakes/rivers/waterfalls (hydrology.ts), site
+ * spots (sites.ts), roads and bridges (roads.ts), then biomes. Buildings,
+ * dressing and loot will each add a pass that reads and edits these maps.
  */
 export class WorldMap implements TerrainSource {
   readonly grid: HeightGrid;
@@ -68,6 +73,9 @@ export class WorldMap implements TerrainSource {
   /** Water surface height over each grid vertex (NaN = dry). */
   readonly wet: Float32Array;
   hydro!: Hydrology;
+  /** Where things are (or will be) built. */
+  sites: Site[] = [];
+  net: RoadNet = { roads: [], bridges: [], mask: new Float32Array(0) };
   readonly spawn = new THREE.Vector3();
   spawnYaw = 0;
   /** Generation time in ms (for the debug map). */
@@ -97,6 +105,7 @@ export class WorldMap implements TerrainSource {
     const wl = this.wet[i];
     const wet = wl === wl;
     return {
+      road: this.net.mask.length ? this.net.mask[i] : 0,
       bed: wet ? smoothstep(wl - h, -0.05, 0.25) : 0,
       shore: wet ? 1 - smoothstep(h - wl, 0.2, 0.75) : 0,
       dry: smoothstep(h, DRY_HILLS - 12, DRY_HILLS + 18) * (1 - smoothstep(m, 0.45, 0.7)),
@@ -116,6 +125,7 @@ export class WorldMap implements TerrainSource {
     out.lerp(palette[Biome.Rock], w.rock);
     out.lerp(palette[Biome.Snow], w.snow);
     out.lerp(palette[Biome.Shore], w.shore * (1 - w.rock * 0.7));
+    out.lerp(palette[Biome.Road], w.road);
     out.lerp(BED_COLOR, w.bed);
     // Per-patch brightness jitter breaks up large flat areas.
     const j = 0.94 + hash2(this.seed ^ 0x51ed, ix >> 1, iz >> 1) * 0.1;
@@ -137,6 +147,7 @@ export class WorldMap implements TerrainSource {
         if (w.rock > 0.5) b = Biome.Rock;
         if (w.snow > 0.5) b = Biome.Snow;
         if (w.shore > 0.5) b = Biome.Shore;
+        if (w.road > 0.5) b = Biome.Road;
         if (w.bed > 0.5) b = Biome.Water;
         this.biome[iz * g.n + ix] = b;
       }
@@ -161,6 +172,8 @@ export class WorldMap implements TerrainSource {
     for (let i = 0; i < this.biome.length; i += 89) h = (Math.imul(h, 31) + this.biome[i]) | 0;
     const L = this.water.level;
     for (let i = 0; i < L.length; i += 13) if (L[i] === L[i]) h = (Math.imul(h, 31) + Math.round(L[i] * 100)) | 0;
+    for (const s of this.sites) h = (Math.imul(h, 31) + Math.round(s.x * 7 + s.z * 13 + s.y * 100)) | 0;
+    for (const r of this.net.roads) h = (Math.imul(h, 31) + r.points.length) | 0;
     return h >>> 0;
   }
 }
@@ -241,6 +254,12 @@ export function generateWorld(settings: WorldSettings): WorldMap {
 
   map.classify();
   findSpawn(map);
+
+  // Sites and the roads between them (both reshape the ground), then the biomes once more.
+  map.sites = placeSites(map, nearWater);
+  map.net = buildRoads(map, map.sites);
+  map.classify();
+  map.spawn.y = g.heightAt(map.spawn.x, map.spawn.z) + 0.05;
   map.genMs = performance.now() - t0;
   return map;
 }
@@ -298,7 +317,7 @@ function bestView(map: WorldMap, x: number, z: number): number {
 }
 
 /** Per water-grid vertex: distance in cells to the nearest water (-1 = further than 40 cells). */
-function waterDistance(w: WaterGrid): Int16Array {
+export function waterDistance(w: WaterGrid): Int16Array {
   const N = w.n;
   const d = new Int16Array(N * N).fill(-1);
   const q: number[] = [];

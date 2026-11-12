@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Component } from '@ingine/engine/entities/Component';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { BIOME_INFO, type WorldMap } from './WorldGen';
+import { SITE_INFO } from './sites';
 
 const PX = 768;
 const shallowWater = new THREE.Color(0x3f95b8);
@@ -56,7 +57,7 @@ export class WorldMapUi extends Component {
         </label>
         <button class="alt random">Random seed</button>
         <div class="wmap-legend">${BIOME_INFO.map((b) => `<i style="background:#${b.color.toString(16).padStart(6, '0')}"></i><span>${b.name}</span>`).join('')}</div>
-        <div class="wmap-legend"><i style="background:#fff;border:1.5px solid #1c4f78;border-radius:50%;box-sizing:border-box"></i><span>Waterfall</span></div>
+        <div class="wmap-legend"><i style="background:#fff;border:1.5px solid #1c4f78;border-radius:50%;box-sizing:border-box"></i><span>Waterfall</span>${Object.values(SITE_INFO).map((s) => `<i style="background:${s.color};border:1.5px solid #1a1d22;box-sizing:border-box;${s.label === 'Town' || s.label === 'Village' ? 'border-radius:50%' : ''}"></i><span>${s.label}</span>`).join('')}</div>
         <div class="wmap-meta"></div>
         <div class="wmap-meta">M or Esc to close</div>
       </div>`;
@@ -180,6 +181,58 @@ export class WorldMapUi extends Component {
       ctx.arc(x, y, 3.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+    }
+
+    // Roads (already tinted in the ground colours; a line makes them readable at this scale), bridges, sites.
+    const X = (x: number) => ((x - g.minX) / g.size) * PX;
+    const Z = (z: number) => ((z - g.minZ) / g.size) * PX;
+    ctx.lineJoin = ctx.lineCap = 'round';
+    for (const r of this.map.net.roads) {
+      ctx.beginPath();
+      r.points.forEach((q, i) => (i ? ctx.lineTo(X(q.x), Z(q.z)) : ctx.moveTo(X(q.x), Z(q.z))));
+      ctx.strokeStyle = r.kind === 'road' ? '#e9d7ae' : 'rgba(233,215,174,0.8)';
+      ctx.lineWidth = r.kind === 'road' ? 2.4 : 1.3;
+      ctx.setLineDash(r.kind === 'road' ? [] : [4, 3]);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for (const b of this.map.net.bridges) {
+      ctx.beginPath();
+      ctx.moveTo(X(b.ax), Z(b.az));
+      ctx.lineTo(X(b.bx), Z(b.bz));
+      ctx.strokeStyle = '#4a3320';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+      ctx.strokeStyle = '#d9b27c';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    for (const s of this.map.sites) {
+      const info = SITE_INFO[s.kind];
+      const x = X(s.x);
+      const y = Z(s.z);
+      const r = s.kind === 'town' ? 7 : 5;
+      ctx.beginPath();
+      if (s.kind === 'camp') {
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y + r * 0.8);
+        ctx.lineTo(x - r, y + r * 0.8);
+        ctx.closePath();
+      } else if (s.kind === 'ruin') ctx.rect(x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6);
+      else ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = info.color;
+      ctx.strokeStyle = '#1a1d22';
+      ctx.lineWidth = 1.5;
+      ctx.fill();
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(15,18,24,0.85)';
+      ctx.strokeText(s.name, x, y - r - 5);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(s.name, x, y - r - 5);
     }
   }
 

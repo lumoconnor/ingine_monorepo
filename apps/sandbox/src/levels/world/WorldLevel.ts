@@ -7,6 +7,9 @@ import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
 import { TerrainStreamer } from '@ingine/engine/world/terrain/TerrainStreamer';
 import { WaterBody } from '@ingine/engine/world/water/WaterGrid';
+import { addBridge } from '@ingine/engine/world/bridges';
+import { addBox, addLabel } from '@ingine/engine/world/builders';
+import { SITE_INFO } from './sites';
 import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { generateWorld, type WorldMap } from './WorldGen';
@@ -55,6 +58,15 @@ export class WorldLevel implements Level {
     water.tags.add('water');
     water.add(new WaterBody({ water: map.water, ground: map.grid }));
     game.world.spawn(water);
+
+    for (const b of map.net.bridges) {
+      addBridge(game, { from: [b.ax, b.az], to: [b.bx, b.bz], y: b.y, width: b.width, pierDepth: b.y - b.water + 2.5 });
+    }
+    // Sites are spots with a name for now: a marker post until their buildings arrive.
+    for (const s of map.sites) {
+      addBox(game, { name: `site:${s.id}`, size: [0.3, 4, 0.3], position: [s.x, s.y + 2, s.z], color: 0x6b4f33 });
+      addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + 4.6, s.z], 2.2, SITE_INFO[s.kind].color);
+    }
 
     this.addBorder(game);
 
