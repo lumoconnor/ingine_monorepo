@@ -2,13 +2,31 @@ import * as THREE from 'three';
 import { Component } from '../../entities/Component';
 import type { FrameTime } from '../../core/Time';
 
+/** What swimmers need to know about the water at a point. */
+export interface WaterSample {
+  readonly surfaceY: number;
+  /** Flow velocity (m/s). */
+  readonly current: THREE.Vector3;
+}
+
+/**
+ * Water that isn't a box: a river or lake laid out on a grid, say. Return
+ * the water at (x, z) if `y` is no more than `above` over its surface, or null.
+ * Return a fresh object (callers may hold it for the rest of a step).
+ */
+export interface WaterField {
+  sample(x: number, y: number, z: number, above: number): WaterSample | null;
+}
+
 /**
  * A body of water: an axis-aligned box whose top is the surface. No collider;
  * the player controller asks `WaterVolume.at()` where the water is and swims.
  * The entity's object3d is the surface mesh, which ripples gently.
  */
-export class WaterVolume extends Component {
+export class WaterVolume extends Component implements WaterSample {
   static readonly all = new Set<WaterVolume>();
+  /** Non-box water (rivers, lakes) registered by levels. Queried after the boxes. */
+  static readonly fields = new Set<WaterField>();
 
   readonly min: THREE.Vector3;
   readonly max: THREE.Vector3;
@@ -40,9 +58,13 @@ export class WaterVolume extends Component {
   }
 
   /** The water whose footprint contains this point and whose surface is above `y - above`. */
-  static at(p: { x: number; y: number; z: number }, above = 0): WaterVolume | null {
+  static at(p: { x: number; y: number; z: number }, above = 0): WaterSample | null {
     for (const w of WaterVolume.all) {
       if (w.containsXZ(p.x, p.z) && p.y <= w.max.y + above && p.y >= w.min.y - 0.5) return w;
+    }
+    for (const f of WaterVolume.fields) {
+      const s = f.sample(p.x, p.y, p.z, above);
+      if (s) return s;
     }
     return null;
   }

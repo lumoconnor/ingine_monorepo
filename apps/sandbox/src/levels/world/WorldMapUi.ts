@@ -4,6 +4,8 @@ import { PlayerController } from '@ingine/engine/gameplay/player/PlayerControlle
 import { BIOME_INFO, type WorldMap } from './WorldGen';
 
 const PX = 768;
+const shallowWater = new THREE.Color(0x3f95b8);
+const deepWater = new THREE.Color(0x1c4f78);
 
 const css = `
 .wmap{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;
@@ -54,6 +56,7 @@ export class WorldMapUi extends Component {
         </label>
         <button class="alt random">Random seed</button>
         <div class="wmap-legend">${BIOME_INFO.map((b) => `<i style="background:#${b.color.toString(16).padStart(6, '0')}"></i><span>${b.name}</span>`).join('')}</div>
+        <div class="wmap-legend"><i style="background:#fff;border:1.5px solid #1c4f78;border-radius:50%;box-sizing:border-box"></i><span>Waterfall</span></div>
         <div class="wmap-meta"></div>
         <div class="wmap-meta">M or Esc to close</div>
       </div>`;
@@ -147,7 +150,13 @@ export class WorldMapUi extends Component {
         const ix = Math.round((px / (PX - 1)) * (g.n - 1));
         g.normalAt(ix, iz, n);
         this.map.colorAt(ix, iz, n, c);
-        const shade = 0.55 + 0.6 * Math.max(0, n.dot(light));
+        let shade = 0.55 + 0.6 * Math.max(0, n.dot(light));
+        const wl = this.map.wet[iz * g.n + ix];
+        const depth = wl - g.heights[iz * g.n + ix];
+        if (depth > 0) {
+          c.copy(shallowWater).lerp(deepWater, Math.min(1, depth / 5));
+          shade = 1;
+        }
         const o = (py * PX + px) * 4;
         img.data[o] = Math.min(255, c.r * 255 * shade);
         img.data[o + 1] = Math.min(255, c.g * 255 * shade);
@@ -160,6 +169,18 @@ export class WorldMapUi extends Component {
       for (let k = 0; k < 3; k++) img.data[i + k] = Math.round(255 * Math.pow(img.data[i + k] / 255, 1 / 2.2));
     }
     ctx.putImageData(img, 0, 0);
+    // Waterfalls
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#1c4f78';
+    ctx.lineWidth = 1.5;
+    for (const f of this.map.hydro.falls) {
+      const x = ((f.x - g.minX) / g.size) * PX;
+      const y = ((f.z - g.minZ) / g.size) * PX;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
   }
 
   private drawOverlay(): void {
