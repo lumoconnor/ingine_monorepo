@@ -166,10 +166,10 @@ src/
     terrain/Terrain.ts       height-function terrain tile: mesh + trimesh collider
     terrain/TerrainStreamer.ts  streams a big HeightGrid as chunks: distance LOD meshes with skirts, heightfield colliders near the player
     [sandbox] levels/PlaygroundLevel.ts  the movement test level (apps/sandbox/src/levels)
-    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), hydrology (lake, rivers, waterfalls carved into the land), sites (town/village/camp/ruin spots), roads (A* roads, paths and bridges), settlements (village and town layouts from templates: buildings, walls, castle, villagers and their walks), buildSettlements (turns a layout into batched buildings, doors and people), WorldLevel, WorldMapUi (M)
+    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), hydrology (lake, rivers, waterfalls carved into the land), sites (town/village/camp/ruin spots), roads (A* roads, paths and bridges), settlements (village and town layouts from templates: buildings, walls, castle, villagers and their walks), buildSettlements (turns a layout into batched buildings, doors and people), outposts + buildOutposts (bandit camps and ruined fortresses, their bandits, and Dormancy: far-off enemies sleep), WorldLevel, WorldMapUi (M)
     bridges.ts               addBridge: greybox timber bridge (level deck, rails, piers)
     StaticBatch.ts           collects many static pieces into one mesh per colour + one fixed body (a whole village in a few draw calls)
-    buildings.ts             greybox architecture into a StaticBatch: buildHouse (enterable, returns its doorway), buildTower, buildWallRun, buildFence, buildStall, buildWell
+    buildings.ts             greybox architecture into a StaticBatch: buildHouse (enterable, returns its doorway), buildTower (roofed, battlements or broken), buildWallRun, buildFence, buildStall, buildWell
     water/WaterGrid.ts       rivers and lakes on a grid (surface height + current per vertex), WaterBody draws and registers it
   procgen/
     random.ts                seeded hashes and per-layer sub-seeds

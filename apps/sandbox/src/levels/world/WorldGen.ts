@@ -9,6 +9,7 @@ import { generateWater, type Hydrology } from './hydrology';
 import { placeSites, type Site } from './sites';
 import { buildRoads, type RoadNet } from './roads';
 import { layoutSettlements, type Settlement } from './settlements';
+import { layoutOutposts, type Outpost } from './outposts';
 
 /** Ground types. Later layers (forests, villages, camps) read these to decide what goes where. */
 export const Biome = {
@@ -79,6 +80,8 @@ export class WorldMap implements TerrainSource {
   net: RoadNet = { roads: [], bridges: [], mask: new Float32Array(0) };
   /** What stands in each village and the town. */
   settlements: Settlement[] = [];
+  /** Bandit camps and ruined fortresses. */
+  outposts: Outpost[] = [];
   readonly spawn = new THREE.Vector3();
   spawnYaw = 0;
   /** Generation time in ms (for the debug map). */
@@ -181,6 +184,10 @@ export class WorldMap implements TerrainSource {
       for (const b of st.buildings) h = (Math.imul(h, 31) + Math.round(b.x * 7 + b.z * 13 + b.yaw * 100 + b.w * 10)) | 0;
       for (const v of st.villagers) h = (Math.imul(h, 31) + v.path.length + Math.round(v.x * 3)) | 0;
     }
+    for (const o of this.outposts) {
+      h = (Math.imul(h, 31) + o.walls.length * 7 + o.tents.length) | 0;
+      for (const g of o.guards) h = (Math.imul(h, 31) + Math.round(g.x * 5 + g.z * 11 + g.y * 3)) | 0;
+    }
     return h >>> 0;
   }
 }
@@ -267,6 +274,7 @@ export function generateWorld(settings: WorldSettings): WorldMap {
   map.net = buildRoads(map, map.sites);
   map.classify();
   map.settlements = layoutSettlements(map, map.sites);
+  map.outposts = layoutOutposts(map, map.sites);
   map.spawn.y = g.heightAt(map.spawn.x, map.spawn.z) + 0.05;
   map.genMs = performance.now() - t0;
   return map;
