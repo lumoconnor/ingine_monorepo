@@ -12,6 +12,9 @@ import { addLabel } from '@ingine/engine/world/builders';
 import { SITE_INFO } from './sites';
 import { buildSettlements } from './buildSettlements';
 import { buildOutposts, Dormancy } from './buildOutposts';
+import { Forest, oakGeometry, pineGeometry, bushGeometry } from '@ingine/engine/world/vegetation/Forest';
+import { StaticBatch } from '@ingine/engine/world/StaticBatch';
+import { addChest } from '@ingine/engine/world/containers';
 import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { generateWorld, type WorldMap } from './WorldGen';
@@ -64,6 +67,21 @@ export class WorldLevel implements Level {
     for (const b of map.net.bridges) {
       addBridge(game, { from: [b.ax, b.az], to: [b.bx, b.bz], y: b.y, width: b.width, pierDepth: b.y - b.water + 2.5 });
     }
+    // Woods. Trunks get colliders near the player only.
+    const woods = new Entity('forest');
+    woods.add(
+      new Forest({
+        kinds: [
+          { geometry: pineGeometry(), trunk: { radius: 0.24, height: 3.2 } },
+          { geometry: oakGeometry(), trunk: { radius: 0.32, height: 4.2 } },
+          { geometry: bushGeometry() },
+        ],
+        trees: map.trees,
+        focus: () => ctrl?.feetPosition ?? map.spawn,
+      }),
+    );
+    game.world.spawn(woods);
+
     // Villages and the town, bandit camps and ruined fortresses.
     buildSettlements(game, map);
     buildOutposts(game, map);
@@ -72,6 +90,7 @@ export class WorldLevel implements Level {
       if (settled) addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + 7, s.z], 2.2, SITE_INFO[s.kind].color);
     }
 
+    this.addCaches(game);
     this.addBorder(game);
 
     ctrl = createPlayer(game, map.spawn.clone(), map.spawnYaw).get(PlayerController);
@@ -90,6 +109,24 @@ export class WorldLevel implements Level {
     }
     r.camera.far = this.savedFar;
     r.camera.updateProjectionMatrix();
+  }
+
+  /** Hidden caches: a chest with a little cairn of stones beside it. */
+  private addCaches(game: Game): void {
+    const b = new StaticBatch();
+    const stone = [0x8d887d, 0x9a958a, 0x7f7a70];
+    for (const c of this.map.caches) {
+      addChest(game, { id: c.id, position: [c.x, c.y, c.z], facingDeg: THREE.MathUtils.radToDeg(c.facing), contents: c.contents });
+      // The cairn: three stones stacked, smallest on top, a stride to one side.
+      const sx = c.x + Math.cos(c.facing) * 1.4;
+      const sz = c.z - Math.sin(c.facing) * 1.4;
+      let y = this.map.heightAt(sx, sz) - 0.05;
+      [0.75, 0.55, 0.35].forEach((s, i) => {
+        b.box(s, s * 0.6, s * 0.9, sx, y + s * 0.3, sz, stone[i], { yaw: c.facing + i * 0.7 });
+        y += s * 0.6;
+      });
+    }
+    if (this.map.caches.length) b.build(game, 'caches');
   }
 
   /** Invisible walls just inside the edge of the map. */
