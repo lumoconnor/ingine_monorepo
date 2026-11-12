@@ -31,6 +31,7 @@ this repo. Games import engine modules by path, for example
 ```bash
 npm install
 npm run dev        # the sandbox at http://localhost:5173
+                   # add ?level=world for the procedurally generated world (&seed=N for another one)
 npm run build      # type-check + production build into apps/sandbox/dist/
 npm run typecheck  # every package
 npm run check      # all headless checks (starts its own dev server)
@@ -68,6 +69,7 @@ engine change, since they are what "the engine still works" means.
 | In a conversation | 1-9 picks a reply; or wheel / W S to highlight and click, E, Space or Enter. Esc leaves |
 | F | Fullscreen |
 | Backspace | Respawn |
+| M | World map (procedural world): whole map, where you are, and a seed box to generate another world |
 | `` ` `` or F3 | Toggle debug readout |
 | Esc | Release the mouse |
 
@@ -161,7 +163,13 @@ src/
     enemies.ts               addEnemy from an archetype (content/combat/archetypes.json), archetype validation
     machinery.ts             addWall (with doorways) / addDoor / addLever / addButton / addLift
     terrain/Terrain.ts       height-function terrain tile: mesh + trimesh collider
+    terrain/TerrainStreamer.ts  streams a big HeightGrid as chunks: distance LOD meshes with skirts, heightfield colliders near the player
     [sandbox] levels/PlaygroundLevel.ts  the movement test level (apps/sandbox/src/levels)
+    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), WorldLevel, WorldMapUi (M)
+  procgen/
+    random.ts                seeded hashes and per-layer sub-seeds
+    fractal.ts               ridged multifractal, smoothstep
+    HeightGrid.ts            the world's height map: exact heightAt on the collider's triangles, normals, slope
   config/
     bindings.ts              action -> key bindings
     player.ts                every movement tunable in one place

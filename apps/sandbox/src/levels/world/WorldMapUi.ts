@@ -1,0 +1,198 @@
+import * as THREE from 'three';
+import { Component } from '@ingine/engine/entities/Component';
+import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
+import { BIOME_INFO, type WorldMap } from './WorldGen';
+
+const PX = 768;
+
+const css = `
+.wmap{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;
+  background:rgba(10,14,18,.72);font:14px/1.4 system-ui,sans-serif;color:#e9edf1;padding:16px;box-sizing:border-box;flex-wrap:wrap}
+.wmap.hidden{display:none}
+.wmap-view{position:relative;width:min(78vh,92vw);aspect-ratio:1;border-radius:6px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.wmap-view canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:auto}
+.wmap-side{width:230px;display:flex;flex-direction:column;gap:12px}
+.wmap-side h2{margin:0;font-size:18px}
+.wmap-side .row{display:flex;gap:6px}
+.wmap-side input{flex:1;min-width:0;padding:6px 8px;border-radius:4px;border:1px solid #556;background:#1b222b;color:#fff;font:inherit}
+.wmap-side button{padding:6px 10px;border-radius:4px;border:0;background:#e2c27a;color:#1d1a12;font:inherit;font-weight:600;cursor:pointer}
+.wmap-side button.alt{background:#3a4552;color:#e9edf1}
+.wmap-legend{display:grid;grid-template-columns:14px 1fr;gap:4px 8px;align-items:center;font-size:13px}
+.wmap-legend i{width:14px;height:14px;border-radius:3px;display:block}
+.wmap-meta{font-size:12px;color:#aab4be}
+`;
+
+/**
+ * Debug map of the generated world (M): the whole world from above with
+ * hill shading, the player's position and heading, and a seed box that
+ * regenerates the world.
+ */
+export class WorldMapUi extends Component {
+  private root!: HTMLDivElement;
+  private base!: HTMLCanvasElement;
+  private overlay!: HTMLCanvasElement;
+  private meta!: HTMLDivElement;
+  private drawn = false;
+  private isOpen = false;
+  private offs: (() => void)[] = [];
+
+  constructor(private map: WorldMap) {
+    super();
+  }
+
+  onAttach(): void {
+    const style = document.createElement('style');
+    style.textContent = css;
+    this.root = document.createElement('div');
+    this.root.className = 'wmap hidden';
+    this.root.innerHTML = `
+      <div class="wmap-view"><canvas class="base"></canvas><canvas class="marker"></canvas></div>
+      <div class="wmap-side">
+        <h2>World map</h2>
+        <label>Seed
+          <div class="row"><input class="seed" inputmode="numeric" value="${this.map.seed}"><button class="go">Go</button></div>
+        </label>
+        <button class="alt random">Random seed</button>
+        <div class="wmap-legend">${BIOME_INFO.map((b) => `<i style="background:#${b.color.toString(16).padStart(6, '0')}"></i><span>${b.name}</span>`).join('')}</div>
+        <div class="wmap-meta"></div>
+        <div class="wmap-meta">M or Esc to close</div>
+      </div>`;
+    this.root.prepend(style);
+    document.body.appendChild(this.root);
+    this.base = this.root.querySelector('canvas.base')!;
+    this.overlay = this.root.querySelector('canvas.marker')!;
+    this.meta = this.root.querySelector('.wmap-meta')!;
+    this.base.width = this.base.height = this.overlay.width = this.overlay.height = PX;
+
+    const input = this.root.querySelector<HTMLInputElement>('input.seed')!;
+    const go = (seed: number) => {
+      const u = new URL(location.href);
+      u.searchParams.set('level', 'world');
+      u.searchParams.set('seed', String(seed >>> 0));
+      location.href = u.toString();
+    };
+    this.root.querySelector('button.go')!.addEventListener('click', () => {
+      const v = parseInt(input.value.replace(/[^0-9]/g, ''), 10);
+      if (Number.isFinite(v)) go(v);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') (this.root.querySelector('button.go') as HTMLButtonElement).click();
+    });
+    this.root.querySelector('button.random')!.addEventListener('click', () => go(Math.floor(Math.random() * 1e9)));
+
+    this.offs.push(
+      this.game.events.on('input:pressed', ({ action }) => {
+        if (action !== 'toggleMap') return;
+        if (this.isOpen) this.close(true);
+        else this.open();
+      }),
+      this.game.events.on('input:pointerlock', ({ locked }) => {
+        if (!locked && this.isOpen) this.close(false);
+      }),
+    );
+    window.addEventListener('keydown', this.onKey);
+  }
+
+  onDetach(): void {
+    this.offs.forEach((f) => f());
+    window.removeEventListener('keydown', this.onKey);
+    this.root.remove();
+  }
+
+  private onKey = (e: KeyboardEvent): void => {
+    if (this.isOpen && e.code === 'Escape') this.close(false);
+  };
+
+  open(): void {
+    const g = this.game;
+    if (this.isOpen || !g.input.locked || g.paused) return;
+    this.isOpen = true;
+    g.paused = true;
+    g.input.gameplayBlocked = true;
+    g.input.openMenu();
+    if (!this.drawn) this.drawBase();
+    this.root.classList.remove('hidden');
+    this.tick();
+  }
+
+  close(resume: boolean): void {
+    if (!this.isOpen) return;
+    const g = this.game;
+    this.isOpen = false;
+    g.paused = false;
+    g.input.gameplayBlocked = false;
+    g.input.closeMenu(g.renderer.webgl.domElement, resume);
+    this.root.classList.add('hidden');
+  }
+
+  /** The game is paused while the map is open, so the marker redraws on its own frame loop. */
+  private tick = (): void => {
+    if (!this.isOpen) return;
+    this.drawOverlay();
+    requestAnimationFrame(this.tick);
+  };
+
+  /** Top-down colour + hill shading, one pixel per few metres. */
+  private drawBase(): void {
+    this.drawn = true;
+    const ctx = this.base.getContext('2d')!;
+    const img = ctx.createImageData(PX, PX);
+    const g = this.map.grid;
+    const n = new THREE.Vector3();
+    const c = new THREE.Color();
+    const light = new THREE.Vector3(-0.6, 0.7, -0.4).normalize();
+    for (let py = 0; py < PX; py++) {
+      const iz = Math.round((py / (PX - 1)) * (g.n - 1));
+      for (let px = 0; px < PX; px++) {
+        const ix = Math.round((px / (PX - 1)) * (g.n - 1));
+        g.normalAt(ix, iz, n);
+        this.map.colorAt(ix, iz, n, c);
+        const shade = 0.55 + 0.6 * Math.max(0, n.dot(light));
+        const o = (py * PX + px) * 4;
+        img.data[o] = Math.min(255, c.r * 255 * shade);
+        img.data[o + 1] = Math.min(255, c.g * 255 * shade);
+        img.data[o + 2] = Math.min(255, c.b * 255 * shade);
+        img.data[o + 3] = 255;
+      }
+    }
+    // Colours are linear; the canvas wants sRGB-ish. A cheap gamma lift reads closer to the game.
+    for (let i = 0; i < img.data.length; i += 4) {
+      for (let k = 0; k < 3; k++) img.data[i + k] = Math.round(255 * Math.pow(img.data[i + k] / 255, 1 / 2.2));
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  private drawOverlay(): void {
+    const ctx = this.overlay.getContext('2d')!;
+    ctx.clearRect(0, 0, PX, PX);
+    const player = this.game.world.find('player');
+    const ctrl = player?.get(PlayerController);
+    if (!player || !ctrl) return;
+    const g = this.map.grid;
+    const p = ctrl.feetPosition;
+    const px = ((p.x - g.minX) / g.size) * PX;
+    const py = ((p.z - g.minZ) / g.size) * PX;
+    // Facing: yaw 0 looks toward -Z (up on the map); positive yaw turns left.
+    const a = -ctrl.yaw;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(a);
+    ctx.scale(1.8, 1.8);
+    ctx.beginPath();
+    ctx.moveTo(0, -11);
+    ctx.lineTo(7, 7);
+    ctx.lineTo(0, 3);
+    ctx.lineTo(-7, 7);
+    ctx.closePath();
+    ctx.fillStyle = '#ff4d3d';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    this.meta.textContent =
+      `Position ${p.x.toFixed(0)}, ${p.z.toFixed(0)} · height ${p.y.toFixed(0)} m · ` +
+      `world ${g.size} m · generated in ${this.map.genMs.toFixed(0)} ms`;
+  }
+}

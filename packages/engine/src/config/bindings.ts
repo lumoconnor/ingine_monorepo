@@ -30,6 +30,8 @@ export interface ActionMap {
   quickSave: true;
   quickLoad: true;
   toggleDebug: true;
+  /** A level's map screen, if it has one. */
+  toggleMap: true;
   toggleFullscreen: true;
   respawn: true;
 }
@@ -64,6 +66,7 @@ export const defaultBindings: Bindings = {
   quickSave: ['F5'],
   quickLoad: ['F9'],
   toggleDebug: ['Backquote', 'F3'],
+  toggleMap: ['KeyM'],
   toggleFullscreen: ['KeyF'],
   // R is reload now; respawning (getting unstuck) moved to Backspace.
   respawn: ['Backspace'],

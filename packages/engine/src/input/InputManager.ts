@@ -3,7 +3,7 @@ import type { System } from '../core/System';
 import { defaultBindings, type Action, type Bindings } from '../config/bindings';
 
 /** Actions that keep working while gameplay input is blocked. */
-const UI_ACTIONS = new Set<Action>(['toggleDebug', 'toggleFullscreen', 'inventory', 'quickSave', 'quickLoad']);
+const UI_ACTIONS = new Set<Action>(['toggleDebug', 'toggleFullscreen', 'inventory', 'toggleMap', 'quickSave', 'quickLoad']);
 
 /**
  * Keyboard + mouse input with pointer lock, mapped to logical Actions.
@@ -300,6 +300,8 @@ export class InputManager implements System {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    // Typing in a menu's text box (a seed, a name) is not gameplay.
+    if (isTextField(e.target)) return;
     if (e.code === 'Escape' && this.dragMode) {
       this.exitDragMode();
       return;
@@ -380,4 +382,10 @@ export class InputManager implements System {
     this.pressed.clear();
     this.game.events.emit('input:pointerlock', { locked: this._locked });
   };
+}
+
+function isTextField(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  if (t.isContentEditable || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return true;
+  return t instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'range', 'submit', 'reset'].includes(t.type);
 }
