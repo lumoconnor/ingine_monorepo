@@ -7,6 +7,7 @@ import { makeLabel } from '../render/labels';
 import { Interactable } from '../gameplay/interaction/Interactable';
 import { Npc } from '../gameplay/components/Npc';
 import type { DialogueSystem } from '../dialogue/DialogueSystem';
+import { hasCharacter, spawnCharacter, restPose } from '../render/painterly/characters';
 
 type Vec3 = [number, number, number];
 
@@ -21,26 +22,38 @@ export interface NpcOptions {
   /** Which way they face when idle: 0 = +Z, 90 = +X, 180 = -Z, -90 = -X. */
   facingDeg: number;
   color: number;
+  /** Painterly character id (see registerCharacters); falls back to the placeholder body. */
+  character?: string;
 }
 
 const skin = new THREE.MeshStandardMaterial({ color: 0xe0b48f, roughness: 0.8 });
 const dark = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.6 });
 
-/** A placeholder character: capsule body, head with a nose (so you can see where it looks), name tag. */
+/** A character you can talk to: a painterly character if `character` is registered, else a placeholder capsule. */
 export function addNpc(game: Game, o: NpcOptions): Entity {
   const root = new THREE.Group();
   root.position.set(...o.position);
 
   const body = new THREE.Group();
   root.add(body);
+  let head: THREE.Object3D;
+  if (o.character && hasCharacter(o.character)) {
+    const c = spawnCharacter(o.character);
+    restPose(c);
+    body.add(c.root);
+    head = c.bone('head');
+  } else head = placeholderBody(body, o.color);
+  return finishNpc(game, o, root, body, head);
+}
+
+function placeholderBody(body: THREE.Group, color: number): THREE.Object3D {
   const torso = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.3, 0.75, 4, 12),
-    new THREE.MeshStandardMaterial({ color: o.color, roughness: 0.75 }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.75 }),
   );
   torso.position.y = 0.3 + 0.375 + 0.05;
   torso.castShadow = true;
   body.add(torso);
-
   const head = new THREE.Group();
   head.position.y = 1.58;
   body.add(head);
@@ -56,6 +69,10 @@ export function addNpc(game: Game, o: NpcOptions): Entity {
     head.add(eye);
   }
 
+  return head;
+}
+
+function finishNpc(game: Game, o: NpcOptions, root: THREE.Group, body: THREE.Group, head: THREE.Object3D): Entity {
   const tag = makeLabel(o.name, { scale: 0.7, color: '#ffe7a8' });
   tag.position.y = 2.15;
   root.add(tag);

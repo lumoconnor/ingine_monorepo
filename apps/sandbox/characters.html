@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Character showcase</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #1d1b19; overflow: hidden; font: 14px/1.4 system-ui, sans-serif; color: #eee3cf; }
+      #app { position: fixed; inset: 0; }
+      #ui { position: fixed; left: 12px; top: 12px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100vw - 24px); }
+      #ui button { background: #2c2824cc; color: #eee3cf; border: 1px solid #5a5048; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+      #ui button.on { background: #8a6a3a; border-color: #c09a50; }
+      #stats { position: fixed; left: 12px; bottom: 10px; font-size: 12px; opacity: 0.7; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="ui"></div>
+    <div id="stats"></div>
+    <script type="module" src="/src/showcase/main.ts"></script>
+  </body>
+</html>

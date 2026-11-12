@@ -89,7 +89,7 @@ export function addEnemy(game: Game, o: EnemyOptions): Entity {
   e.add(new EnemyBrain(o.archetype, a, new THREE.Vector3(...o.position), yaw, bag));
   e.add(new Armour({ pieces: a.armour, fromInventory: false }));
   const hex = (s: string | undefined, d: number) => (s ? parseInt(s, 16) : d);
-  e.add(new NpcRig({ tunic: hex(a.look?.tunic, 0x6e3b2a), hood: hex(a.look?.hood, 0x3b2a1f) }));
+  e.add(new NpcRig({ tunic: hex(a.look?.tunic, 0x6e3b2a), hood: hex(a.look?.hood, 0x3b2a1f), character: a.look?.character }));
   game.world.spawn(e);
   // Killed in an earlier visit (the save says so): lies where it fell.
   if (game.state.hasFlag(killedFlag(o.id))) e.get(EnemyBrain)!.loadState({ dead: true });

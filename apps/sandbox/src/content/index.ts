@@ -16,6 +16,9 @@ import factions from './combat/factions.json';
 import unarmed from './combat/unarmed.json';
 import archetypes from './combat/archetypes.json';
 import models from './models.json';
+import characters from './characters.json';
+import { registerCharacters } from '@ingine/engine/render/painterly/characters';
+import type { CharacterSpec } from '@ingine/engine/render/painterly/character';
 
 export { dialogueTrees } from './dialogue';
 
@@ -31,4 +34,5 @@ export function registerContent(): void {
   registerItems(items satisfies Record<string, ItemDef>);
   for (const [id, def] of Object.entries(archetypes as Record<string, Archetype>)) registerArchetype(id, def);
   registerModelOverrides(models as Record<string, ModelOverride>);
+  registerCharacters(characters as Record<string, CharacterSpec>);
 }

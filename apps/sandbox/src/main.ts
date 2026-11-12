@@ -19,6 +19,7 @@ import '@ingine/engine/combat/Armour';
 import '@ingine/engine/inventory/models';
 import '@ingine/engine/world/propModels';
 import { loadModelAssets } from '@ingine/engine/render/models/ModelRegistry';
+import { prebuildCharacters } from '@ingine/engine/render/painterly/characters';
 
 async function main(): Promise<void> {
   registerContent();
@@ -38,8 +39,26 @@ async function main(): Promise<void> {
   await game.init();
   // Real art listed in content/models.json replaces the greybox (nothing listed yet).
   await loadModelAssets();
+  // Sculpt the painterly characters (content/characters.json) before the level spawns them.
+  await prebuildCharacters();
   await game.loadLevel(new PlaygroundLevel());
   game.start();
+  // P toggles the oil-paint filter (remembered).
+  const paintKey = 'ingine.paintFilter';
+  try {
+    game.renderer.paintFilter = localStorage.getItem(paintKey) === '1';
+  } catch {
+    /* storage blocked */
+  }
+  addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyP' || e.repeat) return;
+    game.renderer.paintFilter = !game.renderer.paintFilter;
+    try {
+      localStorage.setItem(paintKey, game.renderer.paintFilter ? '1' : '0');
+    } catch {
+      /* storage blocked */
+    }
+  });
 
   // Handy for live-tuning from the dev console, e.g.
   //   player.cfg.jumpHeight = 2; player.cfg.sprintSpeed = 10

@@ -11,6 +11,7 @@ import { Armour } from '../Armour';
 import { NpcBody } from './NpcBody';
 import { Perception } from './Perception';
 import { EnemyBrain } from './EnemyBrain';
+import { hasCharacter, spawnCharacter, restPose } from '../../render/painterly/characters';
 
 const mat = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
 const skin = mat(0xd5a583);
@@ -34,13 +35,18 @@ function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z
 export class NpcRig extends Component {
   order = 121;
   private figure = new THREE.Group();
-  private legL = new THREE.Group();
-  private legR = new THREE.Group();
-  private armL = new THREE.Group();
-  private armR = new THREE.Group();
-  private torso!: THREE.Mesh;
-  private head = new THREE.Group();
-  private hand = new THREE.Group();
+  private legL: THREE.Object3D = new THREE.Group();
+  private legR: THREE.Object3D = new THREE.Group();
+  private armL: THREE.Object3D = new THREE.Group();
+  private armR: THREE.Object3D = new THREE.Group();
+  private torso!: THREE.Object3D;
+  private head: THREE.Object3D = new THREE.Group();
+  private hand: THREE.Object3D = new THREE.Group();
+  /** Painterly characters also bend knees and the weapon elbow. */
+  private shinL: THREE.Object3D | null = null;
+  private shinR: THREE.Object3D | null = null;
+  private forearmR: THREE.Object3D | null = null;
+  private helmSocket: THREE.Object3D | null = null;
   private gun = new THREE.Group();
   private helm: THREE.Object3D | null = null;
   private mail: THREE.Mesh | null = null;
@@ -62,7 +68,7 @@ export class NpcRig extends Component {
   private mats: THREE.MeshStandardMaterial[] = [];
   private unsub: (() => void) | null = null;
 
-  constructor(private look: { tunic: number; hood: number }) {
+  constructor(private look: { tunic: number; hood: number; character?: string }) {
     super();
   }
 
@@ -72,6 +78,52 @@ export class NpcRig extends Component {
     this.hp = this.entity.require(Damageable);
     this.eyes = this.entity.require(Perception);
     this.brain = this.entity.require(EnemyBrain);
+    if (this.look.character && hasCharacter(this.look.character)) this.buildCharacter(this.look.character);
+    else this.buildGreybox();
+    this.gun.position.set(-0.12, 1.38, 0.18);
+    this.figure.add(this.gun);
+    this.entity.object3d.add(this.figure);
+    // Its own copies of the materials, so a hit can flash just this one.
+    this.figure.traverse((o) => {
+      if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
+        o.material = o.material.clone();
+        this.mats.push(o.material);
+      }
+    });
+    this.unsub = this.game.events.on('combat:hit', ({ target, result, hit }) => {
+      if (target !== this.entity || hit.delivery === 'status') return;
+      if (result.damage > 0) this.flash = 1;
+      if (hit.direction && (result.damage > 0 || result.tags.includes('blocked'))) {
+        // The blow's direction as the body sees it (z forward, x to its left).
+        this.flinchDir.copy(hit.direction).setY(0).applyQuaternion(_qi.copy(this.entity.object3d.quaternion).invert());
+        if (this.flinchDir.lengthSq() < 1e-4) this.flinchDir.set(0, 0, -1);
+        this.flinchDir.normalize();
+        this.flinch = Math.min(1, 0.35 + result.damage / 60);
+        // If this one kills, it falls the way it was struck.
+        this.fallAxis.set(-this.flinchDir.z, 0, this.flinchDir.x).negate();
+      }
+    });
+  }
+
+  /** A sculpted painterly character (see render/painterly): the same joints, as bones. */
+  private buildCharacter(id: string): void {
+    const c = spawnCharacter(id);
+    restPose(c);
+    this.figure.add(c.root);
+    this.legL = c.bone('leg_l');
+    this.legR = c.bone('leg_r');
+    this.armL = c.bone('arm_l');
+    this.armR = c.bone('arm_r');
+    this.torso = c.bone('spine');
+    this.head = c.bone('head');
+    this.hand = c.bone('grip_r');
+    this.shinL = c.bone('shin_l');
+    this.shinR = c.bone('shin_r');
+    this.forearmR = c.bone('forearm_r');
+    this.helmSocket = c.bone('helm');
+  }
+
+  private buildGreybox(): void {
     const tunic = mat(this.look.tunic);
     const trousers = mat(0x3a3530);
     const hood = mat(this.look.hood, 0.9);
@@ -103,29 +155,6 @@ export class NpcRig extends Component {
     }
     this.hand.position.set(0, -0.62, 0);
     this.armR.add(this.hand);
-    this.gun.position.set(-0.12, 1.38, 0.18);
-    fig.add(this.gun);
-    this.entity.object3d.add(fig);
-    // Its own copies of the materials, so a hit can flash just this one.
-    fig.traverse((o) => {
-      if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
-        o.material = o.material.clone();
-        this.mats.push(o.material);
-      }
-    });
-    this.unsub = this.game.events.on('combat:hit', ({ target, result, hit }) => {
-      if (target !== this.entity || hit.delivery === 'status') return;
-      if (result.damage > 0) this.flash = 1;
-      if (hit.direction && (result.damage > 0 || result.tags.includes('blocked'))) {
-        // The blow's direction as the body sees it (z forward, x to its left).
-        this.flinchDir.copy(hit.direction).setY(0).applyQuaternion(_qi.copy(this.entity.object3d.quaternion).invert());
-        if (this.flinchDir.lengthSq() < 1e-4) this.flinchDir.set(0, 0, -1);
-        this.flinchDir.normalize();
-        this.flinch = Math.min(1, 0.35 + result.damage / 60);
-        // If this one kills, it falls the way it was struck.
-        this.fallAxis.set(-this.flinchDir.z, 0, this.flinchDir.x).negate();
-      }
-    });
   }
 
   onDetach(): void {
@@ -162,12 +191,17 @@ export class NpcRig extends Component {
         );
         h.position.y = 0.01;
         h.userData.item = helmItem;
-        this.head.add(h);
+        if (this.helmSocket) {
+          // Sit over the sculpted head (and hood) rather than the greybox ball.
+          h.position.y = 0.035;
+          h.scale.set(0.66, 0.66, 0.7);
+          this.helmSocket.add(h);
+        } else this.head.add(h);
         this.helm = h;
       }
     }
     const body = ar?.worn.body ?? null;
-    if ((this.mail?.userData.item ?? null) !== body) {
+    if (!this.helmSocket && (this.mail?.userData.item ?? null) !== body) {
       this.mail?.removeFromParent();
       this.mail = null;
       if (body) {
@@ -208,6 +242,11 @@ export class NpcRig extends Component {
     const swing = Math.sin(this.phase) * Math.min(0.7, speed * 0.18) * (1 - this.fall);
     this.legL.rotation.x = swing;
     this.legR.rotation.x = -swing;
+    if (this.shinL && this.shinR) {
+      // Knees bend on the back swing.
+      this.shinL.rotation.x = Math.max(0, swing) * 0.9;
+      this.shinR.rotation.x = Math.max(0, -swing) * 0.9;
+    }
     this.armL.rotation.set(-swing * 0.6, 0, 0.08);
 
     // Lean back when staggered.
@@ -256,6 +295,8 @@ export class NpcRig extends Component {
       this.armL.rotation.set(THREE.MathUtils.lerp(-1.1, -1.5, aim), -0.4, 0);
     } else {
       this.armR.rotation.set(ax, ay, az);
+      // A soft elbow that straightens into the blow.
+      if (this.forearmR) this.forearmR.rotation.x = st === 'active' ? -0.05 : -0.3;
     }
     this.updateLabel();
   }

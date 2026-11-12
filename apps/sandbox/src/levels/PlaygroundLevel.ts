@@ -489,9 +489,9 @@ export class PlaygroundLevel implements Level {
    * Items rest naturally on surfaces (see addItemPickup).
    */
   private buildNpcs(game: Game): void {
-    addNpc(game, { id: 'npc-mira', name: 'Mira', dialogue: 'mira', position: [3.2, 0, 4.6], facingDeg: -42, color: 0x3f7cac });
-    addNpc(game, { id: 'npc-tess', name: 'Tess', dialogue: 'tess', position: [-3.2, 0, 4.6], facingDeg: 42, color: 0x9a4f7a });
-    addNpc(game, { id: 'npc-bram', name: 'Old Bram', dialogue: 'bram', position: [-30.6, 0, 20.6], facingDeg: 90, color: 0x6f6a3c });
+    addNpc(game, { id: 'npc-mira', name: 'Mira', dialogue: 'mira', position: [3.2, 0, 4.6], facingDeg: -42, color: 0x3f7cac, character: 'mira' });
+    addNpc(game, { id: 'npc-tess', name: 'Tess', dialogue: 'tess', position: [-3.2, 0, 4.6], facingDeg: 42, color: 0x9a4f7a, character: 'tess' });
+    addNpc(game, { id: 'npc-bram', name: 'Old Bram', dialogue: 'bram', position: [-30.6, 0, 20.6], facingDeg: 90, color: 0x6f6a3c, character: 'bram' });
 
     // Bram's table in the south-west corner of the door house, with his key on it.
     const [tx, tz] = [-36.6, 17.7];

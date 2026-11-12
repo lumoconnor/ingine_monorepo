@@ -24,7 +24,8 @@ export interface Archetype {
   /** The weapon it fights with. */
   draw?: string;
   armour?: string[];
-  look?: { tunic?: string; hood?: string };
+  /** Greybox colours, or a painterly `character` id (registered with registerCharacters). */
+  look?: { tunic?: string; hood?: string; character?: string };
   walkSpeed?: number;
   runSpeed?: number;
   /** Preferred distance band to its target (m). */

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { System } from '../core/System';
+import { PainterlyPost } from './painterly/PainterlyPost';
 
 /**
  * Owns the WebGL renderer, the root scene and the active camera. Handles
@@ -11,6 +12,8 @@ export class Renderer implements System {
   readonly camera: THREE.PerspectiveCamera;
   readonly webgl: THREE.WebGLRenderer;
   readonly sun: THREE.DirectionalLight;
+  /** Optional full-screen paint filter (see render/painterly). */
+  private post: PainterlyPost | null = null;
   /** Max device pixel ratio; lower for performance. */
   maxPixelRatio = 2;
 
@@ -67,8 +70,19 @@ export class Renderer implements System {
     this.sun.target.position.set(x, target.y, z);
   }
 
+  /** The oil-paint post filter: costly on weak GPUs, so it's a setting. */
+  get paintFilter(): boolean {
+    return !!this.post?.enabled;
+  }
+
+  set paintFilter(on: boolean) {
+    if (on && !this.post) this.post = new PainterlyPost(this.webgl, this.scene, this.camera);
+    if (this.post) this.post.enabled = on;
+  }
+
   render(): void {
-    this.webgl.render(this.scene, this.camera);
+    if (this.post?.enabled) this.post.render();
+    else this.webgl.render(this.scene, this.camera);
   }
 
   dispose(): void {
@@ -83,5 +97,6 @@ export class Renderer implements System {
     this.camera.updateProjectionMatrix();
     this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio));
     this.webgl.setSize(w, h);
+    this.post?.setSize(w, h);
   };
 }
