@@ -24,11 +24,12 @@ import { WorldLevel, DEFAULT_WORLD_SEED } from './levels/world/WorldLevel';
 
 /**
  * `?level=world` opens the procedurally generated world (`&seed=N` picks
- * another one); anything else is the movement playground.
+ * another one), `?level=playground` the movement playground. With no
+ * `level`, VITE_DEFAULT_LEVEL decides (the GitHub Pages build opens the world).
  */
 function pickLevel(): { level: Level; saveKey?: string } {
   const params = new URLSearchParams(location.search);
-  if (params.get('level') === 'world') {
+  if ((params.get('level') ?? import.meta.env.VITE_DEFAULT_LEVEL) === 'world') {
     const raw = parseInt(params.get('seed') ?? '', 10);
     const seed = Number.isFinite(raw) ? raw >>> 0 : DEFAULT_WORLD_SEED;
     document.title = `Open World RPG — Procedural World (seed ${seed})`;
