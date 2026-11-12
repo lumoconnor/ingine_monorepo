@@ -2,6 +2,7 @@ import { mulberry32, subSeed } from '@ingine/engine/procgen/random';
 import type { WorldMap } from './WorldGen';
 import type { Site } from './sites';
 import type { Tower, WallLine } from './settlements';
+import { rollLoot } from './loot';
 
 /**
  * Bandit camps and ruined fortresses: what stands there and who guards it.
@@ -157,7 +158,7 @@ function camp(map: WorldMap, s: Site): Outpost {
       const cz = z + Math.cos(yaw) * 2.9 - Math.sin(yaw) * 1.2;
       o.chest = {
         id: `${s.id}:chest`, x: cx, y: g(cx, cz), z: cz, facing: yaw,
-        contents: [{ item: 'gold', count: 12 + Math.floor(rand() * 18) }, { item: pick(['bandage', 'healing_draught', 'arrows']), count: 2 + Math.floor(rand() * 3) }],
+        contents: rollLoot('camp', rand),
       };
     }
   }
@@ -278,7 +279,7 @@ function ruin(map: WorldMap, s: Site): Outpost {
   // The chest in the keep's back corner.
   {
     const [x, z] = L(kx + kh - 2, kz - kh + 1.8);
-    o.chest = { id: `${s.id}:chest`, x, y: g(x, z), z, facing: yaw, contents: [{ item: 'gold', count: 20 + Math.floor(rand() * 25) }, { item: pick(['steel_helm', 'healing_draught', 'grenade']), count: 1 }] };
+    o.chest = { id: `${s.id}:chest`, x, y: g(x, z), z, facing: yaw, contents: rollLoot('ruin', rand) };
   }
 
   // Deserters: two in the courtyard, one in the keep, a marksman on the tall tower.

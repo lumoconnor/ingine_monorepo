@@ -39,11 +39,14 @@ const { chromium } = require('playwright');
     const R = game.physics.world;
     let worst = 0, misses = 0;
     const sp = map.spawn;
+    // Only the ground: skip tree trunks.
+    const trunkBodies = new Set([...comp(game.world.find('forest'), 'Forest').bodies.values()].map((b) => b.handle));
+    const groundOnly = (col) => !trunkBodies.has(col.parent()?.handle);
     for (let i = 0; i < 300; i++) {
       const x = sp.x + (Math.sin(i * 12.9898) * 0.5) * 220;
       const z = sp.z + (Math.cos(i * 78.233) * 0.5) * 220;
       const top = 600;
-      const hit = R.castRay({ origin: { x, y: top, z }, dir: { x: 0, y: -1, z: 0 } }, 1000, true);
+      const hit = R.castRay({ origin: { x, y: top, z }, dir: { x: 0, y: -1, z: 0 } }, 1000, true, undefined, undefined, undefined, undefined, groundOnly);
       if (!hit) { misses++; continue; }
       worst = Math.max(worst, Math.abs(top - hit.timeOfImpact - map.heightAt(x, z)));
     }
@@ -322,13 +325,116 @@ const { chromium } = require('playwright');
     C.placeAt(new V(map.spawn.x, map.spawn.y, map.spawn.z), 0, 0);
     step(30);
 
+    // 13. Forests: plenty of trees, kept off roads, sites and water
+    const trees = map.trees;
+    const treeKinds = [0, 1, 2].map((k) => trees.filter((t) => t.kind === k).length);
+    check('forests are planted (pines, oaks, bushes)', trees.length > 10000 && treeKinds.every((n) => n > 500), `pines=${treeKinds[0]} oaks=${treeKinds[1]} bushes=${treeKinds[2]}`);
+    const roadCells = new Map();
+    for (const rd of map.net.roads) for (const q of rd.points) {
+      const k = `${Math.floor(q.x / 8)},${Math.floor(q.z / 8)}`;
+      if (!roadCells.has(k)) roadCells.set(k, []);
+      roadCells.get(k).push({ x: q.x, z: q.z, w: rd.width ?? 3 });
+    }
+    let tOnRoad = 0, inSite = 0, wet = 0;
+    for (const t of trees) {
+      const cx = Math.floor(t.x / 8), cz = Math.floor(t.z / 8);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        for (const q of roadCells.get(`${cx + dx},${cz + dz}`) ?? []) if (Math.hypot(q.x - t.x, q.z - t.z) < q.w / 2) tOnRoad++;
+      }
+      if (map.sites.some((s) => Math.hypot(s.x - t.x, s.z - t.z) < s.radius)) inSite++;
+      if (map.water.sample(t.x, t.y + 0.3, t.z, 0)) wet++;
+    }
+    check('no trees on roads, in sites or in water', tOnRoad + inSite + wet === 0, `road=${tOnRoad} site=${inSite} water=${wet}`);
+    // Trunks are solid near you: walk straight at a lone tree. You slide round the bark, never through it.
+    const forest = comp(game.world.find('forest'), 'Forest');
+    const near = (t, r) => trees.some((u) => u !== t && Math.abs(u.x - t.x) < r && Math.abs(u.z - t.z) < r);
+    const lone = trees.find((t) => t.kind !== 2 && Math.hypot(t.x - sp.x, t.z - sp.z) > 30 && !near(t, 6) &&
+      Math.abs(map.heightAt(t.x + 4, t.z) - t.y) < 0.6 && !map.water.sample(t.x + 4, t.y + 0.3, t.z, 0));
+    const trunkR = (lone.kind === 0 ? 0.24 : 0.32) * lone.scale;
+    C.placeAt(new V(lone.x + 4, map.heightAt(lone.x + 4, lone.z) + 0.05, lone.z), Math.PI / 2, 0);
+    step(30);
+    const nearColliders = forest.colliderCount;
+    const bark = R.castRay({ origin: { x: lone.x + 3, y: lone.y + 1, z: lone.z }, dir: { x: -1, y: 0, z: 0 } }, 6, true);
+    let closest = Infinity;
+    down('KeyW');
+    for (let i = 0; i < 150; i++) { step(1); closest = Math.min(closest, Math.hypot(C.feetPosition.x - lone.x, C.feetPosition.z - lone.z)); }
+    up('KeyW'); step(10);
+    const passed = C.feetPosition.x < lone.x - 1;
+    check('tree trunks are solid: you go round, not through', nearColliders > 0 && bark && Math.abs(3 - bark.timeOfImpact - trunkR) < 0.05 && passed && closest > trunkR + 0.2,
+      `colliders=${nearColliders} closest=${closest.toFixed(2)} trunk=${trunkR.toFixed(2)}`);
+    // ...and only near you.
+    C.placeAt(new V(map.spawn.x, map.spawn.y, map.spawn.z), 0, 0);
+    step(30);
+    check('trunk colliders only near the player', forest.colliderCount < 1500, `colliders=${forest.colliderCount} of ${treeKinds[0] + treeKinds[1]} trees`);
+
+    // 14. Hidden caches and indoor loot
+    const caches = map.caches;
+    let apart = Infinity;
+    for (const a of caches) for (const b of caches) if (a !== b) apart = Math.min(apart, Math.hypot(a.x - b.x, a.z - b.z));
+    const cacheOk = caches.every((c) => game.world.find('chest:' + c.id) && !map.water.sample(c.x, c.y + 0.3, c.z, 0) &&
+      !trees.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < 2.5) && c.contents.length > 0);
+    check('hidden caches are placed apart, dry and clear of trees', caches.length >= 5 && apart > 200 && cacheOk,
+      `caches=${caches.length} (${[...new Set(caches.map((c) => c.spot))].join(', ')}) closest=${apart.toFixed(0)}m`);
+    const houseChests = game.world.findByTag('chest').filter((e) => e.name.endsWith(':chest'));
+    const tablePickups = game.world.findByTag('pickup').filter((e) => e.name && comp(e, 'ItemPickup')?.spec.id?.endsWith(':table'));
+    check('houses have chests and things on tables', houseChests.length > 3 && tablePickups.length > 3, `chests=${houseChests.length} table items=${tablePickups.length}`);
+
     // 7. The world edge holds
     const edge = map.grid.maxX - 20;
     C.placeAt(new V(edge, map.heightAt(edge, 0) + 2, 0), -Math.PI / 2, 0);
     down('KeyW'); step(300); up('KeyW');
     check('the border stops you leaving the map', C.feetPosition.x < map.grid.maxX - 4, `x=${C.feetPosition.x.toFixed(1)}`);
-    return r;
+
+    // 15. Save: loot a chest, take a table item, open a door, drop a bandit, stand somewhere, save.
+    const ia = (e) => comp(e, 'Interactable');
+    const chestE = houseChests[0];
+    ia(chestE).interact(player);
+    const pickE = tablePickups[0];
+    const pickId = comp(pickE, 'ItemPickup').spec.id;
+    ia(pickE).interact(player);
+    const saveDoor = game.world.findByTag('door').find((e) => e.name.startsWith('door:') && !comp(e, 'Door').isOn);
+    ia(saveDoor).interact(player);
+    const bandit = camps[1] ?? camps[0];
+    const banditId = bandit.guards[0].id;
+    comp(game.world.find(banditId), 'Damageable').applyHit({ attacker: player, packets: [{ type: 'pierce', amount: 9999 }], zone: null, source: 'check' });
+    const cache0 = caches[0];
+    C.placeAt(new V(cache0.x + 3, map.heightAt(cache0.x + 3, cache0.z) + 0.05, cache0.z), 0.7, 0);
+    step(60);
+    const stand = [C.feetPosition.x, C.feetPosition.y, C.feetPosition.z];
+    const gold = game.state.itemCount('gold');
+    const saved = saves.save(false);
+    window.__saved = 1;
+    return { r, s: { saved, chest: chestE.name.slice(6), pickId, door: saveDoor.name, banditId, stand, gold } };
   });
-  console.log(out.join('\n'));
+  console.log(out.r.join('\n'));
+
+  // Reload the page (a fresh world from the same seed) and load the save.
+  await page.reload();
+  await page.waitForFunction(() => window.game && window.game.world.find('player') && window.worldgen, null, { timeout: 60000 });
+  const after = await page.evaluate((s) => {
+    game.stop();
+    const r = [];
+    const check = (label, ok, extra = '') => r.push(`${ok ? 'PASS' : 'FAIL'}  ${label}${extra ? '  ' + extra : ''}`);
+    const comp = (e, n) => e.getAll().find((c) => c.constructor.name === n);
+    const player = game.world.find('player');
+    const C = comp(player, 'PlayerController');
+    const step = (n) => { for (let i = 0; i < n; i++) game.fixedStep(1 / 60); };
+    const fresh = !game.state.hasFlag('world.looted.' + s.chest);
+    const loaded = s.saved && saves.hasSave() && saves.load();
+    step(60);
+    const tableGone = !game.world.findByTag('pickup').some((e) => comp(e, 'ItemPickup')?.spec.id === s.pickId);
+    const door = comp(game.world.find(s.door), 'Door');
+    const brain = comp(game.world.find(s.banditId), 'EnemyBrain');
+    const d = Math.hypot(C.feetPosition.x - s.stand[0], C.feetPosition.z - s.stand[2]);
+    check('a reloaded page starts fresh until you load', fresh);
+    check('loading brings back looted chests, taken items, gold and open doors',
+      loaded && game.state.hasFlag('world.looted.' + s.chest) && tableGone && game.state.itemCount('gold') === s.gold && door.isOn,
+      `gold=${game.state.itemCount('gold')}/${s.gold} tableGone=${tableGone} doorOpen=${door.isOn}`);
+    check('dead bandits stay dead after loading', brain.activity === 'dead' && game.state.hasFlag('killed.' + s.banditId), `activity=${brain.activity}`);
+    check('loading puts you back where you saved', d < 0.3 && Math.abs(C.feetPosition.y - s.stand[1]) < 0.3, `off=${d.toFixed(2)}`);
+    saves.newGame();
+    return r;
+  }, out.s);
+  console.log(after.join('\n'));
   await browser.close();
 })();

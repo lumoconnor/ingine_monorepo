@@ -3,6 +3,7 @@ import { Component } from '@ingine/engine/entities/Component';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { BIOME_INFO, type WorldMap } from './WorldGen';
 import { SITE_INFO } from './sites';
+import { lootedFlag } from '@ingine/engine/world/containers';
 
 const PX = 768;
 const shallowWater = new THREE.Color(0x3f95b8);
@@ -322,6 +323,7 @@ export class WorldMapUi extends Component {
 
     this.meta.textContent =
       `Position ${p.x.toFixed(0)}, ${p.z.toFixed(0)} · height ${p.y.toFixed(0)} m · ` +
-      `world ${g.size} m · generated in ${this.map.genMs.toFixed(0)} ms`;
+      `world ${g.size} m · generated in ${this.map.genMs.toFixed(0)} ms · ` +
+      `hidden caches found ${this.map.caches.filter((c) => this.game.state.hasFlag(lootedFlag(c.id))).length} of ${this.map.caches.length}`;
   }
 }

@@ -3,6 +3,10 @@ import { StaticBatch } from '@ingine/engine/world/StaticBatch';
 import { buildFence, buildHouse, buildStall, buildTower, buildWallRun, buildWell } from '@ingine/engine/world/buildings';
 import { addDoor } from '@ingine/engine/world/machinery';
 import { addNpc } from '@ingine/engine/world/npcs';
+import { addChest } from '@ingine/engine/world/containers';
+import { addItemPickup } from '@ingine/engine/inventory/pickups';
+import { mulberry32 } from '@ingine/engine/procgen/random';
+import { rollLoot } from './loot';
 import type { WorldMap } from './WorldGen';
 import { STONE, STONE_DARK, type Building } from './settlements';
 
@@ -59,6 +63,25 @@ export function buildSettlements(game: Game, map: WorldMap): void {
       else if (p.kind === 'fence' && p.to) buildFence(batch, [p.x, p.z], p.to, ground);
     }
     batch.build(game, `settlement:${st.site}`);
+
+    // A little to find indoors: a chest by the bed in some houses, something left on the table in others.
+    for (const h of st.buildings) {
+      if (!h.enterable || h.kind === 'keep') continue;
+      const rand = mulberry32(hashId(h.id + ':loot'));
+      const ix = h.w / 2 - 0.35;
+      const iz = h.d / 2 - 0.35;
+      const at = (lx: number, lz: number): [number, number] => [h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw)];
+      if (rand() < 0.35) {
+        const [x, z] = at(-ix + 0.6, -iz + 2.5);
+        addChest(game, { id: `${h.id}:chest`, position: [x, h.floorY, z], facingDeg: (h.yaw * 180) / Math.PI, contents: rollLoot('house', rand) });
+      }
+      if (rand() < 0.5) {
+        const [{ item, count }] = rollLoot('shelf', rand);
+        const [x, z] = at(ix - 0.9 + (rand() - 0.5) * 0.6, -iz + 1.6 + (rand() - 0.5) * 0.3);
+        // Resting on the table top.
+        addItemPickup(game, { id: `${h.id}:table`, item, count, position: [x, h.floorY + 0.78, z], yawDeg: rand() * 360 });
+      }
+    }
 
     for (const d of doors) {
       if (!d.doorway) continue;
