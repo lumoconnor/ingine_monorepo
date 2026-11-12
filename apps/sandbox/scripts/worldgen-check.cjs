@@ -257,6 +257,71 @@ const { chromium } = require('playwright');
     check('villagers talk about where they live', !!line && line.speaker === npcC.displayName && /\{/.test(line.text) === false && (line.text.includes(placeName) || npcC.dialogue !== 'villager-a'),
       line ? `${line.speaker}: "${line.text}"` : 'no line');
 
+    // 12. Bandit camps and ruined fortresses
+    const O = map.outposts;
+    const camps = O.filter((o) => o.kind === 'camp'), ruins = O.filter((o) => o.kind === 'ruin');
+    check('camps and ruins are built and guarded', camps.length === kinds('camp') && ruins.length === kinds('ruin')
+      && camps.every((o) => o.tents.length >= 3 && o.walls.length >= 8 && o.fire && o.lookout && o.chest && o.guards.length >= 3)
+      && ruins.every((o) => o.walls.length >= 10 && o.towers.length === 4 && o.chest && o.guards.length >= 3),
+      O.map((o) => `${o.site}:${o.kind === 'camp' ? o.tents.length + 'tents' : o.towers.length + 'towers'}/${o.guards.length}guards`).join(' '));
+    let shut = 0;
+    for (const o of O) for (const w of o.walls) {
+      const [ax, az] = w.from, [bx, bz] = w.to;
+      const l2 = (bx - ax) ** 2 + (bz - az) ** 2;
+      for (const r of net.roads) for (const q of r.points) {
+        const t = Math.max(0, Math.min(1, ((q.x - ax) * (bx - ax) + (q.z - az) * (bz - az)) / l2));
+        if (Math.hypot(q.x - ax - (bx - ax) * t, q.z - az - (bz - az) * t) < w.thickness / 2 + r.width / 2 - 0.3) shut++;
+      }
+    }
+    check('palisades and ruined walls leave the path in open', shut === 0, `blocked=${shut}`);
+    // Far-off bandits sleep (no ground under them out there); near ones wake on their feet.
+    const dorm = comp(game.world.find('world-minder'), 'Dormancy');
+    const enemyAt = (id) => game.world.find(id);
+    const camp0 = camps[0];
+    const site0 = sites.find((x) => x.id === camp0.site);
+    const away = Math.atan2(site0.z - camp0.lookout.z, site0.x - camp0.lookout.x);
+    const ox = site0.x + Math.cos(away) * 60, oz = site0.z + Math.sin(away) * 60;
+    C.placeAt(new V(ox, map.heightAt(ox, oz) + 0.05, oz), 0, 0);
+    step(90);
+    let worstStand = 0;
+    for (const g of camp0.guards) {
+      const p = comp(enemyAt(g.id), 'RigidBodyComponent').body.translation();
+      worstStand = Math.max(worstStand, Math.abs(p.y - g.y));
+    }
+    const farAsleep = O.filter((o) => o !== camp0).every((o) => o.guards.every((g) => {
+      const e = enemyAt(g.id);
+      const p = comp(e, 'RigidBodyComponent').body.translation();
+      return Math.hypot(p.x - ox, p.z - oz) < 130 || !comp(e, 'EnemyBrain').enabled;
+    }));
+    check('bandits sleep far away and wake standing at their posts', farAsleep && dorm.awake >= camp0.guards.length && worstStand < 0.35,
+      `awake=${dorm.awake} worst=${worstStand.toFixed(2)}`);
+    // Walk into the camp: they come for you. (Senses read the drawn positions, so draw frames too.)
+    let tFrame = 0;
+    const stepDrawn = (n) => { for (let i = 0; i < n; i++) { game.fixedStep(1 / 60); tFrame += 1 / 60; game.world.update({ delta: 1 / 60, elapsed: tFrame, alpha: 1 }); } };
+    C.placeAt(new V(site0.x + 1.5, map.heightAt(site0.x + 1.5, site0.z) + 0.05, site0.z), 0, 0);
+    let engaged = 0;
+    const pd = comp(player, 'Damageable');
+    let hurt = 0;
+    for (let i = 0; i < 240; i++) {
+      stepDrawn(1);
+      // Don't let the test die (a respawn would upset the checks after this one).
+      if (!pd.dead) {
+        hurt += pd.maxHealth - pd.health;
+        pd.heal(1000);
+      }
+      if (i % 30 === 0) engaged = Math.max(engaged, camp0.guards.filter((g) => comp(enemyAt(g.id), 'EnemyBrain').activity === 'engage').length);
+    }
+    // (A musket ball can still drop you in one go: wait for the respawn.)
+    for (let i = 0; i < 1200 && pd.dead; i++) step(1);
+    check('walk into a camp and the bandits fight', engaged >= 2, `engaged=${engaged} damage taken=${hurt.toFixed(0)}`);
+    // The lookout deck holds you.
+    const lk = camp0.lookout;
+    C.placeAt(new V(lk.x, lk.y + lk.deck + 0.3, lk.z), 0, 0);
+    step(60);
+    check('you can stand on the lookout', Math.abs(C.feetPosition.y - (lk.y + lk.deck)) < 0.15, `feet=${C.feetPosition.y.toFixed(2)} deck=${(lk.y + lk.deck).toFixed(2)}`);
+    C.placeAt(new V(map.spawn.x, map.spawn.y, map.spawn.z), 0, 0);
+    step(30);
+
     // 7. The world edge holds
     const edge = map.grid.maxX - 20;
     C.placeAt(new V(edge, map.heightAt(edge, 0) + 2, 0), -Math.PI / 2, 0);

@@ -8,9 +8,10 @@ import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
 import { TerrainStreamer } from '@ingine/engine/world/terrain/TerrainStreamer';
 import { WaterBody } from '@ingine/engine/world/water/WaterGrid';
 import { addBridge } from '@ingine/engine/world/bridges';
-import { addBox, addLabel } from '@ingine/engine/world/builders';
+import { addLabel } from '@ingine/engine/world/builders';
 import { SITE_INFO } from './sites';
 import { buildSettlements } from './buildSettlements';
+import { buildOutposts, Dormancy } from './buildOutposts';
 import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { generateWorld, type WorldMap } from './WorldGen';
@@ -23,7 +24,7 @@ export const DEFAULT_WORLD_SEED = 20261112;
  * The procedurally generated sandbox (`?level=world`, optionally `&seed=N`).
  * The whole world is generated from the seed when the level loads, then the
  * terrain streams in chunks around the player. See the plan doc for the
- * layers still to come (camps, ruins, forests, secrets, loot).
+ * layers still to come (forests, secrets, loot).
  */
 export class WorldLevel implements Level {
   readonly name = 'Procedural World';
@@ -63,18 +64,19 @@ export class WorldLevel implements Level {
     for (const b of map.net.bridges) {
       addBridge(game, { from: [b.ax, b.az], to: [b.bx, b.bz], y: b.y, width: b.width, pierDepth: b.y - b.water + 2.5 });
     }
-    // Villages and the town; camps and ruins are still a marker post until their milestone.
+    // Villages and the town, bandit camps and ruined fortresses.
     buildSettlements(game, map);
+    buildOutposts(game, map);
     for (const s of map.sites) {
       const settled = s.kind === 'village' || s.kind === 'town';
-      if (!settled) addBox(game, { name: `site:${s.id}`, size: [0.3, 4, 0.3], position: [s.x, s.y + 2, s.z], color: 0x6b4f33 });
-      addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + (settled ? 7 : 4.6), s.z], 2.2, SITE_INFO[s.kind].color);
+      if (settled) addLabel(game, `${s.name} · ${SITE_INFO[s.kind].label}`, [s.x, s.y + 7, s.z], 2.2, SITE_INFO[s.kind].color);
     }
 
     this.addBorder(game);
 
     ctrl = createPlayer(game, map.spawn.clone(), map.spawnYaw).get(PlayerController);
     const minder = new Entity('world-minder');
+    minder.add(new Dormancy());
     minder.add(new KeepAboveGround(map));
     minder.add(new WorldMapUi(map));
     game.world.spawn(minder);

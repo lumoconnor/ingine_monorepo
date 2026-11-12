@@ -210,6 +210,8 @@ export interface TowerSpec {
   color: number;
   /** Pointed roof colour, or battlements when omitted. */
   roof?: number;
+  /** A ruin: no top, just a few jagged stubs of wall (this seeds their heights). */
+  broken?: number;
 }
 
 export function buildTower(b: StaticBatch, s: TowerSpec): void {
@@ -219,7 +221,24 @@ export function buildTower(b: StaticBatch, s: TowerSpec): void {
   const h = s.height + (s.groundY - bottom);
   b.box(s.size, h, s.size, s.x, bottom + h / 2, s.z, s.color, { yaw });
   const top = s.groundY + s.height;
-  if (s.roof !== undefined) {
+  if (s.broken !== undefined) {
+    // Jagged stubs round the rim instead of a parapet.
+    let r = s.broken >>> 0 || 1;
+    const rnd = () => ((r = (Math.imul(r, 1664525) + 1013904223) >>> 0) / 4294967296);
+    const n = Math.max(3, Math.round(s.size / 0.9));
+    for (let side = 0; side < 4; side++) {
+      for (let i = 0; i < n; i++) {
+        if (rnd() < 0.35) continue;
+        const u = -s.size / 2 + ((i + 0.5) * s.size) / n;
+        const h = 0.3 + rnd() * 1.6;
+        const a = (side * Math.PI) / 2;
+        const lx = Math.cos(a) * u + Math.sin(a) * (s.size / 2 - 0.25);
+        const lz = -Math.sin(a) * u + Math.cos(a) * (s.size / 2 - 0.25);
+        const [x, z] = f.at(lx, lz);
+        b.box(s.size / n, h, 0.5, x, top + h / 2, z, s.color, { yaw: yaw + a });
+      }
+    }
+  } else if (s.roof !== undefined) {
     b.box(s.size + 0.5, 0.35, s.size + 0.5, s.x, top + 0.17, s.z, s.color, { yaw });
     b.pyramid(s.size + 0.8, s.size + 0.8, s.size * 0.9, s.x, top + 0.35, s.z, s.roof, { yaw });
   } else {

@@ -232,6 +232,18 @@ export class WorldMapUi extends Component {
         ctx.restore();
       }
     }
+    // Camps and ruins: their walls.
+    for (const o of this.map.outposts) {
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = o.kind === 'camp' ? '#5a3f28' : '#6f6a63';
+      for (const w of o.walls) {
+        ctx.lineWidth = Math.max(1, w.thickness * px);
+        ctx.beginPath();
+        ctx.moveTo(X(w.from[0]), Z(w.from[1]));
+        ctx.lineTo(X(w.to[0]), Z(w.to[1]));
+        ctx.stroke();
+      }
+    }
     ctx.lineCap = 'round';
 
     ctx.font = '600 12px system-ui, sans-serif';
