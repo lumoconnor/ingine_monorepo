@@ -1,0 +1,23 @@
+{
+  "id": "villager-a",
+  "speaker": "{npc.name}",
+  "start": "hello",
+  "nodes": {
+    "hello": {
+      "text": "Morning. Welcome to {npc.place}. Not many strangers come up this road.",
+      "choices": [
+        { "text": "What is this place?", "next": "place" },
+        { "text": "Any trouble around here?", "next": "trouble" },
+        { "text": "Take care.", "next": null }
+      ]
+    },
+    "place": {
+      "text": "{npc.place}? It's {npc.describe}. We keep to ourselves, mostly.",
+      "next": "hello"
+    },
+    "trouble": {
+      "text": "Bandits, mostly. They say a gang has made camp at {npc.camp}, off to the {npc.campDir}. I would keep clear, if I were you.",
+      "next": "hello"
+    }
+  }
+}

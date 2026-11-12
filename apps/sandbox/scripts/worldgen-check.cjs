@@ -8,7 +8,8 @@ const { chromium } = require('playwright');
   const page = await browser.newPage({ viewport: { width: 320, height: 200 } });
   page.on('pageerror', (e) => console.log('pageerror: ' + e.message));
   const base = (process.env.URL || 'http://localhost:5173/').replace(/\/?$/, '/');
-  await page.goto(base + '?level=world');
+  // SEED=n checks another world (the default seed is what CI checks).
+  await page.goto(base + '?level=world' + (process.env.SEED ? '&seed=' + process.env.SEED : ''));
   await page.waitForFunction(() => window.game && window.game.world.find('player') && window.worldgen, null, { timeout: 60000 });
   const out = await page.evaluate(async () => {
     game.stop();
@@ -138,8 +139,9 @@ const { chromium } = require('playwright');
     check('roads are gentle and paths are walkable', worstRoad < 0.3 && worstPath < 0.75, `steepest road=${(worstRoad * 100).toFixed(0)}% path=${(worstPath * 100).toFixed(0)}%`);
     check('roads are pressed into the ground', off < 0.05, `worst=${off.toFixed(3)}`);
     check('there are bridges, above the water', net.bridges.length >= 1 && net.bridges.every((b) => b.y > b.water + 0.8), `bridges=${net.bridges.length}`);
-    // Walk over the first bridge.
+    // Walk over the first bridge (some seeds have none).
     const br = net.bridges[0];
+    if (br) {
     const bl = Math.hypot(br.bx - br.ax, br.bz - br.az), ux = (br.bx - br.ax) / bl, uz = (br.bz - br.az) / bl;
     const s0x = br.ax - ux * 4, s0z = br.az - uz * 4;
     C.placeAt(new V(s0x, Math.max(map.heightAt(s0x, s0z), br.y) + 0.3, s0z), Math.atan2(-ux, -uz), 0);
@@ -158,6 +160,102 @@ const { chromium } = require('playwright');
     up('KeyW');
     const endAlong = (C.feetPosition.x - br.ax) * ux + (C.feetPosition.z - br.az) * uz;
     check('you can walk across a bridge and stay dry', endAlong > bl + 2 && !wet && minY > br.water, `crossed=${endAlong.toFixed(1)}/${bl.toFixed(1)}m deckMin=${minY.toFixed(2)} water=${br.water.toFixed(2)}`);
+    }
+
+    // 11. Villages and the town
+    const S = map.settlements;
+    const townS = S.find((x) => x.site.startsWith('town'));
+    check('every village and the town is built', S.length === sites.filter((x) => x.kind === 'village' || x.kind === 'town').length
+      && townS.buildings.length >= 18 && S.every((x) => x.buildings.length >= 5 && x.villagers.length >= 3),
+      S.map((x) => `${x.site}:${x.template}:${x.buildings.length}`).join(' '));
+    // Rectangles: corners, and a separating-axis overlap test.
+    const corners = (b, m = 0) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => {
+      const lx = sx * (b.w / 2 + m), lz = sz * (b.d / 2 + m);
+      return [b.x + lx * Math.cos(b.yaw) + lz * Math.sin(b.yaw), b.z - lx * Math.sin(b.yaw) + lz * Math.cos(b.yaw)];
+    });
+    const overlap = (A, B) => {
+      for (const P of [A, B]) for (let i = 0; i < 4; i++) {
+        const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % 4];
+        const nx = z0 - z1, nz = x1 - x0;
+        const proj = (Q) => Q.map(([x, z]) => x * nx + z * nz);
+        const a = proj(A), b = proj(B);
+        if (Math.max(...a) <= Math.min(...b) || Math.max(...b) <= Math.min(...a)) return false;
+      }
+      return true;
+    };
+    const inside = (b, x, z, m = 0) => {
+      const dx = x - b.x, dz = z - b.z;
+      const lx = dx * Math.cos(b.yaw) - dz * Math.sin(b.yaw), lz = dx * Math.sin(b.yaw) + dz * Math.cos(b.yaw);
+      return Math.abs(lx) < b.w / 2 + m && Math.abs(lz) < b.d / 2 + m;
+    };
+    let clashes = 0, onRoad = 0, wet2 = 0;
+    for (const st of S) {
+      const bs = st.buildings;
+      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (overlap(corners(bs[i], 0.4), corners(bs[j], 0.4))) clashes++;
+      for (const b of bs) {
+        if (map.water.sample(b.x, b.floorY + 0.2, b.z, 0)) wet2++;
+        for (const r of net.roads) for (const q of r.points) if (!q.bridge && inside(b, q.x, q.z, r.width / 2 - 0.5)) { onRoad++; break; }
+      }
+    }
+    check('buildings stand apart, off the roads and out of the water', clashes === 0 && onRoad === 0 && wet2 === 0, `overlaps=${clashes} onRoad=${onRoad} wet=${wet2}`);
+    // Town walls leave the roads open (gates), and no building sits outside them.
+    let blockedRoads = 0;
+    for (const st of S) for (const w of st.walls) {
+      const [ax, az] = w.from, [bx, bz] = w.to;
+      const l2 = (bx - ax) ** 2 + (bz - az) ** 2;
+      for (const r of net.roads) for (const q of r.points) {
+        const t = Math.max(0, Math.min(1, ((q.x - ax) * (bx - ax) + (q.z - az) * (bz - az)) / l2));
+        if (Math.hypot(q.x - ax - (bx - ax) * t, q.z - az - (bz - az) * t) < w.thickness / 2 + r.width / 2) blockedRoads++;
+      }
+    }
+    check('town walls have gates where the roads come in', blockedRoads === 0, `${townS.template} walls=${townS.walls.length} towers=${townS.towers.length} blocked=${blockedRoads}`);
+
+    // Walk in through a front door.
+    const house = townS.buildings.find((b) => b.enterable && b.kind !== 'keep' && b.kind !== 'hall');
+    const doorE = game.world.find('door:' + house.id);
+    const fx = house.front[0], fz = house.front[1];
+    C.placeAt(new V(fx, map.heightAt(fx, fz) + 0.05, fz), Math.atan2(-(house.x - fx), -(house.z - fz)), 0);
+    step(20);
+    comp(doorE, 'Door').activate('toggle', player);
+    step(60);
+    down('KeyW');
+    for (let i = 0; i < 150; i++) { C.yaw = Math.atan2(-(house.x - C.feetPosition.x), -(house.z - C.feetPosition.z)); step(1); if (inside(house, C.feetPosition.x, C.feetPosition.z, -1)) break; }
+    up('KeyW');
+    step(20);
+    const inHouse = inside(house, C.feetPosition.x, C.feetPosition.z, -0.3);
+    check('you can open a door and walk into a house', inHouse && Math.abs(C.feetPosition.y - house.floorY) < 0.2,
+      `${house.kind} inside=${inHouse} feet=${C.feetPosition.y.toFixed(2)} floor=${house.floorY.toFixed(2)}`);
+
+    // Villagers walk their rounds on the ground; guards and merchants stand.
+    C.placeAt(new V(townS.square.x + 4, map.heightAt(townS.square.x + 4, townS.square.z) + 0.05, townS.square.z), 0, 0);
+    const people = game.world.all().filter((e) => e.name.startsWith('npc:' + townS.site));
+    const walkers = people.map((e) => comp(e, 'Wander')).filter(Boolean);
+    const startW = walkers.map((w) => w.walked);
+    let worstFeet = 0;
+    for (let i = 0; i < 900; i++) {
+      step(1);
+      if (i % 60 === 0) for (const e of people) {
+        const p = comp(e, 'RigidBodyComponent').body.translation();
+        worstFeet = Math.max(worstFeet, Math.abs(p.y - map.heightAt(p.x, p.z)));
+      }
+    }
+    const moved = walkers.filter((w, i) => w.walked - startW[i] > 3).length;
+    check('villagers walk about the town, feet on the ground', walkers.length >= 5 && moved >= walkers.length * 0.6 && worstFeet < 0.3,
+      `people=${people.length} walkers=${walkers.length} moved=${moved} feetErr=${worstFeet.toFixed(2)}`);
+    // Chat names the place.
+    const talker = people.find((e) => comp(e, 'Npc').dialogue === 'villager-a') ?? people.find((e) => comp(e, 'Npc').dialogue.startsWith('villager'));
+    let line = null;
+    const unsub = game.events.on('dialogue:line', (l) => { if (!line) line = l; });
+    const npcC = comp(talker, 'Npc');
+    const tp = comp(talker, 'RigidBodyComponent').body.translation();
+    C.placeAt(new V(tp.x + 1.5, tp.y + 0.05, tp.z), Math.PI / 2, 0);
+    step(2);
+    game.getSystem('dialogue').start(npcC.dialogue, talker, npcC);
+    game.getSystem('dialogue').end();
+    unsub();
+    const placeName = sites.find((x) => x.id === townS.site).name;
+    check('villagers talk about where they live', !!line && line.speaker === npcC.displayName && /\{/.test(line.text) === false && (line.text.includes(placeName) || npcC.dialogue !== 'villager-a'),
+      line ? `${line.speaker}: "${line.text}"` : 'no line');
 
     // 7. The world edge holds
     const edge = map.grid.maxX - 20;

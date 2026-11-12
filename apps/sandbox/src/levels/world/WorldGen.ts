@@ -8,6 +8,7 @@ import type { WaterGrid } from '@ingine/engine/world/water/WaterGrid';
 import { generateWater, type Hydrology } from './hydrology';
 import { placeSites, type Site } from './sites';
 import { buildRoads, type RoadNet } from './roads';
+import { layoutSettlements, type Settlement } from './settlements';
 
 /** Ground types. Later layers (forests, villages, camps) read these to decide what goes where. */
 export const Biome = {
@@ -76,6 +77,8 @@ export class WorldMap implements TerrainSource {
   /** Where things are (or will be) built. */
   sites: Site[] = [];
   net: RoadNet = { roads: [], bridges: [], mask: new Float32Array(0) };
+  /** What stands in each village and the town. */
+  settlements: Settlement[] = [];
   readonly spawn = new THREE.Vector3();
   spawnYaw = 0;
   /** Generation time in ms (for the debug map). */
@@ -174,6 +177,10 @@ export class WorldMap implements TerrainSource {
     for (let i = 0; i < L.length; i += 13) if (L[i] === L[i]) h = (Math.imul(h, 31) + Math.round(L[i] * 100)) | 0;
     for (const s of this.sites) h = (Math.imul(h, 31) + Math.round(s.x * 7 + s.z * 13 + s.y * 100)) | 0;
     for (const r of this.net.roads) h = (Math.imul(h, 31) + r.points.length) | 0;
+    for (const st of this.settlements) {
+      for (const b of st.buildings) h = (Math.imul(h, 31) + Math.round(b.x * 7 + b.z * 13 + b.yaw * 100 + b.w * 10)) | 0;
+      for (const v of st.villagers) h = (Math.imul(h, 31) + v.path.length + Math.round(v.x * 3)) | 0;
+    }
     return h >>> 0;
   }
 }
@@ -259,6 +266,7 @@ export function generateWorld(settings: WorldSettings): WorldMap {
   map.sites = placeSites(map, nearWater);
   map.net = buildRoads(map, map.sites);
   map.classify();
+  map.settlements = layoutSettlements(map, map.sites);
   map.spawn.y = g.heightAt(map.spawn.x, map.spawn.z) + 0.05;
   map.genMs = performance.now() - t0;
   return map;

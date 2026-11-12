@@ -16,6 +16,11 @@ const _p = new THREE.Vector3();
  * to face the player while talking (and glances at them when they're near).
  */
 export class Npc extends Component implements Speaker {
+  /** Words dialogue can use as `{npc.key}` (generic villagers: their name, their village). */
+  vars: Record<string, string> = {};
+  /** Name tag, shown only within `tagRange` metres. */
+  tag: THREE.Object3D | null = null;
+  tagRange = Infinity;
   private talkingTo: Entity | null = null;
   private bodyYaw: number;
   private headYaw = 0;
@@ -42,6 +47,11 @@ export class Npc extends Component implements Speaker {
     return out.copy(this.entity.object3d.position).setY(this.entity.object3d.position.y + this.eyeHeight);
   }
 
+  /** The way they face when not talking (walkers turn as they go). */
+  face(yaw: number): void {
+    this.homeYaw = yaw;
+  }
+
   setTalking(withEntity: Entity | null): void {
     this.talkingTo = withEntity;
   }
@@ -54,6 +64,7 @@ export class Npc extends Component implements Speaker {
     let toPlayer: number | null = null;
     if (player) {
       _p.copy(player.object3d.position).sub(me);
+      if (this.tag) this.tag.visible = this.talking || _p.length() < this.tagRange;
       // Yaw convention matches Object3D.rotation.y: 0 faces +Z.
       if (Math.hypot(_p.x, _p.z) < NOTICE_RANGE) toPlayer = Math.atan2(_p.x, _p.z);
     }

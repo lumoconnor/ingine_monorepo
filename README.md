@@ -121,7 +121,8 @@ src/
   gameplay/
     player/                  PlayerController (movement), FirstPersonCamera (look/bob/FOV), createPlayer factory
     components/              MovingPlatform (+ pingPong / orbit / spin motion helpers), Ladder,
-                             Door (swing / slide), Lift (two-stop, switch-driven), Switch (lever / button), WaterVolume, Zipline
+                             Door (swing / slide), Lift (two-stop, switch-driven), Switch (lever / button), WaterVolume, Zipline,
+                             Npc (talkable; turns to the player), Wander (walks an NPC round a loop, pausing at stops)
     interaction/             Interactable (anything usable with E) + PlayerInteractor (crosshair ray, HUD prompt)
   combat/
     types.ts, registry.ts    damage packets / hits; damage types (content/combat/damage-types.json) and the modifier pipeline
@@ -157,7 +158,7 @@ src/
   world/
     Level.ts                 level contract (load/unload)
     builders.ts              addBox / addWedge / addLabel / addLadder grey-box helpers (mesh + matching collider)
-    npcs.ts                  addNpc (placeholder character + Talk prompt) / addItemPickup
+    npcs.ts                  addNpc (placeholder character + Talk prompt; optional hat, wander loop, {npc.*} dialogue words) / addItemPickup
     propModels.ts            greybox prop models (chest, training_dummy, fire_pit, lever, button_pedestal, lift_panel)
     combat.ts                addDummy (training dummy with head/torso/limb zones) / addFirePit
     enemies.ts               addEnemy from an archetype (content/combat/archetypes.json), archetype validation
@@ -165,8 +166,10 @@ src/
     terrain/Terrain.ts       height-function terrain tile: mesh + trimesh collider
     terrain/TerrainStreamer.ts  streams a big HeightGrid as chunks: distance LOD meshes with skirts, heightfield colliders near the player
     [sandbox] levels/PlaygroundLevel.ts  the movement test level (apps/sandbox/src/levels)
-    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), hydrology (lake, rivers, waterfalls carved into the land), sites (town/village/camp/ruin spots), roads (A* roads, paths and bridges), WorldLevel, WorldMapUi (M)
+    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), hydrology (lake, rivers, waterfalls carved into the land), sites (town/village/camp/ruin spots), roads (A* roads, paths and bridges), settlements (village and town layouts from templates: buildings, walls, castle, villagers and their walks), buildSettlements (turns a layout into batched buildings, doors and people), WorldLevel, WorldMapUi (M)
     bridges.ts               addBridge: greybox timber bridge (level deck, rails, piers)
+    StaticBatch.ts           collects many static pieces into one mesh per colour + one fixed body (a whole village in a few draw calls)
+    buildings.ts             greybox architecture into a StaticBatch: buildHouse (enterable, returns its doorway), buildTower, buildWallRun, buildFence, buildStall, buildWell
     water/WaterGrid.ts       rivers and lakes on a grid (surface height + current per vertex), WaterBody draws and registers it
   procgen/
     random.ts                seeded hashes and per-layer sub-seeds

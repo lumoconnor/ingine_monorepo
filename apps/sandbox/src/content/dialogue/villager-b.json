@@ -1,0 +1,23 @@
+{
+  "id": "villager-b",
+  "speaker": "{npc.name}",
+  "start": "hello",
+  "nodes": {
+    "hello": {
+      "text": "Hm? Oh, hello. Sorry, I was miles away.",
+      "choices": [
+        { "text": "Busy day?", "next": "busy" },
+        { "text": "Where does the road go?", "next": "road" },
+        { "text": "I'll leave you to it.", "next": null }
+      ]
+    },
+    "busy": {
+      "text": "Every day's busy in {npc.place}. There's water to fetch, roofs to patch and a hundred other things.",
+      "next": "hello"
+    },
+    "road": {
+      "text": "Follow it far enough and you'll reach {npc.town}. Keep away from the {npc.campDir}, though. {npc.camp} is no place for travellers.",
+      "next": "hello"
+    }
+  }
+}

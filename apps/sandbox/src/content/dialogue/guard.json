@@ -1,0 +1,23 @@
+{
+  "id": "guard",
+  "speaker": "{npc.name}",
+  "start": "hello",
+  "nodes": {
+    "hello": {
+      "text": "Keep your weapons sheathed inside the walls of {npc.place} and we'll get along fine.",
+      "choices": [
+        { "text": "Seen anything out there?", "next": "news" },
+        { "text": "Who's in charge here?", "next": "charge" },
+        { "text": "Understood.", "next": null }
+      ]
+    },
+    "news": {
+      "text": "Bandits again, out by {npc.camp} to the {npc.campDir}. We've doubled the watch at the gates, for all the good it does.",
+      "next": "hello"
+    },
+    "charge": {
+      "text": "The council sits in the hall on the square. Make an appointment and they might even see you.",
+      "next": "hello"
+    }
+  }
+}

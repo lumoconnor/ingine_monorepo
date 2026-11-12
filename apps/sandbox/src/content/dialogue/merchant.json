@@ -1,0 +1,18 @@
+{
+  "id": "merchant",
+  "speaker": "{npc.name}",
+  "start": "hello",
+  "nodes": {
+    "hello": {
+      "text": "Fresh from the fields! Best prices in {npc.place}, I swear it.",
+      "choices": [
+        { "text": "What are you selling?", "next": "goods" },
+        { "text": "Maybe later.", "next": null }
+      ]
+    },
+    "goods": {
+      "text": "Turnips, mostly. And some very honest cabbages. I'll be open for proper trade any day now, once the carts come in.",
+      "next": "hello"
+    }
+  }
+}
