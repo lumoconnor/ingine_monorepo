@@ -5,7 +5,7 @@ import { RigidBodyComponent } from '../../physics/RigidBodyComponent';
 import { PlayerConfig, type PlayerTuning } from '../../config/player';
 import { MovingPlatform, type Carrier } from '../components/MovingPlatform';
 import { Zipline } from '../components/Zipline';
-import { WaterVolume } from '../components/WaterVolume';
+import { WaterVolume, type WaterSample } from '../components/WaterVolume';
 import { Ladder } from '../components/Ladder';
 import type { Entity } from '../../entities/Entity';
 import { PLAYER_PLATFORM_QUERY, PLAYER_WORLD_QUERY } from '../../physics/groups';
@@ -77,7 +77,7 @@ export class PlayerController extends Component {
   swimming = false;
   /** How far the feet are below the water surface (0 when not in water). */
   waterDepth = 0;
-  water: WaterVolume | null = null;
+  water: WaterSample | null = null;
   private swimTime = 0;
   /** Hauling out of the water onto a ledge: scripted climb, not a jump. */
   mantling = false;
@@ -460,7 +460,7 @@ export class PlayerController extends Component {
   }
 
   /** At the surface facing a low ledge: boost up and forward onto it. */
-  private tryClimbOut(water: WaterVolume): boolean {
+  private tryClimbOut(water: WaterSample): boolean {
     const c = this.cfg;
     const feet = this.feetPosition;
     // A ladder right here takes priority (it's the intended way out).

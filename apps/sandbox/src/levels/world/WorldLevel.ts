@@ -6,6 +6,7 @@ import { Component } from '@ingine/engine/entities/Component';
 import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
 import { TerrainStreamer } from '@ingine/engine/world/terrain/TerrainStreamer';
+import { WaterBody } from '@ingine/engine/world/water/WaterGrid';
 import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { generateWorld, type WorldMap } from './WorldGen';
@@ -49,6 +50,11 @@ export class WorldLevel implements Level {
     let ctrl: PlayerController | undefined;
     terrain.add(new TerrainStreamer({ source: map, initialFocus: map.spawn, focus: () => ctrl?.feetPosition }));
     game.world.spawn(terrain);
+
+    const water = new Entity('world-water');
+    water.tags.add('water');
+    water.add(new WaterBody({ water: map.water, ground: map.grid }));
+    game.world.spawn(water);
 
     this.addBorder(game);
 
@@ -107,6 +113,7 @@ class KeepAboveGround extends Component {
     if (!ctrl) return;
     const p = ctrl.feetPosition;
     const ground = this.map.heightAt(p.x, p.z);
+    // (Swimmers dive, but never below the bed.)
     if (p.y < ground - 1) ctrl.placeAt(new THREE.Vector3(p.x, ground + 0.1, p.z), ctrl.yaw, ctrl.pitch);
   }
 }

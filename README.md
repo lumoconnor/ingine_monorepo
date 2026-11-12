@@ -165,7 +165,8 @@ src/
     terrain/Terrain.ts       height-function terrain tile: mesh + trimesh collider
     terrain/TerrainStreamer.ts  streams a big HeightGrid as chunks: distance LOD meshes with skirts, heightfield colliders near the player
     [sandbox] levels/PlaygroundLevel.ts  the movement test level (apps/sandbox/src/levels)
-    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), WorldLevel, WorldMapUi (M)
+    [sandbox] levels/world/  the procedural world (?level=world): WorldGen (seeded land shape + biomes), hydrology (lake, rivers, waterfalls carved into the land), WorldLevel, WorldMapUi (M)
+    water/WaterGrid.ts       rivers and lakes on a grid (surface height + current per vertex), WaterBody draws and registers it
   procgen/
     random.ts                seeded hashes and per-layer sub-seeds
     fractal.ts               ridged multifractal, smoothstep

@@ -81,6 +81,41 @@ const { chromium } = require('playwright');
     check('nearest chunk is at full detail after streaming', streamer.lodAt(p.x, p.z) === 0 && streamer.pending === 0, `lod=${streamer.lodAt(p.x, p.z)} pending=${streamer.pending}`);
     check('colliders are dropped far behind', streamer.colliderCount <= 16, `colliders=${streamer.colliderCount}`);
 
+    // 8. Water: a lake, rivers that only run downhill and end in it, waterfalls
+    const H = map.hydro;
+    const live = H.rivers.filter((r) => r.points.length);
+    let downhill = true, banked = true;
+    for (const r of live) for (let i = 1; i < r.points.length; i++) if (r.points[i].level > r.points[i - 1].level + 1e-4) downhill = false;
+    // (The foot of a waterfall is a rock face, so skip the few samples around each step.)
+    for (const r of live) r.points.forEach((q, i) => {
+      const up = r.points[Math.max(0, i - 4)], dn = r.points[Math.min(r.points.length - 1, i + 4)];
+      if (up.level - dn.level < 1 && map.heightAt(q.x, q.z) > q.level - 0.3) banked = false;
+    });
+    const reach = live.filter((r) => r.joins === -1).every((r) => Math.abs(r.points.at(-1).level - H.lake.level) < 0.01);
+    check('there is a lake', !!H.lake && H.lake.area > 5000, H.lake ? `area=${Math.round(H.lake.area)}m2 level=${H.lake.level.toFixed(1)}` : '');
+    check('rivers run downhill into the lake', live.length >= 2 && downhill && reach, `rivers=${live.length}`);
+    check('river beds are under their water', banked);
+    check('there are waterfalls', H.falls.length >= 1 && H.falls.every((f) => f.drop > 1.5), `falls=${H.falls.length} tallest=${Math.max(...H.falls.map((f) => f.drop)).toFixed(0)}m`);
+    const w0 = map.water.sample(map.spawn.x, map.spawn.y, map.spawn.z, 0);
+    check('spawn is dry', !w0);
+
+    // 9. Swim in the lake, get carried by a river
+    C.placeAt(new V(H.lake.x, H.lake.level - 0.6, H.lake.z), 0, 0);
+    step(120);
+    check('swims in the lake', C.swimming && Math.abs(C.feetPosition.y - (H.lake.level - 1.4)) < 0.5, `state=${C.state} feet=${C.feetPosition.y.toFixed(2)} surface=${H.lake.level.toFixed(2)}`);
+    const big = live.reduce((a, b) => (b.points.length > a.points.length ? b : a));
+    // A calm stretch: no falls nearby.
+    let ri = -1;
+    for (let i = 40; i < big.points.length - 80 && ri < 0; i += 5) {
+      if (big.points[i].level - big.points[i + 40].level < 1 && big.points[i - 20].level - big.points[i].level < 0.5 && big.points[i].width > 6) ri = i;
+    }
+    const a = big.points[ri], b = big.points[ri + 40];
+    C.placeAt(new V(a.x, a.level - 0.5, a.z), 0, 0);
+    step(360);
+    const p2 = C.feetPosition;
+    const along = ((p2.x - a.x) * (b.x - a.x) + (p2.z - a.z) * (b.z - a.z)) / Math.hypot(b.x - a.x, b.z - a.z);
+    check('a river carries you downstream', along > 0.8 && C.waterDepth > 0, `drift=${along.toFixed(1)}m depth=${C.waterDepth.toFixed(2)} state=${C.state}`);
+
     // 7. The world edge holds
     const edge = map.grid.maxX - 20;
     C.placeAt(new V(edge, map.heightAt(edge, 0) + 2, 0), -Math.PI / 2, 0);
