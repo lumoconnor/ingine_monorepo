@@ -20,7 +20,6 @@ const KuwaharaShader = {
     tCanvas: { value: null as THREE.Texture | null },
     uTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
     uStep: { value: 1 },
-    uHardness: { value: 90 },
     uSharpness: { value: 6 },
     uCanvas: { value: 0.035 },
     uSaturation: { value: 1.08 },
@@ -34,7 +33,7 @@ const KuwaharaShader = {
     uniform sampler2D tDiffuse;
     uniform sampler2D tCanvas;
     uniform vec2 uTexel;
-    uniform float uStep, uHardness, uSharpness, uCanvas, uSaturation;
+    uniform float uStep, uSharpness, uCanvas, uSaturation;
     varying vec2 vUv;
     void main() {
       vec4 m[8];
@@ -90,7 +89,7 @@ const KuwaharaShader = {
       }
       vec4 acc = vec4(0.0);
       for (int k = 0; k < 8; k++) {
-        float wk = 1.0 / (1.0 + pow(max(0.0, sig[k] - minS) * uHardness * 100.0, 0.5 * uSharpness) * 0.0 + pow((sig[k] + 1e-5) / (minS + 1e-5), 0.5 * uSharpness));
+        float wk = 1.0 / (1.0 + pow((sig[k] + 1e-5) / (minS + 1e-5), 0.5 * uSharpness));
         acc += vec4(means[k] * wk, wk);
       }
       vec3 col = acc.rgb / max(acc.w, 1e-5);
