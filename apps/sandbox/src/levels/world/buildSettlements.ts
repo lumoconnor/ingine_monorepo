@@ -26,7 +26,7 @@ const DIRS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west',
  */
 export function buildSettlements(game: Game, map: WorldMap): void {
   const ground = (x: number, z: number) => map.heightAt(x, z);
-  const town = map.sites.find((s) => s.kind === 'town');
+  const towns = map.sites.filter((s) => s.kind === 'town');
   for (const st of map.settlements) {
     const site = map.sites.find((s) => s.id === st.site)!;
     const batch = new StaticBatch();
@@ -100,7 +100,7 @@ export function buildSettlements(game: Game, map: WorldMap): void {
     const vars = {
       place: site.name,
       describe: st.describe,
-      town: town?.name ?? site.name,
+      town: nearestTown(towns, site)?.name ?? site.name,
       camp: camp?.name ?? 'the old hollow',
       campDir: camp ? dir(camp.x, camp.z) : 'hills',
       ruin: ruin?.name ?? 'the old keep',
@@ -129,4 +129,15 @@ function hashId(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
+}
+
+/** The town nearest a place (itself, for a town): the one its people talk about. */
+function nearestTown<T extends { x: number; z: number }>(towns: T[], at: { x: number; z: number }): T | undefined {
+  let best: T | undefined;
+  let bd = Infinity;
+  for (const t of towns) {
+    const d = Math.hypot(t.x - at.x, t.z - at.z);
+    if (d < bd) [bd, best] = [d, t];
+  }
+  return best;
 }

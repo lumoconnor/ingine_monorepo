@@ -1,6 +1,6 @@
 import { mulberry32, subSeed } from '@ingine/engine/procgen/random';
 import { smoothstep } from '@ingine/engine/procgen/fractal';
-import { Biome, type WorldMap } from './WorldGen';
+import { Biome, layoutScale, type WorldMap } from './WorldGen';
 
 export type SiteKind = 'town' | 'village' | 'camp' | 'ruin';
 
@@ -25,7 +25,7 @@ export const SITE_INFO: Record<SiteKind, { label: string; radius: number; color:
 };
 
 /** Coarse search step, metres. */
-const STEP = 16;
+const STEP = 8;
 
 /**
  * Chooses where things will be built. Each kind scores the land for what it
@@ -95,17 +95,21 @@ export function placeSites(map: WorldMap, waterDist: Int16Array): Site[] {
     gapSpawn: number;
     score(x: number, z: number, h: number, relief: number, water: number): number;
   }
+  // Twice as many of each kind as the original 2 km world, on a quarter of the land: spacing is
+  // tighter than plain scaling would give, but still leaves open country between places.
+  const k = layoutScale(g);
   const rules: Rule[] = [
     {
-      kind: 'town', count: 1, inner: 620, maxRelief: 9, gapSame: 0, gapOther: 0, gapSpawn: 150,
-      score: (x, z, h, rel, w) => (h > 60 || w > 200 ? -Infinity : -rel * 4 - w * 0.08 - Math.hypot(x, z) * 0.012),
+      kind: 'town', count: 2, inner: 700 * k, maxRelief: 9, gapSame: 260, gapOther: 0, gapSpawn: 120,
+      // Best by water; a town far from any has to be very flat and central to beat one that is.
+      score: (x, z, h, rel, w) => (h > 70 ? -Infinity : -rel * 4 - Math.min(w, 260) * 0.08 - Math.hypot(x, z) * (0.012 / k)),
     },
     {
-      kind: 'village', count: 3 + Math.floor(rand() * 3), inner: 800, maxRelief: 7, gapSame: 380, gapOther: 380, gapSpawn: 140,
+      kind: 'village', count: 6 + Math.floor(rand() * 5), inner: 800 * k, maxRelief: 7, gapSame: 150, gapOther: 150, gapSpawn: 90,
       score: (_x, _z, h, rel, w) => (h > 85 ? -Infinity : -rel * 3 - Math.min(w, 200) * 0.06),
     },
     {
-      kind: 'ruin', count: 2 + Math.floor(rand() * 2), inner: 780, maxRelief: 14, gapSame: 420, gapOther: 220, gapSpawn: 220,
+      kind: 'ruin', count: 4 + Math.floor(rand() * 3), inner: 780 * k, maxRelief: 14, gapSame: 180, gapOther: 110, gapSpawn: 120,
       score: (x, z, h, rel) => {
         if (h < 45 || h > 150) return -Infinity;
         // Prominence: how far the spot stands above the land 90 m around it.
@@ -116,7 +120,7 @@ export function placeSites(map: WorldMap, waterDist: Int16Array): Site[] {
       },
     },
     {
-      kind: 'camp', count: 3, inner: 800, maxRelief: 6, gapSame: 320, gapOther: 260, gapSpawn: 260,
+      kind: 'camp', count: 6, inner: 800 * k, maxRelief: 6, gapSame: 140, gapOther: 110, gapSpawn: 140,
       score: (x, z, h, rel, w) => (h > 110 || w < 30 ? -Infinity : (map.biomeAt(x, z) === Biome.Forest ? 25 : 0) - rel * 3),
     },
   ];
@@ -126,7 +130,7 @@ export function placeSites(map: WorldMap, waterDist: Int16Array): Site[] {
     const cands: { x: number; z: number; y: number; s: number }[] = [];
     for (let z = -rule.inner; z <= rule.inner; z += STEP) {
       for (let x = -rule.inner; x <= rule.inner; x += STEP) {
-        if (Math.max(Math.abs(x), Math.abs(z)) > half - 120) continue;
+        if (Math.max(Math.abs(x), Math.abs(z)) > half - 120 * k) continue;
         const w = water(x, z);
         // Never build in or right beside water.
         if (w < r + 18) continue;

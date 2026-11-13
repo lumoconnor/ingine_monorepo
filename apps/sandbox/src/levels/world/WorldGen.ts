@@ -48,9 +48,9 @@ const BED_COLOR = new THREE.Color(0x857a5c);
 
 export interface WorldSettings {
   seed: number;
-  /** Side length in metres. Default 2048. */
+  /** Side length in metres. Default 1024. */
   size?: number;
-  /** Height grid spacing in metres. Default 2. */
+  /** Height grid spacing in metres. Default 1. */
   cell?: number;
 }
 
@@ -114,7 +114,8 @@ export class WorldMap implements TerrainSource {
     const m = this.moisture[i];
     const steep = 1 - ny;
     // Snow line wobbles a little so it isn't a contour line.
-    const snowLine = SNOW_LINE + (hash2(this.seed, ix >> 4, iz >> 4) - 0.5) * 18;
+    const p = Math.round(32 / g.cell);
+    const snowLine = SNOW_LINE + (hash2(this.seed, Math.floor(ix / p), Math.floor(iz / p)) - 0.5) * 18;
     const wl = this.wet[i];
     const wet = wl === wl;
     return {
@@ -141,7 +142,8 @@ export class WorldMap implements TerrainSource {
     out.lerp(palette[Biome.Road], w.road);
     out.lerp(BED_COLOR, w.bed);
     // Per-patch brightness jitter breaks up large flat areas.
-    const j = 0.94 + hash2(this.seed ^ 0x51ed, ix >> 1, iz >> 1) * 0.1;
+    const p = Math.max(1, Math.round(4 / this.grid.cell));
+    const j = 0.94 + hash2(this.seed ^ 0x51ed, Math.floor(ix / p), Math.floor(iz / p)) * 0.1;
     out.multiplyScalar(j);
   }
 
@@ -215,11 +217,13 @@ export class WorldMap implements TerrainSource {
  */
 export function generateWorld(settings: WorldSettings): WorldMap {
   const t0 = performance.now();
-  const size = settings.size ?? 2048;
-  const cell = settings.cell ?? 2;
+  const size = settings.size ?? 1024;
+  const cell = settings.cell ?? 1;
   const seed = settings.seed >>> 0;
   const map = new WorldMap(seed, size, cell);
   const half = size / 2;
+  // Layout distances were tuned on a 2 km world; the land's features (ridges, hills) keep their size.
+  const k = layoutScale(map.grid);
 
   const nWarp = new Noise2D(subSeed(seed, 'warp'));
   const nCont = new Noise2D(subSeed(seed, 'continent'));
@@ -230,19 +234,20 @@ export function generateWorld(settings: WorldSettings): WorldMap {
   const nMoist = new Noise2D(subSeed(seed, 'moisture'));
 
   map.grid.fill((x, z) => {
-    const wx = x + nWarp.fbm(x * 0.0016, z * 0.0016, 3) * 140;
-    const wz = z + nWarp.fbm(x * 0.0016 + 31.7, z * 0.0016 - 12.3, 3) * 140;
+    const wx = x + nWarp.fbm(x * 0.0016, z * 0.0016, 3) * 140 * k;
+    const wz = z + nWarp.fbm(x * 0.0016 + 31.7, z * 0.0016 - 12.3, 3) * 140 * k;
 
-    const cont = nCont.fbm(wx * 0.0008, wz * 0.0008, 3);
+    // Where the highlands are scales with the map, so a smaller world still has a few ranges.
+    const cont = nCont.fbm((wx * 0.0008) / k, (wz * 0.0008) / k, 3);
     const rim = smoothstep(Math.max(Math.abs(x), Math.abs(z)) / half, 0.74, 0.96);
-    const centre = 1 - smoothstep(Math.hypot(x, z), 160, 420);
+    const centre = 1 - smoothstep(Math.hypot(x, z), 160 * k, 420 * k);
     const mountainMask = Math.max(smoothstep(cont, 0.02, 0.42), rim) * (1 - centre);
 
     // Broad massifs with sharp crests: uplift under the whole range, ridges on top.
     const r = ridged(nRidge, wx * 0.0015, wz * 0.0015, 5);
     const mountains = (r * r * 175 + r * 25 + 22) * mountainMask;
 
-    const hillMask = smoothstep(nHillMask.fbm(wx * 0.0011, wz * 0.0011, 2), -0.5, 0.3);
+    const hillMask = smoothstep(nHillMask.fbm((wx * 0.0011) / k, (wz * 0.0011) / k, 2), -0.5, 0.3);
     const hills = (nHill.fbm(wx * 0.0032, wz * 0.0032, 4) * 0.5 + 0.5) * 42 * hillMask * (1 - 0.6 * mountainMask);
 
     // Fields still roll: long gentle swells plus small bumps underfoot.
@@ -254,12 +259,14 @@ export function generateWorld(settings: WorldSettings): WorldMap {
 
   // Lakes, rivers and waterfalls (carves the grid). Keep the lake away from the middle, where you start.
   const g = map.grid;
-  map.hydro = generateWater(g, seed, { x: 0, z: 0, r: 260 });
+  map.hydro = generateWater(g, seed, { x: 0, z: 0, r: 260 * k });
   const W = map.water;
   for (let iz = 0; iz < g.n; iz++) {
     for (let ix = 0; ix < g.n; ix++) map.wet[iz * g.n + ix] = W.levelAt(g.minX + ix * cell, g.minZ + iz * cell);
   }
   const nearWater = waterDistance(W);
+  /** Height-grid cells per water-grid cell. */
+  const ws = Math.round(W.cell / cell);
 
   // Moisture: low-frequency noise, wetter in low ground and along rivers.
   for (let iz = 0; iz < g.n; iz++) {
@@ -269,7 +276,7 @@ export function generateWorld(settings: WorldSettings): WorldMap {
       const i = iz * g.n + ix;
       const m = nMoist.fbm(x * 0.0028, z * 0.0028, 4) * 0.5 + 0.5;
       const lowWet = 1 - smoothstep(g.heights[i], 25, 90);
-      const wd = nearWater[Math.round(iz / 2) * W.n + Math.round(ix / 2)];
+      const wd = nearWater[Math.round(iz / ws) * W.n + Math.round(ix / ws)];
       const river = wd < 0 ? 0 : Math.max(0, 1 - wd / 16) * 0.3;
       map.moisture[i] = Math.min(1, m * 0.85 + lowWet * 0.15 + river);
     }
@@ -295,9 +302,12 @@ export function generateWorld(settings: WorldSettings): WorldMap {
 function findSpawn(map: WorldMap): void {
   const g = map.grid;
   const waterDist = waterDistance(map.water);
+  const ws = Math.round(map.water.cell / g.cell);
   const c = (g.n - 1) / 2;
-  const maxR = Math.round(400 / g.cell);
-  for (let r = 0; r <= maxR; r += 2) {
+  const maxR = Math.round((400 * layoutScale(g)) / g.cell);
+  /** Flat within ~6 m. */
+  const around = Math.round(6 / g.cell);
+  for (let r = 0; r <= maxR; r += Math.max(1, Math.round(4 / g.cell))) {
     const steps = Math.max(1, Math.round(r * 2));
     for (let s = 0; s < steps; s++) {
       const a = (s / steps) * Math.PI * 2;
@@ -306,11 +316,11 @@ function findSpawn(map: WorldMap): void {
       if (map.biome[iz * g.n + ix] !== Biome.Meadow) continue;
       // Dry feet: no water within ~24 m.
       const w = map.water;
-      const wd = waterDist[Math.round(iz / 2) * w.n + Math.round(ix / 2)];
+      const wd = waterDist[Math.round(iz / ws) * w.n + Math.round(ix / ws)];
       if (wd >= 0 && wd < 6) continue;
       // Flat over a few metres around, not just at the point.
       let ok = true;
-      for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3 && ok; dx++) if (g.slopeDegAt(ix + dx, iz + dz) > 9) ok = false;
+      for (let dz = -around; dz <= around && ok; dz++) for (let dx = -around; dx <= around && ok; dx++) if (g.slopeDegAt(ix + dx, iz + dz) > 9) ok = false;
       if (!ok) continue;
       const x = g.minX + ix * g.cell;
       const z = g.minZ + iz * g.cell;
@@ -333,7 +343,7 @@ function bestView(map: WorldMap, x: number, z: number): number {
     const dz = -Math.cos(yaw);
     // Distant peaks score, a hill right in front of your face doesn't.
     let h = 0;
-    for (let d = 300; d <= 900; d += 100) h += map.heightAt(x + dx * d, z + dz * d);
+    for (let d = 150; d <= 450; d += 50) h += map.heightAt(x + dx * d, z + dz * d);
     for (let d = 20; d <= 160; d += 20) h -= 3 * Math.max(0, map.heightAt(x + dx * d, z + dz * d) - map.heightAt(x, z));
     if (h > bestH) {
       bestH = h;
@@ -341,6 +351,15 @@ function bestView(map: WorldMap, x: number, z: number): number {
     }
   }
   return best;
+}
+
+/**
+ * How much smaller than the original 2 km world this one is (0.5 for 1 km).
+ * Distances between places (spacing, search ranges) scale by this; the size
+ * of things (a village, a river, a hill) doesn't.
+ */
+export function layoutScale(g: { size: number }): number {
+  return g.size / 2048;
 }
 
 /** Per water-grid vertex: distance in cells to the nearest water (-1 = further than 40 cells). */
