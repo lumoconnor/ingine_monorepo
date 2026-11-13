@@ -33,7 +33,7 @@ export function plantForest(map: WorldMap): TreeInstance[] {
       const px = x + hash2(seed, cx, cz) * CELL * 0.9;
       const pz = z + hash2(seed + 1, cx, cz) * CELL * 0.9;
       const { ix, iz } = g.toGrid(px, pz);
-      if (ix < 1 || iz < 1 || ix >= g.n - 1 || iz >= g.n - 1) continue;
+      if (ix < 2 || iz < 2 || ix >= g.n - 2 || iz >= g.n - 2) continue;
       const i = iz * g.n + ix;
       const b = map.biome[i];
       if (b === Biome.Water || b === Biome.Shore || b === Biome.Road || b === Biome.Snow || b === Biome.Rock) continue;
@@ -80,8 +80,10 @@ export function plantForest(map: WorldMap): TreeInstance[] {
 /** Is there water at or right next to this grid vertex? */
 function nearWet(map: WorldMap, ix: number, iz: number): boolean {
   const n = map.grid.n;
-  for (let dz = -1; dz <= 1; dz++) {
-    for (let dx = -1; dx <= 1; dx++) {
+  // Within ~2 m.
+  const R = Math.max(1, Math.round(2 / map.grid.cell));
+  for (let dz = -R; dz <= R; dz++) {
+    for (let dx = -R; dx <= R; dx++) {
       const w = map.wet[(iz + dz) * n + ix + dx];
       if (w === w) return true;
     }

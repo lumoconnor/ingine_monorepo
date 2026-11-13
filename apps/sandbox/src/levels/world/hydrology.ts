@@ -44,9 +44,11 @@ export interface Hydrology {
   falls: Waterfall[];
 }
 
-/** Water grid spacing: two terrain cells. */
-const W_STEP = 2;
-/** Samples (2 m each) between waterfall steps on steep ground. */
+/** Water grid spacing, metres (a whole number of height-grid cells). */
+const W_CELL = 4;
+/** River and road centre lines are resampled to points this far apart, metres. */
+export const LINE_STEP = 2;
+/** Samples (LINE_STEP each) between waterfall steps on steep ground. */
 const FALL_GAP = 12;
 const WALL_SLOPE = 0.85;
 
@@ -67,8 +69,14 @@ const WALL_SLOPE = 0.85;
  * 5. Carving: the channel, its banks and gorge walls are pressed into the
  *    height grid, and low banks get a small levee so water stays in its bed.
  */
+/** Height-grid cells per water-grid cell, for the grid being worked on. */
+let W_STEP = 2;
+
 export function generateWater(grid: HeightGrid, seed: number, avoid: { x: number; z: number; r: number }): Hydrology {
   const rand = mulberry32(subSeed(seed, 'water'));
+  W_STEP = Math.max(1, Math.round(W_CELL / grid.cell));
+  // Distances tuned on the 2 km world (see layoutScale in WorldGen).
+  const k = grid.size / 2048;
   const wcell = grid.cell * W_STEP;
   const water = new WaterGrid(grid.minX, grid.minZ, grid.size, wcell);
   const N = water.n;
@@ -77,7 +85,7 @@ export function generateWater(grid: HeightGrid, seed: number, avoid: { x: number
   const wz = (iz: number) => water.minZ + iz * wcell;
 
   // --- 1. Lake --------------------------------------------------------------
-  const lake = makeLake(grid, water, rand, avoid);
+  const lake = makeLake(grid, water, rand, avoid, k);
 
   // --- 2. Drainage toward the lake (or the lowest point if there is none) -----
   const parent = new Int32Array(N * N).fill(-1);
@@ -124,13 +132,13 @@ export function generateWater(grid: HeightGrid, seed: number, avoid: { x: number
     for (let ix = 4; ix < N - 4; ix += 5) {
       const i = iz * N + ix;
       const h = hAt(ix, iz);
-      if (h < 95 || h > 190 || pathLen[i] < 550 || pathLen[i] > 2400) continue;
+      if (h < 95 - 30 * (1 - k) || h > 190 || pathLen[i] < 550 * k || pathLen[i] > 2400 * k) continue;
       // Springs rise in high hollows, not on cliff faces.
       if (grid.slopeDegAt(ix * W_STEP, iz * W_STEP) > 24) continue;
       // Not right on the outer rim: the spring should feed the inner land.
       const edge = Math.max(Math.abs(wx(ix)), Math.abs(wz(iz))) / (grid.size / 2);
-      if (edge > 0.82) continue;
-      cands.push({ i, score: h * 2 - Math.abs(pathLen[i] - 1300) * 0.08 + rand() * 120 });
+      if (edge > 0.82 + 0.1 * (1 - k)) continue;
+      cands.push({ i, score: h * 2 - Math.abs(pathLen[i] - 1300 * k) * (0.08 / k) + rand() * 120 });
     }
   }
   cands.sort((a, b) => b.score - a.score);
@@ -140,7 +148,7 @@ export function generateWater(grid: HeightGrid, seed: number, avoid: { x: number
     if (sources.length >= want) break;
     const x = wx(c.i % N);
     const z = wz((c.i / N) | 0);
-    if (sources.every((s) => Math.hypot(wx(s % N) - x, wz((s / N) | 0) - z) > 380)) sources.push(c.i);
+    if (sources.every((s) => Math.hypot(wx(s % N) - x, wz((s / N) | 0) - z) > 380 * k)) sources.push(c.i);
   }
 
   // Flow: how many springs drain through each cell.
@@ -176,12 +184,12 @@ export function generateWater(grid: HeightGrid, seed: number, avoid: { x: number
     }
     let pts = route.cells.map((c) => ({ x: wx(c % N), z: wz((c / N) | 0), f: flow[c] }));
     for (let k = 0; k < 3; k++) pts = chaikin(pts);
-    pts = resample(pts, grid.cell);
+    pts = resample(pts, LINE_STEP);
 
     let travelled = 0;
     const raw = pts.map((p, i) => {
       if (i) travelled += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
-      const width = Math.min(16, 3 + 2.2 * p.f + 3 * Math.min(1, travelled / 800));
+      const width = Math.min(16, 3 + 2.2 * p.f + 3 * Math.min(1, travelled / (800 * k)));
       return { ...p, width, ground: grid.heightAt(p.x, p.z) };
     });
     // Ground along the path, with dips under ±3 samples smoothed out (noise, not valleys).
@@ -253,7 +261,7 @@ interface LakeResult {
   mask: Uint8Array;
 }
 
-function makeLake(grid: HeightGrid, water: WaterGrid, rand: () => number, avoid: { x: number; z: number; r: number }): LakeResult | null {
+function makeLake(grid: HeightGrid, water: WaterGrid, rand: () => number, avoid: { x: number; z: number; r: number }, k: number): LakeResult | null {
   const N = water.n;
   const wcell = water.cell;
   const hAt = (ix: number, iz: number) => grid.at(ix * W_STEP, iz * W_STEP);
@@ -264,7 +272,7 @@ function makeLake(grid: HeightGrid, water: WaterGrid, rand: () => number, avoid:
     for (let ix = 8; ix < N - 8; ix += 6) {
       const x = water.minX + ix * wcell;
       const z = water.minZ + iz * wcell;
-      if (Math.abs(x) > 650 || Math.abs(z) > 650) continue;
+      if (Math.abs(x) > 650 * k || Math.abs(z) > 650 * k) continue;
       if (Math.hypot(x - avoid.x, z - avoid.z) < avoid.r) continue;
       let s = 0;
       for (let k = -2; k <= 2; k++) for (let j = -2; j <= 2; j++) s += hAt(ix + j * 3, iz + k * 3);
@@ -276,8 +284,10 @@ function makeLake(grid: HeightGrid, water: WaterGrid, rand: () => number, avoid:
   const cx = best % N;
   const cz = (best / N) | 0;
 
-  const minCells = (Math.PI * 55 * 55) / (wcell * wcell);
-  const maxCells = (Math.PI * 170 * 170) / (wcell * wcell);
+  // A smaller world gets a smaller lake, though not in proportion: it should still be a lake.
+  const lk = Math.sqrt(k);
+  const minCells = (Math.PI * (55 * lk) ** 2) / (wcell * wcell);
+  const maxCells = (Math.PI * (170 * lk) ** 2) / (wcell * wcell);
   let level = hAt(cx, cz) + 1.8;
   let mask = new Uint8Array(N * N);
   let count = 0;
@@ -292,7 +302,7 @@ function makeLake(grid: HeightGrid, water: WaterGrid, rand: () => number, avoid:
       count++;
       const x = c % N;
       const z = (c / N) | 0;
-      if (Math.abs(water.minX + x * wcell) > 800 || Math.abs(water.minZ + z * wcell) > 800) escaped = true;
+      if (Math.abs(water.minX + x * wcell) > 800 * k || Math.abs(water.minZ + z * wcell) > 800 * k) escaped = true;
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx;
         const nz = z + dz;

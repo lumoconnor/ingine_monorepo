@@ -2,6 +2,7 @@ import { MinHeap } from '@ingine/engine/procgen/MinHeap';
 import { smoothstep } from '@ingine/engine/procgen/fractal';
 import type { WorldMap } from './WorldGen';
 import type { Site } from './sites';
+import { LINE_STEP } from './hydrology';
 
 export interface RoadPoint {
   x: number;
@@ -43,8 +44,7 @@ export interface RoadNet {
 
 const ROAD_W = 4.6;
 const PATH_W = 2.4;
-/** Pathfinding grid step, in height-grid cells (matches the water grid: 4 m). */
-const STEP = 2;
+/** Pathfinding grid: the water grid (4 m). */
 
 /**
  * Roads and paths between the sites:
@@ -67,7 +67,9 @@ export function buildRoads(map: WorldMap, sites: Site[]): RoadNet {
   const g = map.grid;
   const W = map.water;
   const N = W.n;
-  const cell = g.cell * STEP;
+  const cell = W.cell;
+  /** Height-grid cells per pathfinding cell. */
+  const STEP = Math.round(W.cell / g.cell);
   const lakeLevel = map.hydro.lake?.level ?? NaN;
 
   // Per cell: walking height (water surface where wet), and what kind of ground it is.
@@ -257,7 +259,7 @@ function makeRoad(map: WorldMap, cells: number[], kind: 'road' | 'path', from: s
   const width = kind === 'road' ? ROAD_W : PATH_W;
   let line = cells.map((c) => ({ x: W.minX + (c % N) * W.cell, z: W.minZ + ((c / N) | 0) * W.cell }));
   for (let k = 0; k < 3; k++) line = chaikin(line);
-  line = resample(line, g.cell);
+  line = resample(line, LINE_STEP);
 
   const ground = line.map((p) => g.heightAt(p.x, p.z));
   const level = line.map((p, i) => {

@@ -1,6 +1,6 @@
 import { mulberry32, subSeed } from '@ingine/engine/procgen/random';
 import type { TreeInstance } from '@ingine/engine/world/vegetation/Forest';
-import { Biome, type WorldMap } from './WorldGen';
+import { Biome, layoutScale, type WorldMap } from './WorldGen';
 import { clearTrees } from './forest';
 import { rollLoot } from './loot';
 
@@ -58,8 +58,8 @@ export function hideCaches(map: WorldMap, trees: TreeInstance[]): Cache[] {
     dry(x, z) && flat(x, z) &&
     roadDist(x, z, roadGap) >= roadGap &&
     map.sites.every((s) => Math.hypot(s.x - x, s.z - z) > s.radius + 40) &&
-    caches.every((c) => Math.hypot(c.x - x, c.z - z) > 220) &&
-    Math.hypot(map.spawn.x - x, map.spawn.z - z) > 120;
+    caches.every((c) => Math.hypot(c.x - x, c.z - z) > 220 * layoutScale(g)) &&
+    Math.hypot(map.spawn.x - x, map.spawn.z - z) > 120 * layoutScale(g);
   const add = (spot: CacheSpot, x: number, z: number) => {
     clearTrees(trees, x, z, spot === 'glade' ? 7 : 3);
     caches.push({
@@ -70,7 +70,9 @@ export function hideCaches(map: WorldMap, trees: TreeInstance[]): Cache[] {
     });
   };
   /** Try random candidates from `gen` until one is free. */
-  const place = (spot: CacheSpot, tries: number, roadGap: number, gen: () => [number, number] | null) => {
+  const place = (spot: CacheSpot, tries: number, gap: number, gen: () => [number, number] | null) => {
+    // A smaller world has its roads closer together: keep the same share of land off-road.
+    const roadGap = Math.max(25, gap * layoutScale(g));
     for (let t = 0; t < tries; t++) {
       const p = gen();
       if (p && free(p[0], p[1], roadGap)) {

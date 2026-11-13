@@ -39,9 +39,8 @@ const { chromium } = require('playwright');
     const R = game.physics.world;
     let worst = 0, misses = 0;
     const sp = map.spawn;
-    // Only the ground: skip tree trunks.
-    const trunkBodies = new Set([...comp(game.world.find('forest'), 'Forest').bodies.values()].map((b) => b.handle));
-    const groundOnly = (col) => !trunkBodies.has(col.parent()?.handle);
+    // Only the ground: skip trees, houses, camps (villages can stand within this range of the start).
+    const groundOnly = (col) => game.physics.ownerOf(col)?.name === 'terrain';
     for (let i = 0; i < 300; i++) {
       const x = sp.x + (Math.sin(i * 12.9898) * 0.5) * 220;
       const z = sp.z + (Math.cos(i * 78.233) * 0.5) * 220;
@@ -72,7 +71,7 @@ const { chromium } = require('playwright');
       `travelled=${travelled.toFixed(0)}m lowest=${lowest.toFixed(3)} grounded=${groundedFrames}/1200 colliders=${streamer.colliderCount}`);
 
     // 5. Teleport far away: the collider there must exist before the player falls
-    const far = [[-640, -560], [700, 520], [-300, 820]];
+    const far = [[-320, -280], [350, 260], [-150, 410]];
     for (const [x, z] of far) {
       C.placeAt(new V(x, map.heightAt(x, z) + 0.05, z), 0, 0);
       step(90);
@@ -123,7 +122,7 @@ const { chromium } = require('playwright');
     // 10. Sites, roads and bridges
     const sites = map.sites, net = map.net;
     const kinds = (k) => sites.filter((x) => x.kind === k).length;
-    check('sites: a town, villages, camps and ruins', kinds('town') === 1 && kinds('village') >= 3 && kinds('camp') >= 2 && kinds('ruin') >= 2,
+    check('sites: two towns, villages, camps and ruins', kinds('town') === 2 && kinds('village') >= 6 && kinds('camp') >= 4 && kinds('ruin') >= 4,
       sites.map((x) => x.id).join(' '));
     const dry = sites.every((x) => !map.water.sample(x.x, x.y + 0.2, x.z, 0));
     const flat = sites.every((x) => [0, 1, 2, 3].every((k) => Math.abs(map.heightAt(x.x + Math.cos(k * 1.57) * x.radius * 0.8, x.z + Math.sin(k * 1.57) * x.radius * 0.8) - x.y) < 0.6));
@@ -168,8 +167,8 @@ const { chromium } = require('playwright');
     // 11. Villages and the town
     const S = map.settlements;
     const townS = S.find((x) => x.site.startsWith('town'));
-    check('every village and the town is built', S.length === sites.filter((x) => x.kind === 'village' || x.kind === 'town').length
-      && townS.buildings.length >= 18 && S.every((x) => x.buildings.length >= 5 && x.villagers.length >= 3),
+    check('every village and town is built', S.length === sites.filter((x) => x.kind === 'village' || x.kind === 'town').length
+      && S.filter((x) => x.site.startsWith('town')).every((t) => t.buildings.length >= 18) && S.every((x) => x.buildings.length >= 5 && x.villagers.length >= 3),
       S.map((x) => `${x.site}:${x.template}:${x.buildings.length}`).join(' '));
     // Rectangles: corners, and a separating-axis overlap test.
     const corners = (b, m = 0) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => {
@@ -328,7 +327,7 @@ const { chromium } = require('playwright');
     // 13. Forests: plenty of trees, kept off roads, sites and water
     const trees = map.trees;
     const treeKinds = [0, 1, 2].map((k) => trees.filter((t) => t.kind === k).length);
-    check('forests are planted (pines, oaks, bushes)', trees.length > 10000 && treeKinds.every((n) => n > 500), `pines=${treeKinds[0]} oaks=${treeKinds[1]} bushes=${treeKinds[2]}`);
+    check('forests are planted (pines, oaks, bushes)', trees.length > 4000 && treeKinds.every((n) => n > 500), `pines=${treeKinds[0]} oaks=${treeKinds[1]} bushes=${treeKinds[2]}`);
     const roadCells = new Map();
     for (const rd of map.net.roads) for (const q of rd.points) {
       const k = `${Math.floor(q.x / 8)},${Math.floor(q.z / 8)}`;
@@ -373,7 +372,7 @@ const { chromium } = require('playwright');
     for (const a of caches) for (const b of caches) if (a !== b) apart = Math.min(apart, Math.hypot(a.x - b.x, a.z - b.z));
     const cacheOk = caches.every((c) => game.world.find('chest:' + c.id) && !map.water.sample(c.x, c.y + 0.3, c.z, 0) &&
       !trees.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < 2.5) && c.contents.length > 0);
-    check('hidden caches are placed apart, dry and clear of trees', caches.length >= 5 && apart > 200 && cacheOk,
+    check('hidden caches are placed apart, dry and clear of trees', caches.length >= 5 && apart > 100 && cacheOk,
       `caches=${caches.length} (${[...new Set(caches.map((c) => c.spot))].join(', ')}) closest=${apart.toFixed(0)}m`);
     const houseChests = game.world.findByTag('chest').filter((e) => e.name.endsWith(':chest'));
     const tablePickups = game.world.findByTag('pickup').filter((e) => e.name && comp(e, 'ItemPickup')?.spec.id?.endsWith(':table'));

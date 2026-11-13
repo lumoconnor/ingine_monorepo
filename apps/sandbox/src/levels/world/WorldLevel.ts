@@ -56,7 +56,19 @@ export class WorldLevel implements Level {
     terrain.tags.add('terrain');
     // Follow the physics body, not the interpolated mesh, so a teleport gets ground under it on the very next step.
     let ctrl: PlayerController | undefined;
-    terrain.add(new TerrainStreamer({ source: map, initialFocus: map.spawn, focus: () => ctrl?.feetPosition }));
+    terrain.add(
+      new TerrainStreamer({
+        source: map,
+        // The grid is 1 m: full detail close by, the old 2 m look a little further out.
+        lods: [
+          { within: 140, step: 1 },
+          { within: 400, step: 2 },
+          { within: Infinity, step: 4 },
+        ],
+        initialFocus: map.spawn,
+        focus: () => ctrl?.feetPosition,
+      }),
+    );
     game.world.spawn(terrain);
 
     const water = new Entity('world-water');
