@@ -10,11 +10,14 @@
   "scripts": {
     "dev": "npm run dev -w @ingine/sandbox",
     "dev:office": "npm run dev -w @ingine/office-mp",
+    "dev:gene": "npm run dev -w @ingine/gene-40",
     "build": "npm run build -w @ingine/sandbox",
     "build:office": "npm run build -w @ingine/office-mp",
+    "build:gene": "npm run build -w @ingine/gene-40",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "npm run check -w @ingine/sandbox",
-    "check:office": "npm run check -w @ingine/office-mp"
+    "check:office": "npm run check -w @ingine/office-mp",
+    "check:gene": "npm run check -w @ingine/gene-40"
   },
   "devDependencies": {
     "@types/three": "^0.187.0",

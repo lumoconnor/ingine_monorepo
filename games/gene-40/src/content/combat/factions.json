@@ -1,0 +1,5 @@
+{
+  "player": { "name": "You", "hostile": [] },
+  "bandits": { "name": "Bandits", "hostile": ["player"] },
+  "neutral": { "name": "Townsfolk", "hostile": [] }
+}

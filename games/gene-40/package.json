@@ -1,0 +1,25 @@
+{
+  "name": "@ingine/gene-40",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gene's 40th birthday world: a party hub with portals to themed worlds. Multiplayer with spatial voice, like the office test.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
+    "check": "node scripts/run-checks.cjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "@ingine/engine": "*",
+    "@ingine/multiplayer": "*",
+    "@ingine/net": "*",
+    "@ingine/voice": "*",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "peer": "^1.0.2"
+  }
+}

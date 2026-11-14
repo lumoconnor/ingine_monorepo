@@ -1,0 +1,10 @@
+{
+  "blunt": { "name": "Blunt" },
+  "slash": { "name": "Slash" },
+  "pierce": { "name": "Pierce" },
+  "ballistic": { "name": "Ballistic" },
+  "blast": { "name": "Blast", "ignoresZones": true },
+  "fire": { "name": "Fire", "ignoresZones": true },
+  "bleed": { "name": "Bleeding", "ignoresZones": true, "ignoresResist": true },
+  "fall": { "name": "Falling", "ignoresZones": true, "ignoresResist": true }
+}
