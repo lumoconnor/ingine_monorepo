@@ -34,7 +34,7 @@ export const SCENES: SceneDef[] = [
   { id: 'buddies', name: 'Buddies park', blurb: 'Help the pups find their balls', color: 0x5cbf6a, origin: at(6), built: true },
   { id: 'ballpark', name: 'Ballpark', blurb: 'Grab a bat and swing away', color: 0x1d4fa3, origin: at(8), built: true },
   { id: 'hoops', name: 'Hoops court', blurb: 'Shoot some buckets', color: 0xce1141, origin: at(9), built: true },
-  { id: 'tattoo', name: 'Tattoo parlour', blurb: 'Pick some ink', color: 0x2f2f3a, origin: at(7), built: false },
+  { id: 'tattoo', name: 'Tattoo parlour', blurb: 'Pick some ink', color: 0x2f2f3a, origin: at(7), built: true },
 ];
 
 export const ALL_SCENES = [HUB, ...SCENES];
