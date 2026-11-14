@@ -39,4 +39,6 @@ Built: Hero city (`src/scenes/heroes.ts`): an original superhero town with a sky
 
 Built: Star islands (`src/scenes/stars.ts`): an original first-person platformer over the sea. Stepping stones, a shuttle, a lift, a bounce pad, a spinning disc, a platform circling a pillar, a narrow beam and a spiral cloud stair up to the star castle. Ten stars stand on top of things; fall in the sea and you're back at the last flag you touched. Nimbus the cloud says hello. `scripts/stars-check.cjs` plays every jump for real.
 
-Worlds planned: buddies park, ballpark, hoops court, tattoo parlour.
+Built: Buddies park (`src/scenes/buddies.ts`): a homage to the Buddies movies. Fernfield's park with Budderball, Rosebud, Mudbud, Buddha and B-Dawg trotting round the sports field and Buddy and Molly on a picnic blanket. Each pup's ball is lost in a sequel-themed corner (snowy hill, rocket pad, Christmas corner, spooky house, pyramid; plus a Super Buddies cape stand). Walk over a ball to pick it up, walk up to its pup to give it back.
+
+Worlds planned: ballpark, hoops court, tattoo parlour.
