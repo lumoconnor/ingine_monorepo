@@ -53,15 +53,15 @@ export const CHATTER: ChatterDef[] = [
   {
     id: 'aurora',
     speaker: 'Aurora',
-    hello: "Welcome to Arup! Oh, it's you, Gene. Happy 40th! Sign in here. Actually, don't, it's your birthday.",
+    hello: "Gene! Happy 40th! I've added it to the programme as a key milestone. It's on the critical path, so no slipping.",
     lines: [
-      "The lifts are being weird again. One of them only goes to floors that don't exist.",
-      'Someone booked every meeting room for "focus time". All of them. For a month.',
-      'If anyone asks, the plant by the window is called Kevin. Kevin is thriving.',
-      "Big Liz is doing laps of the atrium again. She says it's her step count.",
-      "Forty is nothing. That's like, two twenties. Totally fine.",
-      'I put your name on the cake order. They spelled it "Jean". It\'s still cake.',
-      'The printer and I have an understanding. I don\'t look at it, it doesn\'t jam.',
+      "Quick one: can we take this offline? And by offline I mean to the cake.",
+      "Your birthday is green on the RAG status. Cake is amber. Big Liz ate the contingency.",
+      "I've updated the Gantt chart. Turning 40 now has a two-week float. Use it wisely.",
+      "Action items from today: one, eat cake. Two, see item one.",
+      "Scope creep is when a cake for 10 becomes a cake for 40. Which, to be fair, it now is.",
+      "I don't run late. I re-baseline.",
+      "Lessons learned register, entry 214: never book the atrium when Big Liz is doing laps.",
     ],
   },
   {

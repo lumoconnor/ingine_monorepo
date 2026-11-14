@@ -90,6 +90,7 @@ const shots = process.env.SHOTS;
       await page.evaluate(() => game.stop());
     };
     const aimFrom = `(x, y, z, tx, ty, tz) => { const { C, T, step } = X; C.placeAt(new T(x, y, z), 0, 0); step(5); const cam = game.renderer.camera.getWorldPosition(new T()); const dx = tx - cam.x, dy = ty - cam.y, dz = tz - cam.z; C.yaw = Math.atan2(-dx, -dz); C.pitch = Math.atan2(dy, Math.hypot(dx, dz)); step(2); }`;
+    await shot('arup-aurora', `(${aimFrom})(1200 + 18.2, 0.05, 1.6, 1200 + 20.4, 1.55, 2.4)`);
     await shot('arup-arrival', `(${aimFrom})(1200, 0.05, 6, 1200, 2.0, -1.2)`);
     await shot('arup-chris', `(${aimFrom})(1200 - 8.6, 0.05, -0.6, 1200 - 10.2, 1.5, -1.5)`);
     await shot('arup-liz', `(() => { const l = game.world.find('big_liz').object3d.position; (${aimFrom})(1200, 0.05, -3, l.x, 2.2, l.z); })()`);

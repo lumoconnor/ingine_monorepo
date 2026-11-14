@@ -17,8 +17,8 @@ import { buildReturnPad } from './hub';
 
 /**
  * The Arup office: a big open floor high above the city. You step out of the
- * middle lift into reception, facing the Arup sign. Aurora is on reception,
- * Chris is in the open-plan desks, Renee is in the kitchen and Big Liz (a
+ * middle lift into reception, facing the Arup sign. Aurora (project manager)
+ * is in the meeting room by her Gantt chart, Chris is in the open-plan desks, Renee is in the kitchen and Big Liz (a
  * very large, very friendly lizard) does laps of the atrium.
  *
  * Plan (relative to the scene origin, metres, north is -Z):
@@ -27,7 +27,7 @@ import { buildReturnPad } from './hub';
  *         │  lounge      │  atrium        │  kitchen     │
  *   z  -8 ├──────────────┤  (Big Liz)     ├──────────────┤
  *         │  open plan   ├── reception ───┤  meeting rm  │
- *         │  (Chris)     │  ARUP (Aurora) │              │
+ *         │  (Chris)     │  ARUP sign     │  (Aurora)    │
  *   z  12 └──────────────┴───[ lifts ]────┴──────────────┘
  *        x -22          -8               8             22
  */
@@ -347,6 +347,19 @@ function meetingRoom(game: Game, at: At): void {
   }
   sign(game, 'Meeting room: "Big Ideas"', at(9.05, 2.6, -3), { width: 2.6, height: 0.35, yawDeg: -90, bg: '#ffffff', fg: '#e61e2b' });
   decor(game, new THREE.BoxGeometry(0.03, 1.2, 3), mat(0xfafafa, { roughness: 0.2 }), at(21.85, 1.6, -0.5), 'whiteboard');
+  // Aurora's programme: a Gantt chart with "Gene turns 40" as the milestone.
+  sign(game, 'PROGRAMME  ·  Gene 40', at(21.82, 2.05, -0.5), { width: 2.8, height: 0.22, yawDeg: -90, bg: '#fafafa', fg: '#2a2e35' });
+  const bars: [number, number, number, number][] = [
+    [-1.25, 0.9, 1.85, 0x2f6fd6],
+    [-0.75, 1.0, 1.7, 0x2e8a6a],
+    [-0.1, 1.1, 1.55, 0xe8a33d],
+    [0.4, 0.7, 1.4, 0x7b5cff],
+  ];
+  for (const [z0, len, y, c] of bars) decor(game, new THREE.BoxGeometry(0.01, 0.09, len), mat(c), at(21.83, y, -0.5 + z0 + len / 2), 'gantt-bar', false);
+  const diamond = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.13, 0.13), mat(0xe61e2b));
+  diamond.rotation.x = Math.PI / 4;
+  diamond.position.set(...at(21.83, 1.25, 0.85));
+  game.world.spawn(new Entity('milestone', diamond));
   addItemPickup(game, { id: 'arup-notebook-2', item: 'notebook', position: at(15, 0.77, -0.2), yawDeg: 80 });
 }
 
@@ -448,7 +461,8 @@ function smile(e: Entity, huge = false): void {
 }
 
 function people(game: Game, at: At): void {
-  const aurora = addNpc(game, { id: 'aurora', name: 'Aurora', dialogue: 'aurora', position: at(0.4, 0, 0.5), facingDeg: 0, color: 0x6c4fa3, skin: 0xf3d6c2 });
+  // Project manager: in the meeting room, by the programme on the whiteboard.
+  const aurora = addNpc(game, { id: 'aurora', name: 'Aurora', dialogue: 'aurora', position: at(20.4, 0, 2.6), facingDeg: -90, color: 0x6c4fa3, skin: 0xf3d6c2 });
   // Dark, longish hair; dark eyes; light skin.
   hair(aurora, 0x22160f, 'long');
   eyes(aurora, 0x2b1a10);
