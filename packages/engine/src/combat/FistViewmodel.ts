@@ -78,6 +78,10 @@ export class FistViewmodel extends Component {
   private pivot = new THREE.Group();
   private holder = new THREE.Group();
   private fist = new THREE.Group();
+  /** The bare fist and forearm (shown while punching or guarding): children are the forearm, then the hand. Games can dress it (a tattoo, a glove). */
+  get fistModel(): THREE.Group {
+    return this.fist;
+  }
   private flash = new THREE.Group();
   private flashRoll = 0;
   private flashSize = 1;

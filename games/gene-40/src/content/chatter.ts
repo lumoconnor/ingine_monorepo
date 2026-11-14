@@ -129,6 +129,21 @@ export const CHATTER: ChatterDef[] = [
     special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
   {
+    id: 'inka',
+    speaker: 'Inka',
+    hello: "Happy 40th, Gene! Welcome to Inkwell. Pick a design off the flash wall at the back, hop in the chair, and I'll sort you out. Don't worry, it washes off. Mostly.",
+    lines: [
+      "Forty's the perfect age for your first tattoo. Old enough to choose well, young enough to choose a skull in a party hat.",
+      'The heart with GENE on the banner is the classic. Very popular with people called Gene.',
+      "I did a tattoo of a cat once. The cat was furious. It was the cat's tattoo.",
+      "Sailors got swallows for every five thousand miles at sea. You get one for every forty years. Same thing.",
+      "Wiggle your fingers when you're done. Raise your fists to see it properly. Right-click, like a boxer.",
+      "My mum still thinks this is a phase. It's been nineteen years.",
+      "Murphy's on the wall! Ginger cat. Nobody told me what he actually looks like, so I improvised.",
+    ],
+    special: { flag: 'tattoo.inked', text: "Look at that ink! Healing nicely. Come back any time if you fancy another. I'll draw right over it." },
+  },
+  {
     id: 'rex',
     speaker: 'Rex',
     hello: "RAWR! Happy 40th, Gene! I'm Rex, the mascot. Grab a ball from the rack courtside. Hold to power up, let go to shoot, and look at the rim. Beat your best in the 60-second shootout!",
