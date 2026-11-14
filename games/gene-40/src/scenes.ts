@@ -30,7 +30,7 @@ export const SCENES: SceneDef[] = [
   { id: 'arup', name: 'Arup office', blurb: 'Say hi to the team', color: 0xe61e2b, origin: at(2), built: true },
   { id: 'murph', name: 'Murph Land', blurb: 'A cat paradise for Murphy', color: 0xf2a541, origin: at(3), built: true },
   { id: 'stars', name: 'Star islands', blurb: 'Jump for the stars', color: 0x4fb3ff, origin: at(4), built: false },
-  { id: 'heroes', name: 'Hero city', blurb: 'Grab a power, save the day', color: 0x7b5cff, origin: at(5), built: false },
+  { id: 'heroes', name: 'Hero city', blurb: 'Grab a power, save the day', color: 0x7b5cff, origin: at(5), built: true },
   { id: 'buddies', name: 'Buddies park', blurb: 'Dogs, a ball and a treehouse', color: 0x5cbf6a, origin: at(6), built: false },
   { id: 'ballpark', name: 'Ballpark', blurb: 'Grab a bat and swing away', color: 0x1d4fa3, origin: at(8), built: false },
   { id: 'hoops', name: 'Hoops court', blurb: 'Shoot some buckets', color: 0xce1141, origin: at(9), built: false },

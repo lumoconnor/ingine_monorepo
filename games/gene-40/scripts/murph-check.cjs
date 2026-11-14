@@ -80,7 +80,7 @@ const shots = process.env.SHOTS;
       step(2);
       return first;
     };
-    const cats = game.world.findByTag('cat');
+    const cats = game.world.findByTag('cat').filter((c) => Math.abs(c.object3d.position.x - o[0]) < 100); // Murph Land's own (Hero city has a cat too)
     check('seven cats live here', cats.length === 7, `${cats.length}`);
     for (const cat of cats) {
       if (cat.name === 'murphy') continue;

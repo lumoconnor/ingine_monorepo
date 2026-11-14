@@ -78,10 +78,13 @@ const check = (label, ok, extra = '') => r.push(`${ok ? 'PASS' : 'FAIL'}  ${labe
   // H from a world.
   await page.evaluate(([x, y, z]) => T.place(x, y, z), portals[3].to);
   await wait(200);
+  // The lobby's name box can still hold focus (a player clicks into the game first); H is ignored while typing.
+  const n0 = await page.evaluate(() => (document.activeElement?.blur(), teleports.count));
   await page.keyboard.press('KeyH');
-  await wait(300);
+  // The heavier worlds make swiftshader slow: wait for the teleport, not a fixed time.
+  await page.waitForFunction((n0) => teleports.count > n0, n0, { timeout: 15000 }).catch(() => {});
   const h = await page.evaluate(() => [T.feet(), teleports.current]);
-  check('H brings you back to the plaza', h[1] === 'hub' && Math.hypot(h[0][0], h[0][2]) < 20);
+  check('H brings you back to the plaza', h[1] === 'hub' && Math.hypot(h[0][0], h[0][2]) < 20, JSON.stringify(h));
 
   // A view of the portal ring from behind the cake.
   if (shots) {
