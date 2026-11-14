@@ -37,4 +37,6 @@ Built: Murph Land (`src/scenes/murph.ts`): cat paradise for Gene's cat Murphy. G
 
 Built: Hero city (`src/scenes/heroes.ts`): an original superhero town with a skyline, Hero HQ (80 m) and a diner. Four power stations on the plaza, and you keep each power you take: super jump, flight (hold Space in the air, let go to glide, C to drop), dash (Q) and grapple (aim and press G). Eight kittens are stuck on rooftops, one on top of HQ; reach each to send it to the basket. Captain Whiskers, a caped cat, chats. Powers only work in Hero city. Fall damage is off in the whole game (`main.ts`).
 
-Worlds planned: star islands, buddies park, ballpark, hoops court, tattoo parlour.
+Built: Star islands (`src/scenes/stars.ts`): an original first-person platformer over the sea. Stepping stones, a shuttle, a lift, a bounce pad, a spinning disc, a platform circling a pillar, a narrow beam and a spiral cloud stair up to the star castle. Ten stars stand on top of things; fall in the sea and you're back at the last flag you touched. Nimbus the cloud says hello. `scripts/stars-check.cjs` plays every jump for real.
+
+Worlds planned: buddies park, ballpark, hoops court, tattoo parlour.

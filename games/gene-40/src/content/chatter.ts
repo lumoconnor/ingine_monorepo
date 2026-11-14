@@ -128,6 +128,21 @@ export const CHATTER: ChatterDef[] = [
     ],
     special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
+  {
+    id: 'nimbus',
+    speaker: 'Nimbus',
+    hello: "Oh! A visitor! Happy 40th, Gene! I'm Nimbus. Ten stars are hiding on the islands. Hop, bounce and climb, and if you fall in the sea, you'll pop back at the last flag you touched.",
+    lines: [
+      "Don't be scared of the spinning disc. Be a little scared of the spinning disc.",
+      'The bounce pad on the east island sends you WAY up. Lean into it.',
+      "I'm mostly water vapour and enthusiasm.",
+      'The beam on the west side is narrow. Walk, don\'t run. I ran once. I rained for a week.',
+      'There is a star on the cloud stair. My cousin Cumulus built it. He has never heard of handrails.',
+      "Have you checked that pillar that has a platform going round and round? Just saying.",
+      "Forty years! That's at least eleven thousand sunsets. I was in most of them.",
+    ],
+    special: { flag: 'stars.all', text: "ALL TEN STARS! Gene, I'm so happy I could drizzle. You are officially a Star Islands champion!" },
+  },
 ];
 
 /** Murph Land's cats. Every cat shares a pool of cat thoughts plus a few of its own. */
