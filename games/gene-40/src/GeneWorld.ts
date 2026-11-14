@@ -5,9 +5,12 @@ import { createPlayer } from '@ingine/engine/gameplay/player/createPlayer';
 import type { Teleports } from './Teleports';
 import { SCENES } from './scenes';
 import { buildHub, buildPlaceholder } from './scenes/hub';
+import { buildAxes } from './scenes/axes';
 
 /** Each built scene registers a builder here; the rest get a "coming soon" island. */
-const builders: Record<string, (game: Game, teleports: Teleports, index: number) => void> = {};
+const builders: Record<string, (game: Game, teleports: Teleports, index: number) => void> = {
+  axes: buildAxes,
+};
 
 /**
  * Gene's whole world in one map: the party plaza at the origin and every

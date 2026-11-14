@@ -26,7 +26,7 @@ export const HUB: SceneDef = { id: 'hub', name: 'Party plaza', blurb: 'The hub',
 
 /** In portal order, clockwise around the plaza starting north. */
 export const SCENES: SceneDef[] = [
-  { id: 'axes', name: 'Axe throwing', blurb: 'Five throws. Beat your best.', color: 0xc8553d, origin: at(1), built: false },
+  { id: 'axes', name: 'Axe throwing', blurb: 'Five throws. Beat your best.', color: 0xc8553d, origin: at(1), built: true },
   { id: 'arup', name: 'Arup office', blurb: 'Say hi to the team', color: 0xe61e2b, origin: at(2), built: false },
   { id: 'murph', name: 'Murph Land', blurb: 'A cat paradise for Murphy', color: 0xf2a541, origin: at(3), built: false },
   { id: 'stars', name: 'Star islands', blurb: 'Jump for the stars', color: 0x4fb3ff, origin: at(4), built: false },

@@ -29,5 +29,7 @@ Published at `/gene/` on the repo's GitHub Pages site.
 2. Register it in `builders` in `src/GeneWorld.ts` and set `built: true` in
    `src/scenes.ts`.
 
-Worlds planned: axe throwing, Arup office, Murph Land, star islands, hero city,
+Built: axe throwing (`src/scenes/axes.ts`: three lanes, rack gives 5 axes, ring scoring 6/4/3/2/1 plus killshot 8, best round kept in this browser).
+
+Worlds planned: Arup office, Murph Land, star islands, hero city,
 buddies park, ballpark, hoops court, tattoo parlour.
