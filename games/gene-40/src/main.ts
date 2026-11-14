@@ -20,6 +20,7 @@ import { DialogueSystem } from '@ingine/engine/dialogue/DialogueSystem';
 import { DialogueUi } from '@ingine/engine/ui/DialogueUi';
 import { GeneWorld } from './GeneWorld';
 import { Teleports } from './Teleports';
+import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 
 /** Keeps this game's rooms apart from any other game using the same broker. */
 const APP_ID = 'ingine-gene-40';
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
   game.start();
 
   // Handy from the dev console (and used by the headless checks).
-  Object.assign(window, { game, net, voice, teleports, inventory: game.getSystem('inventory') });
+  Object.assign(window, { game, net, voice, teleports, RAPIER, inventory: game.getSystem('inventory') });
 
   const room = await showLobby({
     container,

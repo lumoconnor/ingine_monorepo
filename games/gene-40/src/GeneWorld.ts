@@ -7,11 +7,13 @@ import { SCENES } from './scenes';
 import { buildHub, buildPlaceholder } from './scenes/hub';
 import { buildAxes } from './scenes/axes';
 import { buildArup } from './scenes/arup';
+import { buildMurph } from './scenes/murph';
 
 /** Each built scene registers a builder here; the rest get a "coming soon" island. */
 const builders: Record<string, (game: Game, teleports: Teleports, index: number) => void> = {
   axes: buildAxes,
   arup: buildArup,
+  murph: buildMurph,
 };
 
 /**

@@ -25,6 +25,8 @@ export interface ChatterDef {
   /** Said the first time you talk to them. */
   hello: string;
   lines: string[];
+  /** Said instead, every time, once this flag is set (e.g. after finding every coin). */
+  special?: { flag: string; text: string };
 }
 
 /** A tree that opens on `hello` once, then on a uniformly random line. */
@@ -44,6 +46,10 @@ export function chatterTree(c: ChatterDef): DialogueTree {
   });
   // Entry k passes with 1/(n-k), so every line is equally likely to open.
   const start: DialogueTree['start'] = [{ if: [{ if: 'visited', node: 'hello', not: true }], node: 'hello' }];
+  if (c.special) {
+    nodes.special = { text: c.special.text, choices: [{ text: 'Anything else?', next: 'line0' }, { text: 'See you!', next: null }] };
+    start.unshift({ if: [{ if: 'flag', flag: c.special.flag }], node: 'special' });
+  }
   for (let k = 0; k < n - 1; k++) start.push({ if: [{ if: 'chance', p: 1 / (n - k) }], node: `line${k}` });
   start.push({ node: `line${n - 1}` });
   return { id: c.id, speaker: c.speaker, start, nodes };
@@ -106,4 +112,50 @@ export const CHATTER: ChatterDef[] = [
       'ROOOAAR. (Translation: happy birthday. Please clap.)',
     ],
   },
+  ...catChatter(),
 ];
+
+/** Murph Land's cats. Every cat shares a pool of cat thoughts plus a few of its own. */
+function catChatter(): ChatterDef[] {
+  const pool = [
+    'Meow. (Translation: the red dot is real and I WILL catch it one day.)',
+    "I knocked a cup off the table this morning. It's called science.",
+    "Have you seen the giant box? It's the best box. I've been in it six hours.",
+    'Mrrp. (Translation: you may pet me exactly twice. Three is assault.)',
+    'Murphy says if you collect every Murphy coin, something wonderful happens. I think it\'s treats.',
+    'The zipline? Terrifying. Ten out of ten. Would scream again.',
+    'I sat on the giant yarn ball and it rolled. I have never felt so betrayed.',
+    "It's 3am somewhere. Time for zoomies.",
+  ];
+  const cats: [string, string, string, string[]][] = [
+    ['biscuit', 'Biscuit', "Mew! Happy birthday, Gene! Murphy told us you were coming. He told us SEVERAL times.", ['I am made of approximately forty percent nap.']],
+    ['mochi', 'Mochi', "Oh, hello. You found my box. It's my box. Happy birthday though.", ["If it fits, I sits. If it doesn't fit, I sits harder."]],
+    ['pickles', 'Pickles', 'Prrrt! A visitor! Are you the birthday human? You smell like cake.', ['I once chased my own tail for an hour. I won.']],
+    ['noodle', 'Noodle', "Meow meow. I'm Noodle. I'm long. That's the whole thing.", ['Stretch report: currently 1.4 metres. New record.']],
+    ['sir_pounce', 'Sir Pounce', 'Hark, birthday human! Sir Pounce, Knight of the Sunbeam, at your service.', ['I guard the cat tree. From what? Birds. Leaves. Mostly leaves.']],
+    ['pepper', 'Pepper', "Hssss... oh, it's Gene. Sorry. Happy birthday. I hiss at everyone, it's not personal.", ['The cucumber incident of last spring is not to be discussed.']],
+  ];
+  const out: ChatterDef[] = cats.map(([id, speaker, hello, own], i) => ({
+    id,
+    speaker,
+    hello,
+    // Each cat gets its own lines plus a rotating slice of the pool.
+    lines: [...own, ...pool.slice(i % pool.length), ...pool.slice(0, i % pool.length)].slice(0, 6),
+  }));
+  out.push({
+    id: 'murphy',
+    speaker: 'Murphy',
+    hello: "Ah. Gene. Welcome to Murph Land, my kingdom. Happy fortieth. You may collect my coins. All of them. I'll be watching.",
+    lines: [
+      'Every coin in this land bears my face. As it should.',
+      'I have commissioned a statue of myself. It is accurate. Perhaps slightly too modest.',
+      'The other cats are my loyal subjects. Biscuit is head of naps.',
+      'Dinner is at five. It was also at four. It is always dinner.',
+      'Forty years, Gene. In cat years that is... still less than me. I am ageless.',
+      'You may scratch behind my ears. That is an honour few receive.',
+    ],
+    special: { flag: 'murph.allCoins', text: "Every last coin! Gene, you are now an honorary cat. Royal decree. Happy birthday, my favourite human." },
+  });
+  return out;
+}
+
