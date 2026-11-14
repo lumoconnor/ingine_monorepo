@@ -33,5 +33,7 @@ Built: axe throwing (`src/scenes/axes.ts`: three lanes, rack gives 5 axes, ring 
 
 Built: Arup office (`src/scenes/arup.ts`): big floor above the city, you step out of the lift facing the ARUP sign; Aurora (project manager, meeting room), Chris (open plan), Renee (kitchen), Big Liz (a friendly giant lizard doing laps of the atrium). What they say lives in `src/content/chatter.ts`: edit the lists, each talk opens on a random line.
 
+Built: Murph Land (`src/scenes/murph.ts`): cat paradise for Gene's cat Murphy. Giant Murphy statue, Murphy himself on a royal cushion, four climbable cat trees with ziplines, giant yarn balls, box, food bowl and toy mouse. 35 Murphy coins lying on surfaces (walk over to collect); find them all and Murphy makes you an honorary cat. Six more cats to chat with. Murphy's colours are FUR/STRIPE at the top of the file.
+
 Worlds planned: Arup office, Murph Land, star islands, hero city,
 buddies park, ballpark, hoops court, tattoo parlour.
