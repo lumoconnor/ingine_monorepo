@@ -15,6 +15,9 @@ import { showLobby, signallingFromUrl } from '@ingine/multiplayer/Lobby';
 import { VoiceChat } from '@ingine/voice/VoiceChat';
 import { VoiceHud } from '@ingine/voice/VoiceHud';
 import { registerContent } from './content';
+import { CHATTER, chatterTree, registerChatterVerbs } from './content/chatter';
+import { DialogueSystem } from '@ingine/engine/dialogue/DialogueSystem';
+import { DialogueUi } from '@ingine/engine/ui/DialogueUi';
 import { GeneWorld } from './GeneWorld';
 import { Teleports } from './Teleports';
 
@@ -23,6 +26,7 @@ const APP_ID = 'ingine-gene-40';
 
 async function main(): Promise<void> {
   registerContent();
+  registerChatterVerbs();
   const container = document.getElementById('app')!;
   const game = new Game(container);
   game.addSystem(new CombatSystem());
@@ -46,6 +50,8 @@ async function main(): Promise<void> {
   );
   game.addSystem(new InventorySystem());
   game.addSystem(new InventoryUi(container));
+  game.addSystem(new DialogueSystem(CHATTER.map(chatterTree)));
+  game.addSystem(new DialogueUi(container));
   const net = game.addSystem(new NetSystem());
   game.addSystem(new RoomHud(container));
   const voice = game.addSystem(new VoiceChat({ spatial: net }));
