@@ -113,6 +113,21 @@ export const CHATTER: ChatterDef[] = [
     ],
   },
   ...catChatter(),
+  {
+    id: 'captain_whiskers',
+    speaker: 'Captain Whiskers',
+    hello: "Citizen Gene! Happy 40th! Hero city needs you. Eight kittens are stuck on the rooftops. Grab a power from the stations and bring them home.",
+    lines: [
+      'My superpower? Landing on my feet. Every time. Even from Hero HQ. Do not test this.',
+      'The cape is not for flying. The cape is for drama.',
+      "Super jump first, then flight. Trust me, I've been a hero for nine lives.",
+      'The grapple works on anything solid. Aim, press G, and try not to scream.',
+      'Dash is great for crossing the avenue. Mind the lamp posts. I did not.',
+      "One kitten is right on top of Hero HQ. Don't ask me how. Kittens are a mystery.",
+      'Every hero needs a nemesis. Mine is the vacuum cleaner.',
+    ],
+    special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
+  },
 ];
 
 /** Murph Land's cats. Every cat shares a pool of cat thoughts plus a few of its own. */

@@ -35,5 +35,6 @@ Built: Arup office (`src/scenes/arup.ts`): big floor above the city, you step ou
 
 Built: Murph Land (`src/scenes/murph.ts`): cat paradise for Gene's cat Murphy. Giant Murphy statue, Murphy himself on a royal cushion, four climbable cat trees with ziplines, giant yarn balls, box, food bowl and toy mouse. 35 Murphy coins lying on surfaces (walk over to collect); find them all and Murphy makes you an honorary cat. Six more cats to chat with. Murphy's colours are FUR/STRIPE at the top of the file.
 
-Worlds planned: Arup office, Murph Land, star islands, hero city,
-buddies park, ballpark, hoops court, tattoo parlour.
+Built: Hero city (`src/scenes/heroes.ts`): an original superhero town with a skyline, Hero HQ (80 m) and a diner. Four power stations on the plaza, and you keep each power you take: super jump, flight (hold Space in the air, let go to glide, C to drop), dash (Q) and grapple (aim and press G). Eight kittens are stuck on rooftops, one on top of HQ; reach each to send it to the basket. Captain Whiskers, a caped cat, chats. Powers only work in Hero city. Fall damage is off in the whole game (`main.ts`).
+
+Worlds planned: star islands, buddies park, ballpark, hoops court, tattoo parlour.
