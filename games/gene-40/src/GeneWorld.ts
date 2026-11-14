@@ -11,6 +11,7 @@ import { buildMurph } from './scenes/murph';
 import { buildHeroes } from './scenes/heroes';
 import { buildStars } from './scenes/stars';
 import { buildBuddies } from './scenes/buddies';
+import { buildBallpark } from './scenes/ballpark';
 
 /** Each built scene registers a builder here; the rest get a "coming soon" island. */
 const builders: Record<string, (game: Game, teleports: Teleports, index: number) => void> = {
@@ -20,6 +21,7 @@ const builders: Record<string, (game: Game, teleports: Teleports, index: number)
   heroes: buildHeroes,
   stars: buildStars,
   buddies: buildBuddies,
+  ballpark: buildBallpark,
 };
 
 /**
