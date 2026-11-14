@@ -4,6 +4,7 @@ import '@ingine/voice/voice.css';
 import { Game } from '@ingine/engine/core/Game';
 import { Hud } from '@ingine/engine/ui/Hud';
 import { CombatSystem } from '@ingine/engine/combat/CombatSystem';
+import { CombatConfig } from '@ingine/engine/config/combat';
 // Thrown things (the axes) fly as projectiles.
 import '@ingine/engine/combat/projectiles';
 import { InventorySystem } from '@ingine/engine/inventory/InventorySystem';
@@ -28,6 +29,8 @@ const APP_ID = 'ingine-gene-40';
 async function main(): Promise<void> {
   registerContent();
   registerChatterVerbs();
+  // No fall damage anywhere: there are cat trees, rooftops and a lot of flying.
+  CombatConfig.fall.safeHeight = Infinity;
   const container = document.getElementById('app')!;
   const game = new Game(container);
   game.addSystem(new CombatSystem());
@@ -40,6 +43,7 @@ async function main(): Promise<void> {
         ['Space / Shift / C', 'Jump / sprint / crouch'],
         ['Walk onto a portal', 'Visit a world'],
         ['H', 'Back to the party plaza'],
+        ['Q / G', 'Hero city: dash / grapple'],
         ['E', 'Pick things up, talk'],
         ['Tab / I', 'Bag: read, use or drop items'],
         ['V (hold)', 'Talk (push-to-talk)'],

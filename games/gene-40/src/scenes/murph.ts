@@ -284,7 +284,7 @@ function toys(game: Game, at: At): void {
 
 // --- Cats ----------------------------------------------------------------------
 
-function addCat(
+export function addCat(
   game: Game,
   o: { id: string; name: string; fur: number; stripe?: number; belly?: number; s: number; at: Vec3; facingDeg: number; sitting?: boolean; path?: [number, number][]; groundY: number },
 ): Entity {
