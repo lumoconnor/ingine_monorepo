@@ -143,6 +143,7 @@ export const CHATTER: ChatterDef[] = [
     ],
     special: { flag: 'stars.all', text: "ALL TEN STARS! Gene, I'm so happy I could drizzle. You are officially a Star Islands champion!" },
   },
+  ...buddiesChatter(),
 ];
 
 /** Murph Land's cats. Every cat shares a pool of cat thoughts plus a few of its own. */
@@ -189,3 +190,93 @@ function catChatter(): ChatterDef[] {
   return out;
 }
 
+
+/** Buddies park: the pups, Buddy and Molly. Each pup has a special line once their ball is back. */
+function buddiesChatter(): ChatterDef[] {
+  return [
+    {
+      id: 'budderball',
+      speaker: 'Budderball',
+      hello: "Happy birthday, Gene! Is there cake? I can smell cake. I can ALWAYS smell cake. Also I lost my football. Have you seen it? It was near the snow.",
+      lines: [
+        'Pull my paw. ...No? Smart. Very smart.',
+        "I'm not hungry. I'm just checking the bowl is still there. Every five minutes.",
+        "Football is easy. You run, you catch, you fall over, everybody claps.",
+        'My brothers say I eat too much. I say they eat too little. We are both right.',
+      ],
+      special: { flag: 'buddies.budderball', text: "MY FOOTBALL! Gene, you're the best. If I find a sandwich today, you get half. Maybe a third." },
+    },
+    {
+      id: 'rosebud',
+      speaker: 'Rosebud',
+      hello: "Hi Gene! Happy birthday! Somebody has to keep these boys out of trouble, and it's me. Have you seen my soccer ball? I think it rolled near the big Christmas tree.",
+      lines: [
+        "Pink isn't just a colour. It's a lifestyle.",
+        'I can out-dribble every one of my brothers. Ask them. Actually, don\'t, they\'ll lie.',
+        'Mudbud, if you roll in that puddle again, I am telling Mom.',
+        "Being the only girl means I'm automatically in charge. That's the rule. I made it.",
+      ],
+      special: { flag: 'buddies.rosebud', text: "My soccer ball! Thanks, Gene. You're an honorary Buddy now. That means you have to wear a bow. I don't make the rules. (I do make the rules.)" },
+    },
+    {
+      id: 'mudbud',
+      speaker: 'Mudbud',
+      hello: "Heya Gene! Happy birthday! Wanna roll in some mud? No? More for me. Oh, and my volleyball's gone. Last time I saw it, I was hiding in the spooky house. Not scared. Just... visiting.",
+      lines: [
+        'A bath? No thank you. I am perfectly dirty the way I am.',
+        'Fun fact: mud is just water that tried harder.',
+        'I spiked a volleyball so hard once it landed in next week.',
+        'Rosebud says I smell. I say I smell AMAZING.',
+      ],
+      special: { flag: 'buddies.mudbud', text: "My volleyball! And it's even got a bit of mud on it. Perfect. You get me, Gene." },
+    },
+    {
+      id: 'buddha',
+      speaker: 'Buddha',
+      hello: 'Greetings, Gene, and happy birthday. Forty is a wise number. My baseball has journeyed to the top of the pyramid. It will come back when the time is right. Or when you go and get it.',
+      lines: [
+        'A ball that is thrown must come down. Unless it lands on a pyramid.',
+        'Breathe in. Breathe out. Now fetch.',
+        'The squirrel does not run from the dog. The dog runs after the squirrel. Think about it.',
+        'Patience, my brothers. Also, where did Budderball put the treats?',
+      ],
+      special: { flag: 'buddies.buddha', text: 'You have returned my baseball. The universe is in balance. Also, I am very happy. Woof.' },
+    },
+    {
+      id: 'b_dawg',
+      speaker: 'B-Dawg',
+      hello: "Yo yo yo, it's B-Dawg in the house! Happy birthday Gene, forty and fly! Someone shot my basketball into space. Well, onto the rocket pad. Same thing.",
+      lines: [
+        "I got the bling, I got the swing, I got the... hold on, I'm still working on that one.",
+        'Nothing but net. And sometimes the backboard. And sometimes the bench.',
+        "Gene's forty and still got game. Respect.",
+        "My chain says B. It stands for B-Dawg. Also Buddy, Ball, Bacon. Mostly bacon.",
+      ],
+      special: { flag: 'buddies.b_dawg', text: "My ball's back! Gene, you're the MVP. Most Valuable Pal. Up top! ...Okay, paw top." },
+    },
+    {
+      id: 'buddy',
+      speaker: 'Buddy',
+      hello: "Welcome to Fernfield, Gene! Happy 40th! The pups have lost their balls all over the park again. If you find them, they'll be ever so grateful. And so will my ears.",
+      lines: [
+        'In my day I played basketball, football, soccer, volleyball and baseball. Not all at once. Mostly.',
+        'Five puppies is a lot of puppies. I counted. Twice.',
+        "Molly says I'm a soft touch. I say I'm a good sport.",
+        "There's no rule that says a dog can't play. Look it up.",
+      ],
+      special: { flag: 'buddies.all', text: "Every ball found! Gene, you're part of the pack now. Happy birthday, from all seven of us." },
+    },
+    {
+      id: 'molly',
+      speaker: 'Molly',
+      hello: "Hello, Gene, happy birthday! Please excuse the pups. They're lovely. They're just also everywhere.",
+      lines: [
+        "If you see Mudbud near the puddle, please don't let him in the picnic basket.",
+        'Rosebud keeps the boys in line. She gets that from me.',
+        'Buddha meditated for an hour this morning. Then he chased his tail for two.',
+        "Forty is a lovely age. In dog years it's... actually, let's not do the maths.",
+      ],
+      special: { flag: 'buddies.all', text: "You found every ball! Thank you, Gene. Now they'll finally have a nap. Oh, who am I kidding." },
+    },
+  ];
+}
