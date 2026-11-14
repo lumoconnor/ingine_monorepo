@@ -4,6 +4,8 @@ import '@ingine/voice/voice.css';
 import { Game } from '@ingine/engine/core/Game';
 import { Hud } from '@ingine/engine/ui/Hud';
 import { CombatSystem } from '@ingine/engine/combat/CombatSystem';
+// Thrown things (the axes) fly as projectiles.
+import '@ingine/engine/combat/projectiles';
 import { InventorySystem } from '@ingine/engine/inventory/InventorySystem';
 import { InventoryUi } from '@ingine/engine/ui/InventoryUi';
 import '@ingine/engine/inventory/models';

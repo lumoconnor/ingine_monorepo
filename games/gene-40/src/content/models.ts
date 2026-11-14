@@ -66,3 +66,4 @@ const OfficeItems: Record<string, () => THREE.Object3D> = {
 };
 
 registerModels(Object.fromEntries(Object.entries(OfficeItems).map(([id, build]) => [id, { kind: 'rest', build } satisfies ModelDef])));
+import './axeModels';

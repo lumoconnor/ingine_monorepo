@@ -43,7 +43,15 @@
     "model": "bottle",
     "maxStack": 6,
     "useLabel": "Drink",
-    "use": [{ "do": "notify", "text": "Refreshing." }, { "do": "consume" }]
+    "use": [
+      {
+        "do": "notify",
+        "text": "Refreshing."
+      },
+      {
+        "do": "consume"
+      }
+    ]
   },
   "apple": {
     "name": "Apple",
@@ -52,6 +60,78 @@
     "model": "apple",
     "maxStack": 10,
     "useLabel": "Eat",
-    "use": [{ "do": "notify", "text": "Crunchy." }, { "do": "consume" }]
+    "use": [
+      {
+        "do": "notify",
+        "text": "Crunchy."
+      },
+      {
+        "do": "consume"
+      }
+    ]
+  },
+  "throwing_axe": {
+    "name": "Throwing axe",
+    "description": "A short hatchet balanced for throwing. Hold the attack button to wind up, let go to throw. Grab five at the rack to start a round.",
+    "category": "weapon",
+    "model": "throwing_axe",
+    "flightModel": "throwing_axe_flight",
+    "maxStack": 5,
+    "weapon": {
+      "stack": true,
+      "noise": 8,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 0.5
+          },
+          "timing": {
+            "recovery": 0.45
+          },
+          "feeder": {
+            "kind": "self"
+          },
+          "delivery": {
+            "kind": "projectile",
+            "speed": [
+              8,
+              13
+            ],
+            "gravity": 0.5,
+            "onImpact": "stick",
+            "hand": [
+              0,
+              0
+            ],
+            "spread": {
+              "hip": 0.6
+            }
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "slash",
+                "amount": 30
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.26,
+          -0.36,
+          -0.5
+        ],
+        "rotation": [
+          -70,
+          180,
+          0
+        ],
+        "scale": 1
+      }
+    }
   }
 }
