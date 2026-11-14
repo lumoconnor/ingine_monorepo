@@ -43,4 +43,6 @@ Built: Buddies park (`src/scenes/buddies.ts`): a homage to the Buddies movies. F
 
 Built: Ballpark (`src/scenes/ballpark.ts`): a domed downtown ballpark with a tall tower beside it. Walk through the backstop to the plate, press E at the bat rack for a bat, and step into the batter's box: the pitching machine throws ten pitches. Click to swing. A well-timed swing flies far, early pulls it to left field, late pushes it to right, and looking up a little lifts it over the wall. Each pitch is called (strike, foul, out, single, double, triple, home run) and the scoreboard keeps the best round of bases.
 
-Worlds planned: hoops court, tattoo parlour.
+Built: Hoops court (`src/scenes/hoops.ts`): an indoor arena in red, black and silver with a hanging scoreboard and Rex, an original red dinosaur mascot in a number 40 jersey. Press E at the ball rack courtside for a ball and a 60-second shootout. Hold the button to power up (a meter shows by the crosshair), let go to shoot; the ball arcs up from where you look. Real scoring: it has to drop through the rim, and it bounces off the glass and the rim. Two points inside the arc, three beyond it. Rebounds come back to your hand, and the best shootout is kept.
+
+Worlds planned: tattoo parlour.

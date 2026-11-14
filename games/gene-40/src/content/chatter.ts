@@ -129,6 +129,22 @@ export const CHATTER: ChatterDef[] = [
     special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
   {
+    id: 'rex',
+    speaker: 'Rex',
+    hello: "RAWR! Happy 40th, Gene! I'm Rex, the mascot. Grab a ball from the rack courtside. Hold to power up, let go to shoot, and look at the rim. Beat your best in the 60-second shootout!",
+    lines: [
+      'People ask if a dinosaur can dunk. Look at my arms. Next question.',
+      "Look at the rim, not the ball. The ball goes where your eyes go. Mostly.",
+      "Beyond the arc is three points. In the corners too. Live a little.",
+      'I have been the mascot here for sixty-six million years. Give or take.',
+      "Bank shots count! The board's glass. Very forgiving glass.",
+      'My jersey says 40 in your honour. It used to say 4. I added a zero. Nobody noticed.',
+      'Free throws: line up in the paint, look at the front of the rim, and half power. Swish.',
+      "The crowd goes wild when you hit a three. The crowd is me. I go wild.",
+    ],
+    special: { flag: 'hoops.fifteen', text: "FIFTEEN POINTS in a shootout?! Gene, that's a franchise record. I'm getting your number painted on my tail." },
+  },
+  {
     id: 'nimbus',
     speaker: 'Nimbus',
     hello: "Oh! A visitor! Happy 40th, Gene! I'm Nimbus. Ten stars are hiding on the islands. Hop, bounce and climb, and if you fall in the sea, you'll pop back at the last flag you touched.",

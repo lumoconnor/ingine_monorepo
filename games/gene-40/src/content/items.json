@@ -182,5 +182,55 @@
         "scale": 0.85
       }
     }
+  },
+  "basketball": {
+    "name": "Basketball",
+    "description": "Hold the attack button to build power, let go to shoot. Look at the rim: the ball arcs up from where you look.",
+    "category": "weapon",
+    "model": "basketball",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.6
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.6
+      }
+    }
   }
 }
