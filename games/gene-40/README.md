@@ -41,4 +41,6 @@ Built: Star islands (`src/scenes/stars.ts`): an original first-person platformer
 
 Built: Buddies park (`src/scenes/buddies.ts`): a homage to the Buddies movies. Fernfield's park with Budderball, Rosebud, Mudbud, Buddha and B-Dawg trotting round the sports field and Buddy and Molly on a picnic blanket. Each pup's ball is lost in a sequel-themed corner (snowy hill, rocket pad, Christmas corner, spooky house, pyramid; plus a Super Buddies cape stand). Walk over a ball to pick it up, walk up to its pup to give it back.
 
-Worlds planned: ballpark, hoops court, tattoo parlour.
+Built: Ballpark (`src/scenes/ballpark.ts`): a domed downtown ballpark with a tall tower beside it. Walk through the backstop to the plate, press E at the bat rack for a bat, and step into the batter's box: the pitching machine throws ten pitches. Click to swing. A well-timed swing flies far, early pulls it to left field, late pushes it to right, and looking up a little lifts it over the wall. Each pitch is called (strike, foul, out, single, double, triple, home run) and the scoreboard keeps the best round of bases.
+
+Worlds planned: hoops court, tattoo parlour.

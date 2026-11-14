@@ -133,5 +133,54 @@
         "scale": 1
       }
     }
+  },
+  "baseball_bat": {
+    "name": "Baseball bat",
+    "description": "A wooden bat. Step into the batter's box at the ballpark and click to swing when the pitch comes in.",
+    "category": "weapon",
+    "model": "baseball_bat",
+    "weapon": {
+      "noise": 4,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "press"
+          },
+          "timing": {
+            "windup": 0.06,
+            "active": 0.18,
+            "recovery": 0.4
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 1.6,
+            "radius": 0.12,
+            "arc": "slash_r"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 5
+              }
+            ],
+            "impulse": 2
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.32,
+          -0.3,
+          -0.42
+        ],
+        "rotation": [
+          40,
+          -10,
+          -10
+        ],
+        "scale": 0.85
+      }
+    }
   }
 }
