@@ -371,10 +371,10 @@ function headOf(e: Entity): THREE.Object3D {
   return body.children[1];
 }
 
-function hair(e: Entity, color: number, style: 'short' | 'long' | 'bun'): void {
+function hair(e: Entity, color: number, style: 'short' | 'long' | 'bun' | 'ponytail'): void {
   const head = headOf(e);
   const m = mat(color, { roughness: 0.85 });
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), m);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.46), m);
   cap.rotation.x = -0.25;
   cap.position.set(0, 0.02, -0.02);
   cap.castShadow = true;
@@ -384,11 +384,50 @@ function hair(e: Entity, color: number, style: 'short' | 'long' | 'bun'): void {
     back.position.set(0, -0.14, -0.13);
     head.add(back);
   }
+  if (style === 'ponytail') {
+    // Gathered at the back of the head, hanging down behind.
+    const tie = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), m);
+    tie.position.set(0, 0.06, -0.2);
+    head.add(tie);
+    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.22, 4, 8), m);
+    tail.position.set(0, -0.1, -0.25);
+    tail.rotation.x = 0.25;
+    head.add(tail);
+  }
   if (style === 'bun') {
     const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), m);
     bun.position.set(0, 0.17, -0.15);
     head.add(bun);
   }
+}
+
+/** Recolour the eyes addNpc gives everyone (dark by default). */
+function eyes(e: Entity, color: number): void {
+  const m = mat(color, { roughness: 0.4 });
+  headOf(e).traverse((o) => {
+    if (o instanceof THREE.Mesh && o.geometry instanceof THREE.SphereGeometry && o.geometry.parameters.radius < 0.03) o.material = m;
+  });
+}
+
+/** Rectangular glasses: two thin frames and a bridge. */
+function glasses(e: Entity, color = 0x1d1d22): void {
+  const head = headOf(e);
+  const m = mat(color, { roughness: 0.4 });
+  for (const sx of [-1, 1]) {
+    const lensX = sx * 0.078;
+    for (const [w, h, dx, dy] of [[0.11, 0.012, 0, 0.032], [0.11, 0.012, 0, -0.032], [0.012, 0.064, -0.05, 0], [0.012, 0.064, 0.05, 0]] as const) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.01), m);
+      bar.position.set(lensX + dx, 0.04 + dy, 0.2);
+      head.add(bar);
+    }
+    // Arm back to the ear.
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.16), m);
+    arm.position.set(sx * 0.135, 0.06, 0.12);
+    head.add(arm);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.01), m);
+  bridge.position.set(0, 0.06, 0.2);
+  head.add(bridge);
 }
 
 /** A smile across the face; `huge` for Chris. */
@@ -409,16 +448,21 @@ function smile(e: Entity, huge = false): void {
 }
 
 function people(game: Game, at: At): void {
-  const aurora = addNpc(game, { id: 'aurora', name: 'Aurora', dialogue: 'aurora', position: at(0.4, 0, 0.5), facingDeg: 0, color: 0x6c4fa3, skin: 0xe8c3a0 });
-  hair(aurora, 0x3b2316, 'long');
+  const aurora = addNpc(game, { id: 'aurora', name: 'Aurora', dialogue: 'aurora', position: at(0.4, 0, 0.5), facingDeg: 0, color: 0x6c4fa3, skin: 0xf3d6c2 });
+  // Dark, longish hair; dark eyes; light skin.
+  hair(aurora, 0x22160f, 'long');
+  eyes(aurora, 0x2b1a10);
   smile(aurora);
 
   const chris = addNpc(game, { id: 'chris', name: 'Chris', dialogue: 'chris', position: at(-10.2, 0, -1.5), facingDeg: 90, color: 0x2f6fd6, skin: 0xf1caa6 });
   hair(chris, 0xf3d36b, 'short');
   smile(chris, true);
 
-  const renee = addNpc(game, { id: 'renee', name: 'Renee', dialogue: 'renee', position: at(13, 0, NZ + 1.6), facingDeg: 0, color: 0x2e8a6a, skin: 0xd9a77e });
-  hair(renee, 0x7a3b1d, 'bun');
+  const renee = addNpc(game, { id: 'renee', name: 'Renee', dialogue: 'renee', position: at(13, 0, NZ + 1.6), facingDeg: 0, color: 0x2e8a6a, skin: 0xf4d9c6 });
+  // Blonde ponytail, rectangular glasses, blue eyes, light skin.
+  hair(renee, 0xe9cf86, 'ponytail');
+  eyes(renee, 0x3d7fd1);
+  glasses(renee);
   smile(renee);
 
   bigLiz(game, at);
