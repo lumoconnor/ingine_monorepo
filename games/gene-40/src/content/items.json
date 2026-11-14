@@ -1,0 +1,57 @@
+{
+  "mug": {
+    "name": "Coffee mug",
+    "description": "\"World's Okayest Colleague\". Still warm.",
+    "category": "misc",
+    "model": "mug",
+    "maxStack": 5
+  },
+  "stapler": {
+    "name": "Red stapler",
+    "description": "Someone is going to want this back.",
+    "category": "misc",
+    "model": "stapler",
+    "maxStack": 3
+  },
+  "keycard": {
+    "name": "Keycard",
+    "description": "A security pass for the fourth floor. The photo has been scribbled over.",
+    "category": "misc",
+    "model": "keycard",
+    "maxStack": 5
+  },
+  "notebook": {
+    "name": "Notebook",
+    "description": "A spiral notebook with a few pages used.",
+    "category": "misc",
+    "model": "notebook",
+    "maxStack": 5,
+    "text": "Q3 planning\n\n- ship the thing\n- ship the other thing\n- find out who keeps taking the red stapler"
+  },
+  "memo": {
+    "name": "Memo",
+    "description": "A printed memo from Facilities.",
+    "category": "misc",
+    "model": "note",
+    "maxStack": 10,
+    "text": "To all staff:\n\nThe meeting room walls are NOT soundproof.\nPlease keep your voices down on calls.\n\nFacilities"
+  },
+  "water": {
+    "name": "Sparkling water",
+    "description": "Fizzy, slightly flat.",
+    "category": "consumable",
+    "model": "bottle",
+    "maxStack": 6,
+    "useLabel": "Drink",
+    "use": [{ "do": "notify", "text": "Refreshing." }, { "do": "consume" }]
+  },
+  "apple": {
+    "name": "Apple",
+    "description": "From the fruit bowl in the kitchen.",
+    "category": "consumable",
+    "model": "apple",
+    "maxStack": 10,
+    "useLabel": "Eat",
+    "use": [{ "do": "notify", "text": "Crunchy." }, { "do": "consume" }]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "modes": {
+    "primary": {
+      "trigger": {
+        "kind": "combo",
+        "steps": [
+          "jab",
+          "jab"
+        ],
+        "window": 0.3
+      },
+      "timing": {
+        "windup": 0.08,
+        "active": 0.06,
+        "recovery": 0.3
+      },
+      "delivery": {
+        "kind": "sweep",
+        "reach": 1.6,
+        "radius": 0.12,
+        "arc": "jab"
+      },
+      "payload": {
+        "damage": [
+          {
+            "type": "blunt",
+            "amount": 15
+          }
+        ],
+        "impulse": 4
+      },
+      "stamina": 7
+    }
+  },
+  "block": {
+    "reduce": {
+      "blunt": 0.5,
+      "slash": 0.25,
+      "pierce": 0.2
+    },
+    "parryWindow": 0.12,
+    "staminaPerHit": 14
+  }
+}

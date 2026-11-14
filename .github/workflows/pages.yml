@@ -3,12 +3,13 @@ name: Publish to GitHub Pages
 # Every push to main rebuilds the site and publishes it:
 #   /         the sandbox, opening the procedural world (?level=playground for the movement playground)
 #   /office/  the multiplayer office test, where anyone with the link can host or join a room
+#   /gene/    Gene's 40th birthday world (multiplayer, like the office)
 # One-time setup: repo Settings > Pages > Source: GitHub Actions.
 
 on:
   push:
     branches: [main]
-    paths: ['packages/**', 'apps/sandbox/**', 'games/office-mp/**', 'package-lock.json', '.github/workflows/pages.yml']
+    paths: ['packages/**', 'apps/sandbox/**', 'games/office-mp/**', 'games/gene-40/**', 'package-lock.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -34,11 +35,13 @@ jobs:
         env:
           VITE_DEFAULT_LEVEL: world
       - run: npm run build:office
-      - name: Put the office test under /office/
+      - run: npm run build:gene
+      - name: Put the office test under /office/ and Gene's world under /gene/
         run: |
           mkdir -p site
           cp -r apps/sandbox/dist/. site/
           cp -r games/office-mp/dist site/office
+          cp -r games/gene-40/dist site/gene
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
