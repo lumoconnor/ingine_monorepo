@@ -31,5 +31,7 @@ Published at `/gene/` on the repo's GitHub Pages site.
 
 Built: axe throwing (`src/scenes/axes.ts`: three lanes, rack gives 5 axes, ring scoring 6/4/3/2/1 plus killshot 8, best round kept in this browser).
 
+Built: Arup office (`src/scenes/arup.ts`): big floor above the city, you step out of the lift facing the ARUP sign; Aurora (reception), Chris (open plan), Renee (kitchen), Big Liz (a friendly giant lizard doing laps of the atrium). What they say lives in `src/content/chatter.ts`: edit the lists, each talk opens on a random line.
+
 Worlds planned: Arup office, Murph Land, star islands, hero city,
 buddies park, ballpark, hoops court, tattoo parlour.

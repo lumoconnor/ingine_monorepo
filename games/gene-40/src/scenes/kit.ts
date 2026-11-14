@@ -94,3 +94,37 @@ export function tree(game: Game, x: number, z: number, scale = 1, y = 0): void {
   const leaves = new THREE.IcosahedronGeometry(1.4 * scale, 1);
   decor(game, leaves, new THREE.MeshStandardMaterial({ color: 0x4f9a4a, roughness: 0.85, flatShading: true }), [x, y + 2.6 * scale, z], 'leaves');
 }
+
+/**
+ * A flat sign: text drawn on a canvas, on a plane facing +Z (rotate with
+ * `yawDeg`). Visual only. `width` in metres; height follows the canvas.
+ */
+export function sign(
+  game: Game,
+  text: string,
+  position: Vec3,
+  o: { width: number; height: number; yawDeg?: number; bg?: string; fg?: string; font?: string; letterSpacing?: number },
+): Entity {
+  const px = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(px * o.width);
+  canvas.height = Math.round(px * o.height);
+  const g = canvas.getContext('2d')!;
+  g.fillStyle = o.bg ?? '#ffffff';
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = o.fg ?? '#111111';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = o.font ?? `700 ${Math.round(canvas.height * 0.62)}px system-ui, Helvetica, Arial, sans-serif`;
+  if (o.letterSpacing && 'letterSpacing' in g) (g as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${o.letterSpacing}px`;
+  g.fillText(text, canvas.width / 2, canvas.height / 2 + canvas.height * 0.03);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(o.width, o.height), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+  mesh.position.set(...position);
+  mesh.rotation.y = THREE.MathUtils.degToRad(o.yawDeg ?? 0);
+  const e = new Entity(`sign:${text}`, mesh);
+  game.world.spawn(e);
+  return e;
+}
