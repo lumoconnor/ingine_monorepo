@@ -166,7 +166,8 @@ export class WorldLevel implements Level {
 
 /**
  * Safety net: if the player ever ends up under the ground (a save from a
- * different seed, a bad teleport), lift them back onto it.
+ * different seed, a bad teleport), lift them back onto it; if they end up
+ * outside the map, take them back to the start.
  */
 class KeepAboveGround extends Component {
   order = 100;
@@ -178,6 +179,12 @@ class KeepAboveGround extends Component {
     const ctrl = this.game.world.find('player')?.get(PlayerController);
     if (!ctrl) return;
     const p = ctrl.feetPosition;
+    // Outside the border walls (a save from an older, bigger world): back to the start.
+    const edge = this.map.grid.size / 2 - 6;
+    if (Math.abs(p.x) > edge || Math.abs(p.z) > edge) {
+      ctrl.placeAt(this.map.spawn.clone(), this.map.spawnYaw, 0);
+      return;
+    }
     const ground = this.map.heightAt(p.x, p.z);
     // (Swimmers dive, but never below the bed.)
     if (p.y < ground - 1) ctrl.placeAt(new THREE.Vector3(p.x, ground + 0.1, p.z), ctrl.yaw, ctrl.pitch);

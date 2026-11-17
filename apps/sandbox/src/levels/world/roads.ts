@@ -17,7 +17,7 @@ export interface Road {
   kind: 'road' | 'path';
   width: number;
   points: RoadPoint[];
-  /** Site ids (or 'spawn') this stretch was laid between. It may join an older road part-way. */
+  /** Site ids this stretch was laid between. It may join an older road part-way. */
   from: string;
   to: string;
 }
@@ -155,8 +155,6 @@ export function buildRoads(map: WorldMap, sites: Site[]): RoadNet {
   const nearest = (n: Node, pool: Node[]) => pool.reduce((p, c) => (Math.hypot(c.x - n.x, c.z - n.z) < Math.hypot(p.x - n.x, p.z - n.z) ? c : p));
   if (settlements.length) {
     for (const s of sites) if (s.kind === 'camp' || s.kind === 'ruin') links.push({ a: s, b: nearest(s, settlements), kind: 'path' });
-    const start: Node = { id: 'spawn', x: map.spawn.x, z: map.spawn.z };
-    links.push({ a: start, b: nearest(start, settlements), kind: 'path' });
   }
 
   // --- 2. Route each link --------------------------------------------------------

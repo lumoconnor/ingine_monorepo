@@ -91,6 +91,8 @@ export class WorldMap implements TerrainSource {
   caches: Cache[] = [];
   readonly spawn = new THREE.Vector3();
   spawnYaw = 0;
+  /** The village (or town) you start in, if one was safe enough. */
+  spawnSite: string | null = null;
   /** Generation time in ms (for the debug map). */
   genMs = 0;
 
@@ -283,6 +285,8 @@ export function generateWorld(settings: WorldSettings): WorldMap {
   }
 
   map.classify();
+  // A provisional start on open meadow near the centre: sites keep their distance from it, which
+  // leaves the middle of the map as open country. The real start moves into a village below.
   findSpawn(map);
 
   // Sites and the roads between them (both reshape the ground), then the biomes once more.
@@ -290,6 +294,7 @@ export function generateWorld(settings: WorldSettings): WorldMap {
   map.net = buildRoads(map, map.sites);
   map.classify();
   map.settlements = layoutSettlements(map, map.sites);
+  spawnInVillage(map);
   map.outposts = layoutOutposts(map, map.sites);
   map.trees = plantForest(map);
   map.caches = hideCaches(map, map.trees);
@@ -331,6 +336,93 @@ function findSpawn(map: WorldMap): void {
     }
   }
   map.spawn.set(0, g.heightAt(0, 0) + 0.05, 0);
+}
+
+/** How close bandits may be to the village you start in. */
+const SAFE_FROM: Partial<Record<Site['kind'], number>> = { camp: 140, ruin: 120 };
+
+/**
+ * Start in a village: the one nearest the middle of the map with no camp or
+ * ruin close by (towns if no village is safe, the meadow if nothing is).
+ * Stand on the square, clear of the well, stalls, houses and villagers,
+ * looking across it towards the well.
+ */
+function spawnInVillage(map: WorldMap): void {
+  const g = map.grid;
+  const safe = (s: Site) =>
+    map.sites.every((o) => {
+      const gap = SAFE_FROM[o.kind];
+      return gap === undefined || Math.hypot(o.x - s.x, o.z - s.z) >= gap;
+    });
+  const byCentre = (a: Site, b: Site) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z);
+  const villages = map.sites.filter((s) => s.kind === 'village').sort(byCentre);
+  const towns = map.sites.filter((s) => s.kind === 'town').sort(byCentre);
+  const order = [...villages.filter(safe), ...towns.filter(safe), ...villages, ...towns];
+  for (const site of order) {
+    const st = map.settlements.find((t) => t.site === site.id);
+    const spot = st && squareSpot(map, st);
+    if (!spot) continue;
+    map.spawn.set(spot.x, g.heightAt(spot.x, spot.z) + 0.05, spot.z);
+    map.spawnYaw = spot.yaw;
+    map.spawnSite = site.id;
+    return;
+  }
+}
+
+/** Open ground on a settlement's square, a few strides from the well, facing it. */
+function squareSpot(map: WorldMap, st: Settlement): { x: number; z: number; yaw: number } | null {
+  const sq = st.square;
+  /** Distance from (x, z) to a segment. */
+  const toSeg = (x: number, z: number, ax: number, az: number, bx: number, bz: number) => {
+    const vx = bx - ax;
+    const vz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1)));
+    return Math.hypot(ax + vx * t - x, az + vz * t - z);
+  };
+  /** Room to stand: metres of clearance from everything solid (capped at 4). */
+  const clearance = (x: number, z: number): number => {
+    let c = 4;
+    for (const b of st.buildings) {
+      // Into the building's frame: distance outside its footprint.
+      const dx = x - b.x;
+      const dz = z - b.z;
+      const lx = dx * Math.cos(b.yaw) - dz * Math.sin(b.yaw);
+      const lz = dx * Math.sin(b.yaw) + dz * Math.cos(b.yaw);
+      const ox = Math.max(0, Math.abs(lx) - b.w / 2);
+      const oz = Math.max(0, Math.abs(lz) - b.d / 2);
+      c = Math.min(c, Math.hypot(ox, oz) - (ox === 0 && oz === 0 ? Math.min(b.w, b.d) : 0));
+    }
+    for (const t of st.towers) c = Math.min(c, Math.hypot(x - t.x, z - t.z) - t.size * 0.75);
+    for (const w of st.walls) c = Math.min(c, toSeg(x, z, w.from[0], w.from[1], w.to[0], w.to[1]) - w.thickness / 2);
+    for (const p of st.props) {
+      if (p.kind === 'fence' && p.to) c = Math.min(c, toSeg(x, z, p.x, p.z, p.to[0], p.to[1]));
+      else c = Math.min(c, Math.hypot(x - p.x, z - p.z) - (p.kind === 'well' ? 1.6 : 2));
+    }
+    for (const v of st.villagers) c = Math.min(c, Math.hypot(x - v.x, z - v.z) - 0.5);
+    const wl = map.water.levelAt(x, z);
+    if (wl === wl) c = -1;
+    return c;
+  };
+  let best: { x: number; z: number; yaw: number } | null = null;
+  let bestScore = -Infinity;
+  const want = Math.max(3.5, sq.r * 0.7);
+  for (let r = 2.5; r <= sq.r + 6; r += 0.5) {
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2;
+      const x = sq.x + Math.cos(a) * r;
+      const z = sq.z + Math.sin(a) * r;
+      const c = clearance(x, z);
+      if (c < 1.2) continue;
+      // Near the ideal distance from the well, with room around.
+      const s = c - Math.abs(r - want) * 0.8;
+      if (s > bestScore) {
+        bestScore = s;
+        // Player yaw 0 looks down -Z; face back towards the well.
+        best = { x, z, yaw: Math.atan2(x - sq.x, z - sq.z) };
+      }
+    }
+  }
+  return best;
 }
 
 function bestView(map: WorldMap, x: number, z: number): number {

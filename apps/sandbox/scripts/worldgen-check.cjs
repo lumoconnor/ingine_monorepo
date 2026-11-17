@@ -54,6 +54,14 @@ const { chromium } = require('playwright');
     // 3. Spawn
     step(120);
     check('spawns standing on the ground', C.grounded && Math.abs(above()) < 0.15, `above=${above().toFixed(3)} state=${C.state}`);
+    {
+      const home = map.sites.find((s) => s.id === map.spawnSite);
+      const st = map.settlements.find((t) => t.site === map.spawnSite);
+      const fromSquare = st ? Math.hypot(sp.x - st.square.x, sp.z - st.square.z) : Infinity;
+      const hostile = Math.min(...map.sites.filter((s) => s.kind === 'camp' || s.kind === 'ruin').map((s) => Math.hypot(s.x - sp.x, s.z - sp.z)));
+      check('starts in a village, on its square, away from bandits', home?.kind === 'village' && fromSquare <= st.square.r + 6 && hostile > 110,
+        `${home ? home.name : 'none'} fromSquare=${fromSquare.toFixed(1)} hostile=${hostile.toFixed(0)}m`);
+    }
 
     // 4. Sprint across the land for 20 s, crossing chunk borders
     const start = C.feetPosition.clone();
@@ -128,7 +136,7 @@ const { chromium } = require('playwright');
     const flat = sites.every((x) => [0, 1, 2, 3].every((k) => Math.abs(map.heightAt(x.x + Math.cos(k * 1.57) * x.radius * 0.8, x.z + Math.sin(k * 1.57) * x.radius * 0.8) - x.y) < 0.6));
     check('sites stand on dry, level ground', dry && flat);
     const linked = new Set(net.roads.flatMap((r) => [r.from, r.to]));
-    check('every site is on the road network', sites.every((x) => linked.has(x.id)) && linked.has('spawn'), `roads=${net.roads.length}`);
+    check('every site is on the road network', sites.every((x) => linked.has(x.id)), `roads=${net.roads.length}`);
     let worstRoad = 0, worstPath = 0, off = 0;
     for (const r of net.roads) for (let i = 1; i < r.points.length; i++) {
       const a = r.points[i - 1], b = r.points[i];
@@ -383,6 +391,11 @@ const { chromium } = require('playwright');
     C.placeAt(new V(edge, map.heightAt(edge, 0) + 2, 0), -Math.PI / 2, 0);
     down('KeyW'); step(300); up('KeyW');
     check('the border stops you leaving the map', C.feetPosition.x < map.grid.maxX - 4, `x=${C.feetPosition.x.toFixed(1)}`);
+    // A save from the old 2 km world put you out here, behind the border wall.
+    C.placeAt(new V(map.grid.maxX + 300, 40, -map.grid.maxX - 200), 0, 0);
+    step(5);
+    const back = Math.hypot(C.feetPosition.x - map.spawn.x, C.feetPosition.z - map.spawn.z);
+    check('outside the map (an old save) puts you back at the start', back < 1, `off=${back.toFixed(2)}`);
 
     // 15. Save: loot a chest, take a table item, open a door, drop a bandit, stand somewhere, save.
     const ia = (e) => comp(e, 'Interactable');

@@ -33,8 +33,9 @@ function pickLevel(): { level: Level; saveKey?: string } {
     const raw = parseInt(params.get('seed') ?? '', 10);
     const seed = Number.isFinite(raw) ? raw >>> 0 : DEFAULT_WORLD_SEED;
     document.title = `Open World RPG — Procedural World (seed ${seed})`;
-    // Each world keeps its own save so positions never carry across worlds.
-    return { level: new WorldLevel(seed), saveKey: `ingine.world.${seed}` };
+    // Each world keeps its own save so positions never carry across worlds. The version goes up
+    // when the same seed builds a different world (v2: the 1 km resize and starting in a village).
+    return { level: new WorldLevel(seed), saveKey: `ingine.world.v2.${seed}` };
   }
   return { level: new PlaygroundLevel() };
 }
