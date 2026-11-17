@@ -86,6 +86,22 @@ const check = (label, ok, extra = '') => r.push(`${ok ? 'PASS' : 'FAIL'}  ${labe
   const h = await page.evaluate(() => [T.feet(), teleports.current]);
   check('H brings you back to the plaza', h[1] === 'hub' && Math.hypot(h[0][0], h[0][2]) < 20, JSON.stringify(h));
 
+  // The Esc menu: in a world it has a button back to the plaza; at the plaza it doesn't.
+  const hubBtnShown = () => page.evaluate(() => { const b = document.querySelector('.hub-btn'); return !!b && !b.classList.contains('hidden') && b.offsetParent !== null; });
+  check('the Esc menu has no plaza button at the plaza', !(await hubBtnShown()));
+  await page.evaluate(() => { const p = teleports.pads.find((q) => q.sceneId === 'murph'); teleports.go(p.to, p.toYaw, p.sceneId); });
+  await page.waitForFunction(() => teleports.current === 'murph', null, { timeout: 15000 }).catch(() => {});
+  // Show the menu as Esc does (screenshots hide the overlay; put it back).
+  await page.evaluate(() => { const o = document.querySelector('.overlay'); o?.classList.remove('hidden'); if (o) o.style.display = ''; });
+  check('in a world, the Esc menu shows "Back to the party plaza"', await hubBtnShown());
+  if (shots) { await wait(300); await page.screenshot({ path: `${shots}/hub-menu.png` }); }
+  const n1 = await page.evaluate(() => teleports.count);
+  await page.evaluate(() => document.querySelector('.hub-btn').click());
+  await page.waitForFunction((n) => teleports.count > n, n1, { timeout: 15000 }).catch(() => {});
+  await wait(300);
+  const m = await page.evaluate(() => [T.feet(), teleports.current]);
+  check('the menu button takes you back to the plaza', m[1] === 'hub' && Math.hypot(m[0][0], m[0][2]) < 20, JSON.stringify(m));
+
   // A view of the portal ring from behind the cake.
   if (shots) {
     await page.evaluate(() => T.place(0, 0.05, 13, 0));

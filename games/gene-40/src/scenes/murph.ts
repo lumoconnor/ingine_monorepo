@@ -167,22 +167,38 @@ function statue(game: Game, at: At): void {
   label(game, 'Murphy, King of Murph Land', at(0, 10.6, -31), 1.4, '#ffe066');
 }
 
-/** A climbable cat tree: a carpeted post with platforms spiralling up to a big top deck. Returns platform tops. */
+/** Cat tree steps: how many, how far apart in height, and how far out from the post. */
+const STEP_COUNT = 12;
+const STEP_RISE = 0.75;
+const STEP_OUT = 3.0;
+/** Top deck height of the cat trees: level with the last step. */
+const TREE_TOP = 0.4 + STEP_RISE * STEP_COUNT;
+
+/**
+ * A climbable cat tree: a carpeted post with platforms spiralling up to a big
+ * top deck. The steps sit out on arms, wide of the deck, so you never bump
+ * your head on its underside, and the last one is level with the deck.
+ * Returns platform tops.
+ */
 function catTree(game: Game, at: At, x: number, z: number, i: number): Vec3[] {
   const carpet = [0xe8d6b8, 0xd9b8e0, 0xb8d9e8, 0xf2c4a8][i];
   const tops: Vec3[] = [];
   box(game, [3.4, 0.4, 3.4], at(x, 0.2, z), carpet, 'cat-tree-base');
   cylinder(game, 0.5, 10.2, at(x, 5.1, z), mat(0xc7a57a, { roughness: 1 }), 'cat-tree-post', 16);
-  const steps = 9;
+  const steps = STEP_COUNT;
+  const wood = mat(0xc7a57a, { roughness: 1 });
   for (let k = 0; k < steps; k++) {
-    const a = (k / 2.5) * Math.PI + i;
-    const y = 0.4 + 0.9 * (k + 1);
-    const px = x + Math.cos(a) * 1.55;
-    const pz = z + Math.sin(a) * 1.55;
-    cylinder(game, 0.85, 0.16, at(px, y - 0.08, pz), mat(carpet, { roughness: 1 }), 'cat-tree-step', 20);
+    const a = (k * Math.PI) / 4 + i;
+    const y = 0.4 + STEP_RISE * (k + 1);
+    const px = x + Math.cos(a) * STEP_OUT;
+    const pz = z + Math.sin(a) * STEP_OUT;
+    cylinder(game, 0.8, 0.16, at(px, y - 0.08, pz), mat(carpet, { roughness: 1 }), 'cat-tree-step', 20);
+    // The arm holding it out from the post.
+    const arm = decor(game, new THREE.BoxGeometry(STEP_OUT - 0.5, 0.12, 0.16), wood, at(x + Math.cos(a) * (STEP_OUT / 2 + 0.25), y - 0.22, z + Math.sin(a) * (STEP_OUT / 2 + 0.25)), 'cat-tree-arm');
+    arm.object3d.rotation.y = -a;
     tops.push(at(px, y, pz));
   }
-  const topY = 0.4 + 0.9 * (steps + 1);
+  const topY = TREE_TOP;
   cylinder(game, 2.3, 0.24, at(x, topY - 0.12, z), mat(carpet, { roughness: 1 }), 'cat-tree-top', 28);
   // A little dome house on top, and a dangling toy.
   const dome = new THREE.Mesh(new THREE.SphereGeometry(1.0, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(carpet, { roughness: 1 }));
@@ -193,8 +209,7 @@ function catTree(game: Game, at: At, x: number, z: number, i: number): Vec3[] {
   return tops;
 }
 
-/** Top deck height of the cat trees (see catTree). */
-const TREE_TOP = 0.4 + 0.9 * 10;
+
 
 function ziplines(game: Game, at: At): void {
   const lines: [Vec3, Vec3][] = [

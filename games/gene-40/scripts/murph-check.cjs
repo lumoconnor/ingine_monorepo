@@ -100,6 +100,55 @@ const shots = process.env.SHOTS;
     const moved = wand.filter((c, i) => c.object3d.position.distanceTo(before[i]) > 1).length;
     check('cats wander about', moved >= 2, `${moved} of ${wand.length} moved`);
 
+    // Climb every cat tree with real jumps, step by step, up onto the top deck.
+    const input = game.input;
+    const posts = [...game.world.entities.values()].filter((e) => e.name === 'cat-tree-post');
+    const stepsAll = [...game.world.entities.values()].filter((e) => e.name === 'cat-tree-step').map((e) => e.object3d.position);
+    const hopTo = (target, topY) => {
+      C.yaw = Math.atan2(-(target.x - feet.x), -(target.z - feet.z));
+      input.down.add('KeyW');
+      input.pressed.add('jump');
+      input.down.add('Space');
+      let there = false;
+      for (let i = 0; i < 70 && !there; i++) {
+        if (i === 30) input.down.delete('Space');
+        C.yaw = Math.atan2(-(target.x - feet.x), -(target.z - feet.z));
+        step(1);
+        there = Math.hypot(feet.x - target.x, feet.z - target.z) < 0.45 && Math.abs(feet.y - topY) < 0.1;
+        if (there) input.down.delete('KeyW');
+      }
+      input.down.delete('KeyW');
+      input.down.delete('Space');
+      step(12);
+      return Math.abs(feet.y - topY) < 0.1;
+    };
+    const climbs = [];
+    for (const post of posts) {
+      const pp = post.object3d.position;
+      const mine = stepsAll.filter((q) => Math.hypot(q.x - pp.x, q.z - pp.z) < 3.5).sort((a, b) => a.y - b.y);
+      const first = mine[0];
+      // Start on the base, under the first step's side.
+      const dir = new T(first.x - pp.x, 0, first.z - pp.z).normalize();
+      C.placeAt(new T(pp.x + dir.x * 1.2 - dir.z * 0.6, 0.45, pp.z + dir.z * 1.2 + dir.x * 0.6), 0, 0);
+      step(10);
+      let k = 0;
+      for (; k < mine.length; k++) if (!hopTo(mine[k], mine[k].y + 0.08)) break;
+      // Off the last step and onto the deck.
+      const deck = new T(pp.x + (mine[mine.length - 1].x - pp.x) * 0.45, 0, pp.z + (mine[mine.length - 1].z - pp.z) * 0.45);
+      const deckY = mine[mine.length - 1].y + 0.08;
+      let onTop = false;
+      if (k === mine.length) {
+        C.yaw = Math.atan2(-(deck.x - feet.x), -(deck.z - feet.z));
+        input.down.add('KeyW');
+        for (let i = 0; i < 40 && Math.hypot(feet.x - deck.x, feet.z - deck.z) > 0.4; i++) step(1);
+        input.down.delete('KeyW');
+        step(10);
+        onTop = Math.abs(feet.y - deckY) < 0.15 && Math.hypot(feet.x - pp.x, feet.z - pp.z) < 2.3;
+      }
+      climbs.push(`${k}/${mine.length}${onTop ? ' top' : ' at ' + feet.y.toFixed(1)}`);
+    }
+    check('every cat tree can be climbed to the top deck with real jumps', posts.length === 4 && climbs.every((c) => c.endsWith('top')), climbs.join(' | '));
+
     // A zipline from the top of the first cat tree.
     const zips = game.world.findByTag('zipline');
     check('four ziplines', zips.length === 4, `${zips.length}`);

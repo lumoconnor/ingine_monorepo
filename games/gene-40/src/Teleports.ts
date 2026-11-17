@@ -68,6 +68,46 @@ export class Teleports implements System {
       zIndex: '5',
     });
     this.container.appendChild(this.flash);
+    this.addMenuButton();
+    game.events.on('teleport', () => this.refreshMenuButton());
+  }
+
+  private hubBtn: HTMLButtonElement | null = null;
+
+  /** Esc menu: a button straight back to the party plaza (shown when you're out in a world). */
+  private addMenuButton(): void {
+    const panel = this.container.querySelector('.overlay .panel');
+    const play = panel?.querySelector('.play');
+    if (!panel || !play) return;
+    const btn = document.createElement('button');
+    btn.className = 'hub-btn hidden';
+    btn.textContent = 'Back to the party plaza';
+    Object.assign(btn.style, {
+      display: 'block',
+      width: '100%',
+      margin: '8px 0 4px',
+      padding: '10px',
+      border: '0',
+      borderRadius: '10px',
+      background: '#e86a92',
+      color: '#ffffff',
+      font: '700 16px system-ui, sans-serif',
+      cursor: 'pointer',
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.goHub();
+      this.standingOn = null;
+      // Straight back into the game, like Resume.
+      (play as HTMLButtonElement).click();
+    });
+    play.insertAdjacentElement('afterend', btn);
+    this.hubBtn = btn;
+    this.refreshMenuButton();
+  }
+
+  private refreshMenuButton(): void {
+    this.hubBtn?.classList.toggle('hidden', this.current === HUB.id);
   }
 
   add(pad: Pad): Pad {
