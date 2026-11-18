@@ -25,6 +25,8 @@ import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { AudioSystem } from '@ingine/engine/audio/AudioSystem';
 import { Footsteps } from '@ingine/engine/audio/Footsteps';
 import { GeneAudio } from './GeneAudio';
+import { TouchControls } from '@ingine/engine/input/TouchControls';
+import { GeneTouch } from './GeneTouch';
 
 /** Keeps this game's rooms apart from any other game using the same broker. */
 const APP_ID = 'ingine-gene-40';
@@ -56,6 +58,8 @@ async function main(): Promise<void> {
       ],
     }),
   );
+  // Phones and tablets: on-screen stick and buttons.
+  const touch = game.addSystem(new TouchControls(container));
   game.addSystem(new InventorySystem());
   game.addSystem(new InventoryUi(container));
   game.addSystem(new DialogueSystem(CHATTER.map(chatterTree)));
@@ -74,6 +78,7 @@ async function main(): Promise<void> {
   };
 
   const teleports = game.addSystem(new Teleports(container));
+  game.addSystem(new GeneTouch(touch, teleports));
 
   await game.init();
   await game.loadLevel(new GeneWorld(teleports));

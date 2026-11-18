@@ -208,6 +208,7 @@ export class TattooParlour implements System {
     }
     if (this.inked && !TATTOOS.some((t) => t.id === this.inked)) this.inked = null;
     this.panel = document.createElement('div');
+    this.panel.classList.add('gene-panel');
     Object.assign(this.panel.style, {
       position: 'absolute',
       top: '14px',

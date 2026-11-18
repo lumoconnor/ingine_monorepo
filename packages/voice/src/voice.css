@@ -21,3 +21,6 @@
 .voice-meter { width: 46px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
 .voice-meter div { height: 100%; width: 0; background: #7dff9b; transition: width 60ms linear; }
 .voice-hud:not(.live) .voice-meter div { background: #6f7b8d; }
+
+/* Phones (engine TouchControls): clear of the move stick, under the room panel. */
+body.touch-ui .voice-hud { bottom: auto; top: calc(128px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); font-size: 12px; }

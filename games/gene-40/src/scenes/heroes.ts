@@ -304,6 +304,7 @@ export class HeroPowers implements System {
     this.ready = true;
     this.game = game;
     this.panel = document.createElement('div');
+    this.panel.classList.add('gene-panel');
     Object.assign(this.panel.style, {
       position: 'absolute',
       top: '14px',

@@ -206,6 +206,7 @@ export class AxeRange implements System {
     }
     this.panel = document.createElement('div');
     this.panel.className = 'axe-panel';
+    this.panel.classList.add('gene-panel');
     Object.assign(this.panel.style, {
       position: 'absolute',
       top: '14px',
