@@ -30,6 +30,8 @@ export interface GameEvents {
     choices: { text: string; seen: boolean }[];
   };
   'dialogue:end': { npc: string };
+  /** A letter of a line appearing as it types out (DialogueUi with typeSpeed): for talk blips. */
+  'dialogue:char': { speaker: string; char: string; index: number };
   'inventory:open': Record<string, never>;
   'inventory:close': Record<string, never>;
   'game:saved': { auto: boolean };

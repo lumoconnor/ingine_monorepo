@@ -6,6 +6,9 @@ import type { DialogueSystem } from '../dialogue/DialogueSystem';
  * Conversation panel plus on-screen notifications. Pure view: it renders
  * 'dialogue:line' events and calls DialogueSystem.choose().
  *
+ * Lines can type out letter by letter (`typeSpeed`), with a 'dialogue:char'
+ * event per letter; E, Space, Enter or a click shows the rest at once.
+ *
  *   1-9            pick a reply
  *   W/S, wheel     move the highlight     E, Space, Enter, click   pick it
  *   Esc            leave (releases the mouse)
@@ -21,8 +24,19 @@ export class DialogueUi implements System {
   private count = 0;
   private highlight = 0;
   private open = false;
+  private game!: Game;
+  /** The line being typed out, how much of it shows, and the frame driving it. */
+  private full = '';
+  private shown = 0;
+  private typeStart = 0;
+  private raf = 0;
+  private speakerName = '';
 
-  constructor(container: HTMLElement) {
+  /**
+   * `typeSpeed`: letters per second to type each line out at (old-RPG style),
+   * emitting 'dialogue:char' per letter for talk blips. 0 shows lines at once.
+   */
+  constructor(container: HTMLElement, private opts: { typeSpeed?: number } = {}) {
     const root = document.createElement('div');
     root.className = 'hud dialogue-layer';
     root.innerHTML = `
@@ -42,6 +56,7 @@ export class DialogueUi implements System {
   }
 
   init(game: Game): void {
+    this.game = game;
     this.dialogue = game.getSystem<DialogueSystem>('dialogue')!;
     game.events.on('dialogue:start', () => {
       this.open = true;
@@ -49,6 +64,7 @@ export class DialogueUi implements System {
     });
     game.events.on('dialogue:end', () => {
       this.open = false;
+      this.stopTyping();
       this.panel.classList.add('hidden');
     });
     game.events.on('dialogue:line', (line) => this.show(line));
@@ -67,7 +83,18 @@ export class DialogueUi implements System {
 
   private show(line: { speaker: string; text: string; choices: { text: string; seen: boolean }[] }): void {
     this.speaker.textContent = line.speaker;
-    this.text.textContent = line.text;
+    this.speakerName = line.speaker;
+    this.full = line.text;
+    this.stopTyping();
+    if ((this.opts.typeSpeed ?? 0) > 0) {
+      this.shown = 0;
+      this.text.textContent = '';
+      this.typeStart = performance.now();
+      this.raf = requestAnimationFrame(this.typeTick);
+    } else {
+      this.shown = line.text.length;
+      this.text.textContent = line.text;
+    }
     this.list.replaceChildren(
       ...line.choices.map((c, i) => {
         const li = document.createElement('li');
@@ -91,6 +118,34 @@ export class DialogueUi implements System {
     this.panel.classList.remove('fade');
     void this.panel.offsetWidth;
     this.panel.classList.add('fade');
+  }
+
+  /** True while a line is still typing out. */
+  get typing(): boolean {
+    return this.shown < this.full.length;
+  }
+
+  private typeTick = (now: number): void => {
+    const want = Math.min(this.full.length, Math.floor(((now - this.typeStart) / 1000) * (this.opts.typeSpeed ?? 40)));
+    while (this.shown < want) {
+      const ch = this.full[this.shown];
+      this.game.events.emit('dialogue:char', { speaker: this.speakerName, char: ch, index: this.shown });
+      this.shown++;
+    }
+    this.text.textContent = this.full.slice(0, this.shown);
+    this.raf = this.typing ? requestAnimationFrame(this.typeTick) : 0;
+  };
+
+  /** Show the rest of the line now (a click or E while it's typing). */
+  finishTyping(): void {
+    this.stopTyping();
+    this.shown = this.full.length;
+    this.text.textContent = this.full;
+  }
+
+  private stopTyping(): void {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
   }
 
   private setHighlight(i: number): void {
@@ -119,6 +174,7 @@ export class DialogueUi implements System {
       case 'Space':
       case 'Enter':
       case 'NumpadEnter':
+        if (this.typing) return this.finishTyping();
         return this.pick(this.highlight);
     }
   };
@@ -131,6 +187,7 @@ export class DialogueUi implements System {
   private onMouseDown = (e: MouseEvent): void => {
     // With pointer lock the cursor is hidden, so a click picks the highlighted reply.
     if (!this.open || e.button !== 0 || !document.pointerLockElement) return;
+    if (this.typing) return this.finishTyping();
     this.pick(this.highlight);
   };
 
