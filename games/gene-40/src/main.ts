@@ -22,6 +22,9 @@ import { DialogueUi } from '@ingine/engine/ui/DialogueUi';
 import { GeneWorld } from './GeneWorld';
 import { Teleports } from './Teleports';
 import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
+import { AudioSystem } from '@ingine/engine/audio/AudioSystem';
+import { Footsteps } from '@ingine/engine/audio/Footsteps';
+import { GeneAudio } from './GeneAudio';
 
 /** Keeps this game's rooms apart from any other game using the same broker. */
 const APP_ID = 'ingine-gene-40';
@@ -56,7 +59,10 @@ async function main(): Promise<void> {
   game.addSystem(new InventorySystem());
   game.addSystem(new InventoryUi(container));
   game.addSystem(new DialogueSystem(CHATTER.map(chatterTree)));
-  game.addSystem(new DialogueUi(container));
+  game.addSystem(new DialogueUi(container, { typeSpeed: 45 }));
+  game.addSystem(new AudioSystem('gene40.audio'));
+  game.addSystem(new Footsteps());
+  game.addSystem(new GeneAudio(container));
   const net = game.addSystem(new NetSystem());
   game.addSystem(new RoomHud(container));
   const voice = game.addSystem(new VoiceChat({ spatial: net }));
@@ -74,7 +80,7 @@ async function main(): Promise<void> {
   game.start();
 
   // Handy from the dev console (and used by the headless checks).
-  Object.assign(window, { game, net, voice, teleports, RAPIER, inventory: game.getSystem('inventory') });
+  Object.assign(window, { game, net, voice, teleports, RAPIER, inventory: game.getSystem('inventory'), audio: game.getSystem('audio') });
 
   const room = await showLobby({
     container,
