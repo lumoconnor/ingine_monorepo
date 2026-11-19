@@ -26,20 +26,24 @@ export class VoiceHud implements System {
       this.root.classList.toggle('hidden', mic === 'off');
       this.root.classList.toggle('live', transmitting);
       this.root.classList.toggle('muted', muted || mic === 'unavailable');
+      // Phones have no keyboard: the game gives them a hold-to-talk button instead.
+      const touch = document.body.classList.contains('touch-ui');
       this.text.textContent =
         mic === 'asking'
           ? 'Allow the microphone to talk'
           : mic === 'unavailable'
             ? 'No microphone: listening only'
             : muted
-              ? 'Muted (M to unmute)'
+              ? touch ? 'Muted' : 'Muted (M to unmute)'
               : mode === 'open'
-                ? transmitting
+                ? transmitting && !touch
                   ? 'Open mic (B for push-to-talk)'
                   : 'Open mic'
                 : transmitting
                   ? 'Talking'
-                  : 'Hold V to talk (B for open mic)';
+                  : touch
+                    ? 'Hold Talk to speak'
+                    : 'Hold V to talk (B for open mic)';
     });
   }
 

@@ -86,3 +86,9 @@
 .mp-players li.speaking { color: #7dff9b; }
 .mp-players li.speaking i { box-shadow: 0 0 0 3px rgba(125, 255, 155, 0.35); }
 .mp-closed { margin-top: 8px; color: #ffb37a; }
+
+/* Phones (engine TouchControls): the top-right corner holds the pause and bag buttons. */
+body.touch-ui .mp-room {
+  top: calc(58px + env(safe-area-inset-top)); right: auto; left: calc(10px + env(safe-area-inset-left));
+  min-width: 0; padding: 7px 10px; font-size: 12px;
+}

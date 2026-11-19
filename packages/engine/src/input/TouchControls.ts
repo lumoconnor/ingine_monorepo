@@ -42,10 +42,26 @@ const TOP_BUTTONS: ButtonDef[] = [
   { action: 'inventory', label: 'Bag', cls: 't-bag' },
 ];
 
+/** A game's own on-screen button (see TouchControls.addButton). */
+export interface ExtraButton {
+  /** Short label (HTML allowed, e.g. 'Dash<small>Q</small>'). */
+  label: string;
+  /** Called as the finger lands. */
+  onDown?: () => void;
+  /** Called as the finger lifts (for hold-to-use buttons). */
+  onUp?: () => void;
+  /**
+   * Shortcut for games driven by raw keys: send this KeyboardEvent.code as a
+   * keydown on press and a keyup on release.
+   */
+  key?: string;
+}
+
 type Finger =
   | { kind: 'stick'; ox: number; oy: number }
   | { kind: 'look'; x: number; y: number }
-  | { kind: 'button'; action: Action; el: HTMLElement; x: number; y: number; look: boolean; at: number };
+  | { kind: 'button'; action: Action; el: HTMLElement; x: number; y: number; look: boolean; at: number }
+  | { kind: 'extra'; def: ExtraButton; el: HTMLElement };
 
 /**
  * On-screen controls for phones and tablets: a floating move stick on the
@@ -65,6 +81,7 @@ export class TouchControls implements System {
   private crouchBtn!: HTMLElement;
   private fsBtn!: HTMLElement;
   private fingers = new Map<number, Finger>();
+  private extras = new Map<HTMLElement, ExtraButton>();
   private enabled = false;
   private crouchLatched = false;
 
@@ -76,6 +93,7 @@ export class TouchControls implements System {
       <div class="stick"><div class="knob"></div></div>
       <div class="trotate">Turn your phone sideways for more room</div>
       <div class="tbuttons">${BUTTONS.map(btn).join('')}</div>
+      <div class="textra"></div>
       <div class="ttop">${TOP_BUTTONS.map(btn).join('')}
         <div class="tbtn t-fs" data-ui="fullscreen" aria-label="Fullscreen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></div>
         <div class="tbtn t-pause" data-ui="pause" aria-label="Pause">❚❚</div>
@@ -163,6 +181,29 @@ export class TouchControls implements System {
     this.refresh();
   }
 
+  /** True when the on-screen controls are in use (a phone or tablet, or after a first tap). */
+  get active(): boolean {
+    return this.enabled;
+  }
+
+  /**
+   * Add a game's own button to a column above the right thumb cluster, for
+   * things the engine's actions don't cover (a dash, going home, push-to-talk).
+   * Returns the element: toggle its `hidden` class to show it only when it applies.
+   */
+  addButton(def: ExtraButton): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'tbtn t-extra';
+    el.innerHTML = def.label;
+    this.layer.querySelector('.textra')!.appendChild(el);
+    this.extras.set(el, def);
+    return el;
+  }
+
+  private sendKey(type: 'keydown' | 'keyup', code: string): void {
+    window.dispatchEvent(new KeyboardEvent(type, { code, key: code.replace(/^Key/, '').toLowerCase(), bubbles: true }));
+  }
+
   /** Touch has no Tab key: give the inventory a close button. */
   private addInventoryClose(): void {
     const header = this.container.querySelector('.inventory .inv-panel header');
@@ -211,6 +252,15 @@ export class TouchControls implements System {
       const ui = target.dataset.ui;
       if (ui === 'pause') return input.pause();
       if (ui === 'fullscreen') return void this.game.getSystem<Hud>('hud')?.toggleFullscreen(false);
+      const extra = this.extras.get(target);
+      if (extra) {
+        this.capture(e);
+        this.fingers.set(e.pointerId, { kind: 'extra', def: extra, el: target });
+        target.classList.add('down');
+        if (extra.key) this.sendKey('keydown', extra.key);
+        extra.onDown?.();
+        return;
+      }
       const action = target.dataset.action as Action;
       this.capture(e);
       this.fingers.set(e.pointerId, { kind: 'button', action, el: target, x: e.clientX, y: e.clientY, look: !!target.dataset.look, at: performance.now() });
@@ -245,7 +295,7 @@ export class TouchControls implements System {
     const f = this.fingers.get(e.pointerId);
     if (!f) return;
     if (f.kind === 'stick') return this.updateStick(e.clientX, e.clientY, f.ox, f.oy);
-    if (f.kind === 'button' && !f.look) return;
+    if (f.kind === 'extra' || (f.kind === 'button' && !f.look)) return;
     this.game.input.addTouchLook((e.clientX - f.x) * LOOK_PER_PX, (e.clientY - f.y) * LOOK_PER_PX);
     f.x = e.clientX;
     f.y = e.clientY;
@@ -260,6 +310,12 @@ export class TouchControls implements System {
 
   private endFinger(f: Finger): void {
     const input = this.game.input;
+    if (f.kind === 'extra') {
+      f.el.classList.remove('down');
+      if (f.def.key) this.sendKey('keyup', f.def.key);
+      f.def.onUp?.();
+      return;
+    }
     if (f.kind === 'stick') {
       input.setStick(0, 0);
       input.virtualUp('sprint');

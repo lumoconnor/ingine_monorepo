@@ -60,6 +60,14 @@ body.touch-ui .inv-panel footer { display: none; }
 .b-reload { right: 106px; bottom: 166px; width: 46px; height: 46px; font-size: 10px; }
 .b-ammo   { right: 186px; bottom: 90px; width: 46px; height: 46px; font-size: 10px; }
 
+/* A game's own buttons (TouchControls.addButton): a column above the right cluster. */
+.textra {
+  position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(262px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column-reverse; gap: 10px; align-items: flex-end;
+}
+.textra .tbtn { position: static; width: 58px; height: 58px; font-size: 12px; }
+.textra .tbtn.hidden { display: none; }
+
 /* Top-right row: weapon slots, bag, fullscreen, pause. */
 .ttop {
   position: absolute; top: calc(10px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right));
@@ -85,7 +93,7 @@ body.touch-ui .inv-panel footer { display: none; }
 }
 
 /* While talking: only pause stays; replies are tapped directly. */
-.touch-layer.busy .tbuttons, .touch-layer.busy .stick, .touch-layer.busy .ttop .tbtn:not(.t-pause):not(.t-fs) { display: none; }
+.touch-layer.busy .tbuttons, .touch-layer.busy .textra, .touch-layer.busy .stick, .touch-layer.busy .ttop .tbtn:not(.t-pause):not(.t-fs) { display: none; }
 .touch-layer.busy { pointer-events: none; }
 .touch-layer.busy .ttop .tbtn { pointer-events: auto; }
 
@@ -99,6 +107,9 @@ body.touch-ui .inv-close { display: inline-grid; place-items: center; }
 /* Short screens (phones in landscape): shrink the cluster a little. */
 @media (max-height: 420px) {
   .tbuttons { transform: scale(0.88); transform-origin: bottom right; }
+  /* No room above the cluster: the extras go beside it instead. */
+  .textra { bottom: calc(16px + env(safe-area-inset-bottom)); right: calc(262px + env(safe-area-inset-right)); flex-direction: column-reverse; }
+  .textra .tbtn { width: 50px; height: 50px; font-size: 11px; }
   .touch-help td { padding: 2px 0; font-size: 12px; }
 }
 
