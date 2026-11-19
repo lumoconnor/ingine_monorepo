@@ -14,7 +14,6 @@ packages/multiplayer/  @ingine/multiplayer: puts a room into an engine game (lob
 packages/voice/        @ingine/voice: voice chat over a room, played back in 3D (distance, walls).
 apps/sandbox/          @ingine/sandbox: the playground level, its test content, and the headless checks.
                        The engine's test bed, and the template for a new game.
-apps/desktop/          @ingine/desktop: Tauri desktop app (macOS, Windows, Linux) that opens the procedural world.
 games/office-mp/       @ingine/office-mp: multiplayer test game (an office floor, items, spatial voice).
 ```
 
