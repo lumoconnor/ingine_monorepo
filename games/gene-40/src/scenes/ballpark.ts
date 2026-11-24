@@ -15,9 +15,9 @@ import { buildReturnPad } from './hub';
  * The ballpark: a big domed stadium with its roof rolled half open and a tall
  * tower peeking over the rim (the Toronto feel, no team marks). Grab a bat
  * from the rack, step into the batter's box, and the pitching machine throws
- * ten pitches. Click to swing: timing decides how hard you hit it and which
- * way it goes (early pulls it to left field, late pushes it right), and
- * where you look sets how high. Clear the outfield wall for a home run.
+ * ten pitches. Click to swing: where you look aims it (left, right, how
+ * high), and timing decides how hard you hit it and nudges it a little
+ * (early pulls it towards left field, late pushes it right). Clear the outfield wall for a home run.
  * Bases are scored like a real hit: single 1, double 2, triple 3, homer 4.
  * Your best round is kept in this browser.
  */
@@ -39,6 +39,8 @@ const ZONE_Y = 0.85;
 /** Along the pitch line: the ball can be hit from this far in front of the plate to this far behind it. */
 const HIT_EARLY = 1.1;
 const HIT_LATE = 0.9;
+/** How far (degrees) timing can pull or push a hit away from where you're looking. */
+const SPRAY_TIMING = 14;
 const BEST_KEY = 'gene40.ballpark.best';
 
 const BLUE = 0x1d4fa3;
@@ -470,10 +472,11 @@ export class Ballpark implements System {
     const lookPitch = ctrl ? THREE.MathUtils.radToDeg(ctrl.pitch) : 0;
     const speed = 13 + 18 * q;
     const launch = THREE.MathUtils.clamp(14 + 18 * q + lookPitch * 0.6, -4, 50);
-    // Early pulls it to left field (-), late goes the other way (+), plus where you're facing.
-    // Yaw 0 faces centre field; turning right (towards +X) is negative yaw.
-    const lookYaw = ctrl ? -THREE.MathUtils.radToDeg(ctrl.yaw) : 0;
-    const spray = THREE.MathUtils.clamp(-off * 38 + lookYaw * 0.3, -70, 70);
+    // Where you're looking aims it; timing adds a little pull (early, to left field, -)
+    // or push (late, to right field, +). Yaw 0 faces centre field and turning right
+    // (towards +X) is negative yaw. Yaw piles up as you spin, so wrap it first.
+    const lookYaw = ctrl ? -THREE.MathUtils.radToDeg(Math.atan2(Math.sin(ctrl.yaw), Math.cos(ctrl.yaw))) : 0;
+    const spray = THREE.MathUtils.clamp(lookYaw - off * SPRAY_TIMING, -70, 70);
     const dir = sprayDir(THREE.MathUtils.degToRad(spray));
     const l = THREE.MathUtils.degToRad(launch);
     b.vel.set(dir.x * Math.cos(l) * speed, Math.sin(l) * speed, dir.z * Math.cos(l) * speed);
