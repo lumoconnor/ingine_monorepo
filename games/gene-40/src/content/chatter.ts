@@ -116,13 +116,14 @@ export const CHATTER: ChatterDef[] = [
   {
     id: 'captain_whiskers',
     speaker: 'Captain Whiskers',
-    hello: "Citizen Gene! Happy 40th! Hero city needs you. Eight kittens are stuck on the rooftops. Grab a power from the stations and bring them home.",
+    hello: "Citizen Gene! Happy 40th! Eight kittens are stuck on the rooftops. Grab SWING from the station by the sign, then follow the beams of light: every power gets you to the next one.",
     lines: [
       'My superpower? Landing on my feet. Every time. Even from Hero HQ. Do not test this.',
       'The cape is not for flying. The cape is for drama.',
-      "Super jump first, then flight. Trust me, I've been a hero for nine lives.",
-      'The grapple works on anything solid. Aim, press G, and try not to scream.',
-      'Dash is great for crossing the avenue. Mind the lamp posts. I did not.',
+      'Swinging tip: hold on through the bottom of the arc, let go on the way up. Physics is on your side. Mostly.',
+      'Flying is easy. Look where you want to go and hold W. Shift if you are in a hurry. Dive if you are showing off.',
+      'Press C in the air and you come down like a dropped piano. The cars do not enjoy it. I do.',
+      "Super strength is on the roof of Hero HQ. Somebody parked their car badly on the avenue. Teach them a lesson.",
       "One kitten is right on top of Hero HQ. Don't ask me how. Kittens are a mystery.",
       'Every hero needs a nemesis. Mine is the vacuum cleaner.',
     ],

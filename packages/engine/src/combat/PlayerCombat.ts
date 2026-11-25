@@ -212,7 +212,8 @@ export class PlayerCombat extends Component {
     const f = CombatConfig.fall;
     const c = this.ctrl.cfg;
     const height = (fallSpeed * fallSpeed) / (2 * c.gravity * c.fallGravityMultiplier);
-    if (height <= f.safeHeight || this.ctrl.swimming) return;
+    // (No gravity, e.g. while a game lets you fly, makes the height NaN: that's no fall.)
+    if (!(height > f.safeHeight) || this.ctrl.swimming) return;
     const amount = ((height - f.safeHeight) / (f.lethalHeight - f.safeHeight)) * this.health.maxHealth;
     this.health.applyHit({ attacker: null, packets: [{ type: 'fall', amount }], zone: null, source: 'fall', point: this.entity.object3d.getWorldPosition(_o).clone() });
   }
