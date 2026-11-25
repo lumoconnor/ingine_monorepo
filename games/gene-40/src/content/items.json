@@ -119,6 +119,12 @@
           }
         }
       },
+      "handling": {
+        "sway": {
+          "amount": 0.8,
+          "charge": 0.25
+        }
+      },
       "view": {
         "position": [
           0.26,

@@ -148,6 +148,13 @@ export interface HandlingDef {
   adsMove?: number;
   /** View kick per shot, degrees: pitch up, and random yaw either way. */
   recoil?: { pitch: number; yaw?: number };
+  /**
+   * Hand sway while it is drawn: the aim drifts slowly on its own (layered
+   * sines), so you release on the beat. `amount` is the peak yaw drift in
+   * degrees (pitch drifts three quarters as far); `charge` adds that fraction
+   * more at a full wind-up. Steadier crouched, wilder on the move.
+   */
+  sway?: { amount: number; charge?: number };
 }
 
 export interface BlockDef {

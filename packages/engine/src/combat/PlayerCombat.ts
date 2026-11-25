@@ -34,6 +34,13 @@ export class PlayerCombat extends Component {
   private settle = 0;
   /** A hard-kicking gun jolts the view wider for an instant (a fraction of the FOV, fading fast). */
   private punch = 0;
+  /** Hand sway (handling.sway): current strength in degrees, clock, and the drift already applied to the view. */
+  private swayAmount = 0;
+  private swayClock = 0;
+  private swayYaw = 0;
+  private swayPitch = 0;
+  /** Scales every weapon's hand sway: 1 = as authored, 0 = rock steady (checks, accessibility). */
+  swayScale = 1;
 
   onAttach(): void {
     this.ctrl = this.entity.require(PlayerController);
@@ -169,6 +176,36 @@ export class PlayerCombat extends Component {
       this.ctrl.pitch -= back;
       this.settle -= back;
     }
+    this.applySway(dt, draw, move);
+  }
+
+  /**
+   * Hand sway: a slow, smooth drift added to the view (and so to the aim, the
+   * crosshair and the held weapon) as the difference from last step, so your
+   * own corrections stay yours and it fades out cleanly when you put it away.
+   */
+  private applySway(dt: number, charge: number, move: number): void {
+    const sw = this.fighter.weapon.handling?.sway;
+    const want = sw ? sw.amount * (1 + (sw.charge ?? 0) * charge) * (this.ctrl.crouched ? 0.7 : 1) * (1 + 0.5 * move) * this.swayScale : 0;
+    this.swayAmount += (want - this.swayAmount) * (1 - Math.exp(-dt * 3));
+    if (this.swayAmount < 1e-4 && this.swayYaw === 0 && this.swayPitch === 0) return;
+    const t = (this.swayClock += dt);
+    const TAU = Math.PI * 2;
+    // Incommensurate frequencies so it never settles into a visible loop; each sums to at most 1.
+    const ny = 0.55 * Math.sin(TAU * 0.31 * t) + 0.3 * Math.sin(TAU * 0.67 * t + 1.7) + 0.15 * Math.sin(TAU * 1.43 * t + 0.4);
+    const np = 0.55 * Math.sin(TAU * 0.23 * t + 0.9) + 0.3 * Math.sin(TAU * 0.53 * t + 2.6) + 0.15 * Math.sin(TAU * 1.17 * t + 4.1);
+    const yaw = ny * this.swayAmount * DEG;
+    const pitch = np * this.swayAmount * 0.75 * DEG;
+    this.ctrl.yaw += yaw - this.swayYaw;
+    this.ctrl.pitch = THREE.MathUtils.clamp(this.ctrl.pitch + pitch - this.swayPitch, -85 * DEG, 85 * DEG);
+    this.swayYaw = yaw;
+    this.swayPitch = pitch;
+    if (this.swayAmount < 1e-4) this.swayYaw = this.swayPitch = this.swayAmount = 0;
+  }
+
+  /** The aim drift hand sway is adding right now, in degrees (for checks and debug). */
+  get swayOffset(): { yaw: number; pitch: number } {
+    return { yaw: this.swayYaw / DEG, pitch: this.swayPitch / DEG };
   }
 
   private onLanded(fallSpeed: number): void {
@@ -186,6 +223,7 @@ export class PlayerCombat extends Component {
     this.fighter.cancel();
     this.fighter.stamina = this.fighter.maxStamina;
     this.kickPitch = this.kickYaw = this.settle = 0;
+    this.swayAmount = this.swayYaw = this.swayPitch = 0;
     this.game.input.gameplayBlocked = false;
     this.game.input.clearPressed();
     this.game.events.emit('notify', { text: 'You come to, back where you started.' });
