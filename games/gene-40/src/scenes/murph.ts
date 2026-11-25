@@ -24,13 +24,29 @@ import { buildReturnPad } from './hub';
  * cat-tree platforms and inside the box: find them all. Cats wander about and
  * are happy to chat.
  *
- * Murphy is drawn as a ginger tabby until we know what he really looks like:
- * change FUR / STRIPE below.
+ * Murphy is drawn from Luke's photo: a brown tabby with dark mackerel
+ * stripes and a warm brown tint on his body, a grey-brown striped face, white
+ * chin, muzzle and chest, a pink nose, green-gold eyes and heavy half-shut
+ * lids (he always looks mildly unimpressed). See `murphy` in catModel.
  */
 
-/** Murphy's colours. */
-const FUR = 0xe08a3c;
-const STRIPE = 0xb05f22;
+/** Murphy's colours (from the photo). */
+export const MURPHY = {
+  /** Warm brown on his back and sides. */
+  fur: 0x8a5e36,
+  /** His face is cooler and greyer than his body. */
+  face: 0x8c7a66,
+  /** The near-black tabby stripes. */
+  stripe: 0x2a1d15,
+  /** Chin, muzzle and chest. */
+  white: 0xf2ede4,
+  /** Green-gold eyes. */
+  eye: 0x9ea65a,
+  nose: 0xd98f88,
+  earInner: 0xc98a7a,
+} as const;
+const FUR = MURPHY.fur;
+const STRIPE = MURPHY.stripe;
 const CREAM = 0xf6e3c6;
 
 type At = (x: number, y: number, z: number) => Vec3;
@@ -98,7 +114,8 @@ function ground(game: Game, at: At): void {
 }
 
 /** A cat built from simple shapes, facing +Z, sitting or standing. `s` = scale (1 ≈ a big house cat). */
-export function catModel(o: { fur: number; stripe?: number; belly?: number; s: number; sitting?: boolean }): { root: THREE.Group; head: THREE.Group } {
+export function catModel(o: { fur: number; stripe?: number; belly?: number; s: number; sitting?: boolean; murphy?: boolean }): { root: THREE.Group; head: THREE.Group } {
+  if (o.murphy) return murphyModel(o.s, !!o.sitting);
   const root = new THREE.Group();
   const fur = mat(o.fur, { roughness: 0.85 });
   const stripe = o.stripe !== undefined ? mat(o.stripe, { roughness: 0.85 }) : null;
@@ -148,6 +165,185 @@ export function catModel(o: { fur: number; stripe?: number; belly?: number; s: n
   return { root, head };
 }
 
+// --- Murphy ------------------------------------------------------------------
+
+const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+
+/** Fur with fine ticking (the agouti speckle a tabby has between stripes). */
+function ticked(g: CanvasRenderingContext2D, w: number, h: number, base: number, seed: number): void {
+  g.fillStyle = hex(base);
+  g.fillRect(0, 0, w, h);
+  const rnd = seeded(seed);
+  for (let i = 0; i < w * h * 0.35; i++) {
+    const light = rnd() < 0.5;
+    g.fillStyle = light ? 'rgba(235,215,185,0.22)' : 'rgba(30,20,12,0.22)';
+    g.fillRect(Math.floor(rnd() * w), Math.floor(rnd() * h), 1, 2);
+  }
+}
+
+let murphyTex: { body: THREE.Texture; head: THREE.Texture } | null = null;
+/**
+ * Murphy's fur, painted on canvases. Sphere UVs: u = 0.25 faces +Z (his
+ * front), u = 0.75 his back; v runs from the top (canvas y = 0) down.
+ */
+function murphyTextures(): { body: THREE.Texture; head: THREE.Texture } {
+  if (murphyTex) return murphyTex;
+  const rnd = seeded(40);
+  const make = (draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number) => {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    draw(c.getContext('2d')!, w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  };
+  const ink = hex(MURPHY.stripe);
+  // Body: warm brown, darker along the spine, wavy mackerel bands that run
+  // from the spine down each side (and ring the tail, which uses it too).
+  const body = make((g, w, h) => {
+    ticked(g, w, h, MURPHY.fur, 7);
+    const spine = g.createLinearGradient(w * 0.6, 0, w * 0.9, 0);
+    spine.addColorStop(0, 'rgba(42,29,21,0)');
+    spine.addColorStop(0.5, 'rgba(42,29,21,0.55)');
+    spine.addColorStop(1, 'rgba(42,29,21,0)');
+    g.fillStyle = spine;
+    g.fillRect(0, 0, w, h * 0.7);
+    g.strokeStyle = ink;
+    g.lineCap = 'round';
+    for (let k = 0; k < 18; k++) {
+      const x0 = (k / 18) * w + rnd() * 6;
+      // Keep his chest clear: the white bib covers u ≈ 0.25.
+      if (Math.abs(x0 / w - 0.25) < 0.07) continue;
+      g.lineWidth = 5 + rnd() * 5;
+      g.beginPath();
+      for (let y = 0; y <= h; y += 4) {
+        const x = x0 + Math.sin(y * 0.09 + k) * 5 + Math.sin(y * 0.031 + k * 2) * 4;
+        y === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  }, 256, 128);
+  // Head: grey-brown, the tabby "M" on the forehead, stripes running back
+  // over the crown, and a dark line from each eye out across the cheek.
+  const head = make((g, w, h) => {
+    ticked(g, w, h, MURPHY.face, 11);
+    g.strokeStyle = ink;
+    g.lineCap = 'round';
+    const cx = w * 0.25;
+    // Crown stripes: meridians from the brow back over the top of the head.
+    for (const [dx, lw] of [[0, 3], [-5, 2], [5, 2], [-10, 2], [10, 2]] as const) {
+      g.lineWidth = lw;
+      g.beginPath();
+      g.moveTo(cx + dx, h * 0.38);
+      g.quadraticCurveTo(cx + dx * 1.6, h * 0.2, cx + dx * 2.2, 0);
+      g.stroke();
+    }
+    // The "M": two peaks above the eyes.
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(cx - 14, h * 0.4);
+    g.lineTo(cx - 9, h * 0.3);
+    g.lineTo(cx - 4, h * 0.38);
+    g.moveTo(cx + 4, h * 0.38);
+    g.lineTo(cx + 9, h * 0.3);
+    g.lineTo(cx + 14, h * 0.4);
+    g.stroke();
+    // Cheek lines sweeping back from the outer corner of each eye.
+    for (const sx of [-1, 1]) {
+      g.lineWidth = 3;
+      for (const dy of [0, 7]) {
+        g.beginPath();
+        g.moveTo(cx + sx * 16, h * 0.5 + dy);
+        g.quadraticCurveTo(cx + sx * 26, h * 0.5 + dy + 4, cx + sx * 36, h * 0.47 + dy);
+        g.stroke();
+      }
+    }
+    // Barred stripes round the back of the head and neck.
+    for (let k = 0; k < 8; k++) {
+      g.lineWidth = 4;
+      const x = w * 0.5 + (k / 8) * w * 0.5 + 6;
+      g.beginPath();
+      g.moveTo(x, h * 0.1);
+      g.quadraticCurveTo(x + 6, h * 0.5, x - 2, h);
+      g.stroke();
+    }
+  }, 256, 128);
+  murphyTex = { body, head };
+  return murphyTex;
+}
+
+/**
+ * Murphy: the same build as the other cats, but with his own markings, his
+ * white bib and chin, and the heavy-lidded look from the photo.
+ */
+function murphyModel(s: number, sitting: boolean): { root: THREE.Group; head: THREE.Group } {
+  const tex = murphyTextures();
+  const root = new THREE.Group();
+  const coat = new THREE.MeshStandardMaterial({ map: tex.body, roughness: 0.9 });
+  const face = new THREE.MeshStandardMaterial({ map: tex.head, roughness: 0.9 });
+  const plain = mat(MURPHY.fur, { roughness: 0.9 });
+  const white = mat(MURPHY.white, { roughness: 0.9 });
+  const ink = mat(MURPHY.stripe, { roughness: 0.9 });
+  const m = (geo: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = root) => {
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(x * s, y * s, z * s);
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+  if (sitting) {
+    m(new THREE.SphereGeometry(0.2 * s, 24, 16), coat, 0, 0.2, -0.02).scale.set(1, 1.25, 1);
+    // White bib down his chest, and white front paws.
+    m(new THREE.SphereGeometry(0.12 * s, 12, 10), white, 0, 0.26, 0.1).scale.set(0.9, 1.3, 0.7);
+    for (const sx of [-1, 1]) m(new THREE.SphereGeometry(0.06 * s, 10, 8), white, sx * 0.07, 0.04, 0.14);
+    const tail = m(new THREE.TorusGeometry(0.17 * s, 0.035 * s, 8, 24, Math.PI * 1.2), coat, 0, 0.04, -0.02);
+    tail.rotation.x = Math.PI / 2;
+    m(new THREE.SphereGeometry(0.037 * s, 8, 6), ink, 0.17 * Math.cos(Math.PI * 1.2), 0.04, -0.02 + 0.17 * Math.sin(Math.PI * 1.2));
+  } else {
+    const body = m(new THREE.CapsuleGeometry(0.11 * s, 0.32 * s, 6, 16), coat, 0, 0.24, 0);
+    body.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+    for (const [x, z] of [[-0.07, 0.15], [0.07, 0.15], [-0.07, -0.15], [0.07, -0.15]]) {
+      m(new THREE.CylinderGeometry(0.035 * s, 0.035 * s, 0.17 * s, 8), plain, x, 0.085, z);
+      m(new THREE.SphereGeometry(0.037 * s, 8, 6), z > 0 ? white : plain, x, 0.01, z + 0.005);
+    }
+    const tail = m(new THREE.CylinderGeometry(0.025 * s, 0.03 * s, 0.32 * s, 8), coat, 0, 0.38, -0.3);
+    tail.rotation.x = -0.6;
+  }
+  const head = new THREE.Group();
+  head.position.set(0, (sitting ? 0.5 : 0.36) * s, (sitting ? 0.05 : 0.27) * s);
+  root.add(head);
+  // A slightly broad, round head.
+  m(new THREE.SphereGeometry(0.13 * s, 24, 16), face, 0, 0, 0, head).scale.set(1.06, 1, 1);
+  // White muzzle pads and chin.
+  for (const sx of [-1, 1]) m(new THREE.SphereGeometry(0.04 * s, 10, 8), white, sx * 0.03, -0.045, 0.1, head).scale.set(1, 0.85, 0.8);
+  m(new THREE.SphereGeometry(0.045 * s, 10, 8), white, 0, -0.085, 0.07, head).scale.set(1.1, 0.7, 0.9);
+  // A pale stripe up the bridge of the nose.
+  m(new THREE.BoxGeometry(0.016 * s, 0.05 * s, 0.01 * s), white, 0, -0.005, 0.127, head).rotation.x = -0.35;
+  // Pink nose.
+  m(new THREE.SphereGeometry(0.02 * s, 10, 8), mat(MURPHY.nose, { roughness: 0.5 }), 0, -0.03, 0.135, head).scale.set(1.2, 0.8, 0.8);
+  for (const sx of [-1, 1]) {
+    const ear = m(new THREE.ConeGeometry(0.052 * s, 0.1 * s, 4), face, sx * 0.08, 0.12, -0.01, head);
+    ear.rotation.z = -sx * 0.3;
+    const inner = m(new THREE.ConeGeometry(0.033 * s, 0.07 * s, 4), mat(MURPHY.earInner, { roughness: 0.9 }), sx * 0.08, 0.115, 0.006, head);
+    inner.rotation.z = -sx * 0.3;
+    // Green-gold eye with a dark pupil.
+    m(new THREE.SphereGeometry(0.028 * s, 12, 10), mat(MURPHY.eye, { roughness: 0.25 }), sx * 0.05, 0.015, 0.108, head).scale.set(1, 1, 0.7);
+    m(new THREE.SphereGeometry(0.011 * s, 8, 6), mat(0x111111, { roughness: 0.2 }), sx * 0.05, 0.008, 0.126, head).scale.set(0.9, 1.3, 0.5);
+    // Heavy upper lid, drooping toward the nose: the famous unimpressed look.
+    const lid = m(new THREE.SphereGeometry(0.031 * s, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x7d6b58, { roughness: 0.9 }), sx * 0.05, 0.015, 0.108, head);
+    lid.rotation.set(0.15, 0, sx * 0.22);
+    lid.scale.set(1.05, 1, 0.7);
+    // Whiskers.
+    for (const k of [-1, 0, 1]) {
+      const wh = m(new THREE.CylinderGeometry(0.0025 * s, 0.0015 * s, 0.17 * s, 4), white, sx * 0.1, -0.05 + k * 0.012, 0.1, head);
+      wh.rotation.set(0, sx * -0.35, sx * (Math.PI / 2 + k * 0.12));
+    }
+  }
+  return { root, head };
+}
+
 function statue(game: Game, at: At): void {
   // Plinth (x -4..4, z -34..-26) with steps up its east side.
   box(game, [8, 1.6, 8], at(0, 0.8, -30), 0xd9cfbd, 'plinth');
@@ -156,7 +352,7 @@ function statue(game: Game, at: At): void {
     box(game, [0.7, h, 3], at(4.35 + (2 - k) * 0.7, h / 2, -30), 0xcfc4af, 'plinth-step');
   }
   sign(game, 'MURPHY', at(0, 0.85, -25.98), { width: 3.2, height: 0.7, bg: '#d9cfbd', fg: '#7a4a1d' });
-  const { root } = catModel({ fur: FUR, stripe: STRIPE, s: 14, sitting: true });
+  const { root } = catModel({ fur: FUR, stripe: STRIPE, s: 14, sitting: true, murphy: true });
   root.position.set(...at(0, 1.6, -31));
   game.world.spawn(new Entity('murphy-statue', root));
   // Collider for the statue's body so you can't walk through it.
@@ -301,9 +497,9 @@ function toys(game: Game, at: At): void {
 
 export function addCat(
   game: Game,
-  o: { id: string; name: string; fur: number; stripe?: number; belly?: number; s: number; at: Vec3; facingDeg: number; sitting?: boolean; path?: [number, number][]; groundY: number },
+  o: { id: string; name: string; fur: number; stripe?: number; belly?: number; s: number; at: Vec3; facingDeg: number; sitting?: boolean; murphy?: boolean; path?: [number, number][]; groundY: number },
 ): Entity {
-  const { root, head } = catModel({ fur: o.fur, stripe: o.stripe, belly: o.belly, s: o.s, sitting: o.sitting });
+  const { root, head } = catModel({ fur: o.fur, stripe: o.stripe, belly: o.belly, s: o.s, sitting: o.sitting, murphy: o.murphy });
   const holder = new THREE.Group();
   holder.position.set(...o.at);
   holder.add(root);
@@ -340,7 +536,7 @@ function cats(game: Game, at: At, oy: number): void {
       return [p[0], p[2]] as [number, number];
     });
   // Murphy himself, on his royal cushion.
-  addCat(game, { id: 'murphy', name: 'Murphy', fur: FUR, stripe: STRIPE, s: 1.8, at: at(5.6, 0.3, -24.4), facingDeg: -20, sitting: true, groundY: oy });
+  addCat(game, { id: 'murphy', name: 'Murphy', fur: FUR, stripe: STRIPE, murphy: true, s: 1.8, at: at(5.6, 0.3, -24.4), facingDeg: -20, sitting: true, groundY: oy });
   addCat(game, { id: 'biscuit', name: 'Biscuit', fur: 0xd9b48a, s: 1.5, at: at(-4, 0.35, -20), facingDeg: 20, sitting: true, groundY: oy });
   addCat(game, { id: 'mochi', name: 'Mochi', fur: 0xf4f1ea, belly: 0xffffff, s: 1.5, at: at(12, 0, -38), facingDeg: 0, sitting: true, groundY: oy });
   addCat(game, {
@@ -426,8 +622,18 @@ function murphyFace(): THREE.Texture {
   g.beginPath();
   g.arc(64, 64, 32, 0, Math.PI * 2);
   g.fill();
+  // Tabby forehead stripes and his heavy-lidded, unimpressed eyes.
+  g.strokeStyle = '#8a5a12';
+  g.lineWidth = 3;
+  g.lineCap = 'round';
+  for (const dx of [-8, 0, 8]) {
+    g.beginPath(); g.moveTo(64 + dx, 36); g.lineTo(64 + dx * 0.8, 50); g.stroke();
+  }
   g.fillStyle = '#7a4a10';
-  g.beginPath(); g.arc(52, 60, 4, 0, Math.PI * 2); g.arc(76, 60, 4, 0, Math.PI * 2); g.fill();
+  for (const [x, sx] of [[52, -1], [76, 1]] as const) {
+    g.beginPath(); g.ellipse(x, 61, 5, 3, 0, 0, Math.PI); g.fill();
+    g.beginPath(); g.moveTo(x - 7, 58 + sx * 2); g.lineTo(x + 7, 58 - sx * 2); g.stroke();
+  }
   g.font = '700 22px system-ui, sans-serif';
   g.textAlign = 'center';
   g.fillText('M', 64, 88);

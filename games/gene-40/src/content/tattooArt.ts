@@ -151,7 +151,8 @@ export const TATTOOS: TattooDesign[] = [
     id: 'cat',
     name: 'Murphy',
     draw: (g, s) => {
-      g.fillStyle = '#e08a3c';
+      // Murphy: brown tabby, white muzzle, green-gold eyes under heavy lids.
+      g.fillStyle = '#8a5e36';
       outline(g, s);
       g.beginPath();
       g.moveTo(s * 0.2, s * 0.42);
@@ -165,11 +166,40 @@ export const TATTOOS: TattooDesign[] = [
       g.closePath();
       g.fill();
       g.stroke();
-      g.fillStyle = INK;
+      // Tabby stripes: the "M" on his forehead and bars on each cheek.
+      g.beginPath();
+      for (const dx of [-0.07, 0, 0.07]) {
+        g.moveTo(s * (0.5 + dx), s * 0.3);
+        g.lineTo(s * (0.5 + dx * 0.8), s * 0.42);
+      }
+      for (const sx of [-1, 1]) for (const dy of [0, 0.07]) {
+        g.moveTo(s * (0.5 + sx * 0.3), s * (0.5 + dy));
+        g.lineTo(s * (0.5 + sx * 0.2), s * (0.53 + dy));
+      }
+      g.stroke();
+      // White muzzle and chin.
+      g.fillStyle = '#f4efe6';
+      g.beginPath();
+      g.ellipse(s / 2, s * 0.7, s * 0.14, s * 0.11, 0, 0, Math.PI * 2);
+      g.fill();
+      // Green-gold eyes, half shut.
       for (const x of [0.38, 0.62]) {
+        g.fillStyle = '#9ea65a';
         g.beginPath();
-        g.ellipse(s * x, s * 0.5, s * 0.04, s * 0.07, 0, 0, Math.PI * 2);
+        g.ellipse(s * x, s * 0.52, s * 0.055, s * 0.045, 0, 0, Math.PI * 2);
         g.fill();
+        g.fillStyle = INK;
+        g.beginPath();
+        g.ellipse(s * x, s * 0.53, s * 0.015, s * 0.03, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#8a5e36';
+        g.beginPath();
+        g.ellipse(s * x, s * 0.5, s * 0.06, s * 0.035, 0, Math.PI, 0);
+        g.fill();
+        g.beginPath();
+        g.moveTo(s * (x - 0.06), s * 0.5);
+        g.lineTo(s * (x + 0.06), s * 0.5);
+        g.stroke();
       }
       g.fillStyle = '#f29fb0';
       g.beginPath();
