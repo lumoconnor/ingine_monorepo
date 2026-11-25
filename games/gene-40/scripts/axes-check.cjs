@@ -65,6 +65,26 @@ const shots = process.env.SHOTS;
     check('the rack gives five axes', game.state.itemCount('throwing_axe') === 5, `${game.state.itemCount('throwing_axe')}`);
     check('an axe is in hand', F.itemId === 'throwing_axe', String(F.itemId));
 
+    // Hand sway: with an axe drawn the aim drifts a little, smoothly, on its own.
+    const P = comp(player, 'PlayerCombat');
+    const yaw0 = C.yaw - (P.swayOffset.yaw * Math.PI) / 180;
+    let maxYaw = 0, maxPitch = 0, maxStep = 0, last = P.swayOffset;
+    for (let k = 0; k < 600; k++) {
+      step(1);
+      const o = P.swayOffset;
+      maxYaw = Math.max(maxYaw, Math.abs(o.yaw));
+      maxPitch = Math.max(maxPitch, Math.abs(o.pitch));
+      maxStep = Math.max(maxStep, Math.hypot(o.yaw - last.yaw, o.pitch - last.pitch));
+      last = o;
+    }
+    check('the hand sways the aim a little', maxYaw > 0.3 && maxYaw < 1.3 && maxPitch > 0.2 && maxPitch < 1.0, `yaw ±${maxYaw.toFixed(2)}°, pitch ±${maxPitch.toFixed(2)}°`);
+    check('the sway is smooth', maxStep < 0.06, `${maxStep.toFixed(3)}° per step at most`);
+    check('the sway moves the view itself', Math.abs(C.yaw - yaw0 - (P.swayOffset.yaw * Math.PI) / 180) < 1e-6);
+    // Steady hands for the scoring throws below, which aim at exact points.
+    P.swayScale = 0;
+    step(300);
+    check('the sway fades out when turned off', P.swayOffset.yaw === 0 && P.swayOffset.pitch === 0, JSON.stringify(P.swayOffset));
+
     // Five throws: aim (allowing for the drop) at points worth 6, 4, 8 (killshot), 2 and a miss.
     const targets = [
       [0, 0, 6],

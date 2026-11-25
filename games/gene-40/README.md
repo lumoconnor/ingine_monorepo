@@ -29,7 +29,7 @@ Published at `/gene/` on the repo's GitHub Pages site.
 2. Register it in `builders` in `src/GeneWorld.ts` and set `built: true` in
    `src/scenes.ts`.
 
-Built: axe throwing (`src/scenes/axes.ts`: three lanes, rack gives 5 axes, ring scoring 6/4/3/2/1 plus killshot 8, best round kept in this browser).
+Built: axe throwing (`src/scenes/axes.ts`: three lanes, rack gives 5 axes, ring scoring 6/4/3/2/1 plus killshot 8, best round kept in this browser; a gentle hand sway, `handling.sway` on the axe, makes the aim drift so you release on the beat).
 
 Built: Arup office (`src/scenes/arup.ts`): big floor above the city, you step out of the lift facing the ARUP sign; Aurora (project manager, meeting room), Chris (open plan), Renee (kitchen), Big Liz (a friendly giant lizard doing laps of the atrium). What they say lives in `src/content/chatter.ts`: edit the lists, each talk opens on a random line.
 
