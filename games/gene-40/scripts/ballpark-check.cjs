@@ -68,7 +68,7 @@ const shots = process.env.SHOTS;
 
     // In the box, facing the pitcher.
     const box = park.boxCentre;
-    const stand = (pitchDeg = 0) => { C.placeAt(new T(box.x, 0.05, box.z), 0, 0); step(2); C.yaw = 0; C.pitch = (pitchDeg * Math.PI) / 180; step(1); };
+    const stand = (pitchDeg = 0, yawDeg = 0) => { C.placeAt(new T(box.x, 0.05, box.z), 0, 0); step(2); C.yaw = (yawDeg * Math.PI) / 180; C.pitch = (pitchDeg * Math.PI) / 180; step(1); };
     stand();
     let tries = 0;
     while (!park.ball && tries++ < 400) step(1);
@@ -81,8 +81,8 @@ const shots = process.env.SHOTS;
     check('taking a pitch is a strike', res[0] === 'strike', res.join(','));
 
     // Swing when the ball is `lead` metres from the plate (the swing's wind-up is ~0.06 s).
-    const swingAt = (lead, pitchDeg = 0) => {
-      stand(pitchDeg);
+    const swingAt = (lead, pitchDeg = 0, yawDeg = 0) => {
+      stand(pitchDeg, yawDeg);
       res = [];
       let t = 0;
       while ((!park.ball || park.ball.phase !== 'pitch') && t++ < 400) step(1);
@@ -102,6 +102,17 @@ const shots = process.env.SHOTS;
     park.lastHit = null;
     const late = swingAt(0.6);
     check('a late swing pushes it to right field', !!late.hit && late.hit.spray > 3, `${late.result} spray ${late.hit?.spray.toFixed(0)}`);
+    park.lastHit = null;
+    // Aim by looking: 25° right (negative yaw) goes to right field, 25° left to left field,
+    // and a full spin first doesn't throw it off.
+    const right = swingAt(1.2, 8, -25);
+    check('looking right sends a well-timed hit to right field', !!right.hit && right.hit.spray > 15 && right.hit.spray < 40, `${right.result} spray ${right.hit?.spray.toFixed(0)}`);
+    park.lastHit = null;
+    const left = swingAt(1.2, 8, 25 + 360);
+    check('looking left (after a full spin) sends it to left field', !!left.hit && left.hit.spray < -15 && left.hit.spray > -40, `${left.result} spray ${left.hit?.spray.toFixed(0)}`);
+    park.lastHit = null;
+    const centre = swingAt(1.2, 8);
+    check('looking at centre field, a good swing stays near centre', !!centre.hit && Math.abs(centre.hit.spray) < 15, `${centre.result} spray ${centre.hit?.spray.toFixed(0)}`);
     park.lastHit = null;
     const homer = swingAt(1.25, 14);
     check('a perfect swing, looking up a little, is a home run', homer.result === 'homer' && homer.hit.dist > 62, `${homer.result} ${JSON.stringify(homer.hit && { dist: homer.hit.dist.toFixed(0), speed: homer.hit.speed.toFixed(1), launch: homer.hit.launch.toFixed(0), spray: homer.hit.spray.toFixed(0) })}`);
