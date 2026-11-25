@@ -191,6 +191,7 @@ const shots = process.env.SHOTS;
     await shot('murph-tree', `(${aimFrom})(1800 - 9, 0.05, -4, 1800 - 18, 5, -14)`);
     await shot('murph-top', `(${aimFrom})(1800 - 17.2, 9.42, -13.6, 1800 + 10, 3, -20)`);
     await shot('murph-murphy', `(${aimFrom})(1800 + 5.2, 0.05, -21.9, 1800 + 5.6, 0.9, -24.4)`);
+    await shot('murph-face', `(${aimFrom})(1800 + 5.1, 0.05, -23.0, 1800 + 5.6, 1.2, -24.4)`);
     await shot('murph-box', `(${aimFrom})(1800 + 12, 0.05, -29, 1800 + 12, 1.0, -38)`);
   }
 

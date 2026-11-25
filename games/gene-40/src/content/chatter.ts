@@ -139,7 +139,7 @@ export const CHATTER: ChatterDef[] = [
       "Sailors got swallows for every five thousand miles at sea. You get one for every forty years. Same thing.",
       "Wiggle your fingers when you're done. Raise your fists to see it properly. Right-click, like a boxer.",
       "My mum still thinks this is a phase. It's been nineteen years.",
-      "Murphy's on the wall! Ginger cat. Nobody told me what he actually looks like, so I improvised.",
+      "Murphy's on the wall! Brown tabby, white chin, that look like you've disappointed him. Drawn from a photo.",
     ],
     special: { flag: 'tattoo.inked', text: "Look at that ink! Healing nicely. Come back any time if you fancy another. I'll draw right over it." },
   },
