@@ -1,5 +1,6 @@
-// Hero city check: arrive, each power station gives its power and each power
-// works (super jump, flight and glide, dash, grapple), every kitten sits on a
+// Hero city check: arrive in the hero suit (super jump), earn swing, flight and
+// super strength in order and each works (swing arcs, flight and dive, ground
+// slam throws cars, lift and throw a car), every kitten sits on a
 // roof and reaching it rescues it, Captain Whiskers talks, powers switch off
 // outside the city and back on when you return, and nothing has fall damage.
 // SHOTS=dir saves screenshots.
@@ -48,25 +49,19 @@ const shots = process.env.SHOTS;
     check('you land standing on the plaza', Math.abs(feet.y - 0.04) < 0.2 && Math.abs(feet.x - o[0]) < 1, feet.toArray().map(f).join(','));
 
     const hp = game.getSystem('hero-powers');
-    check('four power stations', hp.stations.length === 4);
+    const kd = (code) => window.dispatchEvent(new KeyboardEvent('keydown', { code }));
+    const ku = (code) => window.dispatchEvent(new KeyboardEvent('keyup', { code }));
+    const hspeed = () => Math.hypot(C.velocity.x, C.velocity.z);
+    check('three power stations', hp.stations.length === 3);
     check('no powers to start with', hp.owned.size === 0);
-    C.placeAt(new T(o[0], 0.05, 4), 0, 0);
-    step(20);
-    jump();
-    hold(true);
-    const plain = peak() - 0.04;
-    hold(false);
-    check('a normal jump is a normal jump', plain > 0.9 && plain < 1.6, `${plain.toFixed(2)} m`);
-
-    const visit = (id) => { const st = hp.stations.find((s) => s.id === id); C.placeAt(new T(st.pos.x, 0.05, st.pos.z + 1.1), 0, 0); step(4); return hp.owned.has(id); };
-    check('the jump station gives super jump', visit('jump'));
+    check('only the swing beacon is lit', hp.stations.map((s) => s.beacon.visible).join() === 'true,false,false');
     C.placeAt(new T(o[0], 0.05, 4), 0, 0);
     step(20);
     jump();
     hold(true);
     const big = peak(150) - 0.04;
     hold(false);
-    check('super jump goes sky high', big > 6.5 && big < 9, `${big.toFixed(2)} m`);
+    check('the hero suit: a super jump from the start', big > 6.5 && big < 9, `${big.toFixed(2)} m`);
     C.placeAt(new T(o[0] - 31, 0.05, 11), 0, 0);
     step(10);
     jump();
@@ -79,61 +74,107 @@ const shots = process.env.SHOTS;
     check('super jump gets you onto the diner roof', Math.abs(feet.y - 6) < 0.2, feet.toArray().map(f).join(','));
     step(60);
 
-    check('the flight station gives flight', visit('fly'));
-    C.placeAt(new T(o[0], 0.05, 4), 0, 0);
-    step(20);
-    jump();
-    hold(true);
-    step(150);
-    hold(false);
-    const flown = feet.y;
-    check('holding Space in the air flies you up', flown > 18, `${f(flown)} m up`);
-    step(30);
-    check('letting go glides you down gently', C.velocity.y > -3.6 && C.velocity.y < 0 && feet.y > flown - 6, `vy ${C.velocity.y.toFixed(2)}`);
-    input.down.add('KeyC');
-    step(30);
-    check('crouch drops you faster', C.velocity.y < -5, `vy ${C.velocity.y.toFixed(2)}`);
-    input.down.delete('KeyC');
-    // Back down to the street.
-    C.placeAt(new T(o[0], 0.05, 4), 0, 0);
-    step(20);
+    const station = (id) => hp.stations.find((s) => s.id === id);
+    const visit = (id) => { const st = station(id); C.placeAt(new T(st.pos.x, st.pos.y + 0.05, st.pos.z + 1.1), 0, 0); step(4); return hp.owned.has(id); };
+    check('flight is locked until you can swing', !visit('fly') && !visit('strength'));
+    check('the plaza station gives swing', visit('swing'));
+    check('  and lights the flight beacon', station('fly').beacon.visible && !station('swing').beacon.visible);
+    check('the flight station is out of jumping reach', station('fly').pos.y - 0 > 20, `roof at ${f(station('fly').pos.y)} m`);
 
-    check('the dash station gives dash', visit('dash'));
-    C.placeAt(new T(o[0], 0.05, 4), 0, 0);
-    step(20);
-    const z0 = feet.z;
-    key('KeyQ');
-    step(20);
-    check('Q dashes you forward', z0 - feet.z > 5.5 && hp.dashes === 1, `${(z0 - feet.z).toFixed(1)} m in 1/3 s`);
-    key('KeyQ');
+    // Swing down the avenue: hold G, ride the arc, let go.
+    C.placeAt(new T(o[0] + 3, 0.05, -14), 0, 0);
+    step(10);
+    aim(o[0] + 3, 6, -40);
+    const start = feet.clone();
+    kd('KeyG');
+    step(2);
+    check('G hooks a line high on a building ahead', !!hp.swing && hp.swing.anchor.y > 12, hp.swing ? hp.swing.anchor.toArray().map(f).join(',') : 'missed');
+    let top = 0;
+    for (let i = 0; i < 120 && hp.swing; i++) { step(1); top = Math.max(top, hspeed()); }
+    ku('KeyG');
     step(1);
-    check('dash has a cooldown', hp.dashes === 1);
-    step(60);
-
-    check('the grapple station gives the grapple', visit('grapple'));
-    // Aim at Hero HQ's face, high up, from the avenue.
+    const travelled = Math.hypot(feet.x - start.x, feet.z - start.z);
+    check('the swing builds real speed', top > 16, `${top.toFixed(1)} m/s`);
+    check('letting go flings you on', !hp.swing && travelled > 12 && !C.grounded, `${travelled.toFixed(1)} m, y ${f(feet.y)}`);
+    step(240);
+    // Aim assist: look straight ahead along the avenue (not at a wall), still hooks.
     C.placeAt(new T(o[0], 0.05, -20), 0, 0);
     step(10);
-    aim(o[0], 40, -51);
-    key('KeyG');
-    step(1);
-    check('G hooks what you aim at', !!hp.grapple && Math.abs(hp.grapple.point.z - -51) < 0.2, hp.grapple ? hp.grapple.point.toArray().map(f).join(',') : 'missed');
-    step(150);
-    check('the grapple reels you in', !hp.grapple && feet.y > 30 && feet.z < -45, feet.toArray().map(f).join(','));
-    C.placeAt(new T(o[0], 0.05, 4), 0, 0);
-    step(10);
-    aim(o[0], 60, 200); // at the sky
-    key('KeyG');
+    C.pitch = 0;
+    kd('KeyG');
     step(2);
-    check('the grapple needs something to hit', !hp.grapple);
+    check('with no wall in your sights, it finds one up ahead', !!hp.swing, hp.swing ? hp.swing.anchor.toArray().map(f).join(',') : 'missed');
+    ku('KeyG');
+    step(200);
 
+    check('the rooftop station gives flight', visit('fly'));
+    // Fly: jump, Space again in the air, W.
+    C.placeAt(new T(o[0], 0.05, -20), 0, 0);
+    step(10);
+    jump();
+    step(12);
+    jump();
+    step(2);
+    check('Space in the air takes off', hp.flying);
+    // Up above the rooftops, heading out over the plaza.
+    C.placeAt(new T(o[0], 100, -20), Math.PI, 0);
+    hp.fly();
+    step(30);
+    const y0 = feet.y;
+    input.down.add('KeyW');
+    step(120);
+    check('W flies you where you look, and you stay up', hspeed() > 14 && Math.abs(feet.y - y0) < 2, `${hspeed().toFixed(1)} m/s, y ${f(y0)} -> ${f(feet.y)}`);
+    input.down.add('ShiftLeft');
+    step(90);
+    check('Shift boosts', hspeed() > 27, `${hspeed().toFixed(1)} m/s`);
+    input.down.delete('ShiftLeft');
+    input.down.add('KeyW');
+    C.placeAt(new T(o[0], 100, -20), Math.PI, 0);
+    hp.fly();
+    C.pitch = -0.6;
+    step(90);
+    check('diving is faster still', C.velocity.length() > 32, `${C.velocity.length().toFixed(1)} m/s`);
+    input.down.delete('KeyW');
+    C.pitch = 0;
+    step(60);
+    check('let go of W and you hover', hp.flying && C.velocity.length() < 4, `${C.velocity.length().toFixed(1)} m/s`);
+
+    // Ground slam next to a parked car.
+    const cars = hp.throwables.filter((t) => t.kind === 'car');
+    check('cars parked around the city', cars.length >= 12, `${cars.length}`);
+    const car = cars.find((t) => Math.abs(t.entity.object3d.position.x - (o[0] - 26)) < 0.5);
+    const carBody = comp(car.entity, 'RigidBodyComponent').body;
+    C.placeAt(new T(o[0] - 22, 18, -10), 0, 0);
+    hp.fly();
+    step(2);
+    input.pressed.add('crouch');
+    let carUp = 0;
+    for (let i = 0; i < 120; i++) { step(1); carUp = Math.max(carUp, carBody.linvel().y); }
+    check('C in the air slams you down', hp.slams === 1 && !hp.flying && C.grounded, `slams ${hp.slams}`);
+    check('  and the shockwave throws the car', carUp > 3, `car vy ${carUp.toFixed(1)}`);
+    step(120);
+
+    check('Hero HQ roof gives super strength', visit('strength'));
+    // Lift the car by the plaza and throw it.
+    const car2 = cars.find((t) => Math.abs(t.entity.object3d.position.x - (o[0] + 26)) < 0.5);
+    const c2 = car2.entity.object3d.position;
+    C.placeAt(new T(c2.x - 4, 0.05, c2.z), 0, 0);
+    step(10);
+    aim(c2.x, c2.y, c2.z);
+    kd('KeyE');
+    step(30);
+    check('E lifts a car over your head', hp.held === car2 && c2.y > feet.y + 2.5, `car y ${f(c2.y)}`);
+    const from = c2.clone();
+    C.pitch = 0.15;
+    input.pressed.add('attack');
+    step(40);
+    check('click throws it', !hp.held && hp.throws === 1 && c2.distanceTo(from) > 15, `${c2.distanceTo(from).toFixed(1)} m`);
+    step(60);
     // No fall damage: drop off a tall roof.
     const health = comp(player, 'Damageable') ?? comp(player, 'Health');
     const before = health?.health;
     C.placeAt(new T(o[0] + 36, 60, -84), 0, 0);
-    hp.owned.delete('fly'); // fall like a rock
     step(200);
-    hp.owned.add('fly');
     check('no fall damage', health && health.health === before && feet.y < 2, `health ${before} -> ${health?.health}, y ${f(feet.y)}`);
 
     // Kittens.
@@ -180,12 +221,13 @@ const shots = process.env.SHOTS;
     // Powers stay in Hero city.
     teleports.goHub();
     step(10);
-    check('powers switch off outside Hero city', C.cfg.jumpHeight === 1.25 && teleports.current === 'hub');
+    const pc = comp(player, 'PlayerCombat');
+    check('powers switch off outside Hero city, fists back on', C.cfg.jumpHeight === 1.25 && C.cfg.gravity === 24 && pc.enabled && teleports.current === 'hub');
     C.placeAt(new T(pad.position[0], 0.14, pad.position[2] + 2.2), 0, 0);
     step(5);
     C.placeAt(new T(pad.position[0], 0.14, pad.position[2]), 0, 0);
     step(30);
-    check('and come back when you return', teleports.current === 'heroes' && C.cfg.jumpHeight === 8, `jumpHeight ${C.cfg.jumpHeight}`);
+    check('and come back when you return', teleports.current === 'heroes' && C.cfg.jumpHeight === 8 && !pc.enabled, `jumpHeight ${C.cfg.jumpHeight}`);
     return r;
   });
 
@@ -207,7 +249,9 @@ const shots = process.env.SHOTS;
     await shot('heroes-captain', `(${aimFrom})(3000 - 11.5, 0.05, 7.5, 3000 - 14, 1.2, 3.5)`);
     await shot('heroes-skyline', `(${aimFrom})(3000 + 20, 45, 20, 3000, 30, -80)`);
     await shot('heroes-hq-top', `(${aimFrom})(3000 + 6, 80.05, -52, 3000 - 30, 0, 10)`);
-    await shot('heroes-grapple', `(() => { const { C, T, step, aim } = X; const hp = game.getSystem('hero-powers'); C.placeAt(new T(3000 + 3, 0.05, -18), 0, 0); step(5); aim(3000, 30, -51); hp.grappleAt(new T(3000, 30, -51)); step(14); aim(3000, 30, -51); })()`);
+    await shot('heroes-swing', `(() => { const { C, T, step, aim } = X; const hp = game.getSystem('hero-powers'); C.placeAt(new T(3000 + 3, 0.05, -14), 0, 0); step(5); aim(3000 + 3, 8, -40); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' })); hp.swingFrom(C, hp.findAnchor(C)); step(25); })()`);
+    await shot('heroes-fly', `(() => { const { C, T, step } = X; window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyG' })); const hp = game.getSystem('hero-powers'); C.placeAt(new T(3000 + 30, 75, 30), 0.3, 0); hp.fly(); C.pitch = -0.3; game.input.down.add('KeyW'); game.input.down.add('ShiftLeft'); step(60); })()`);
+    await shot('heroes-lift', `(() => { const { C, T, step, aim } = X; const hp = game.getSystem('hero-powers'); game.input.down.clear(); const car = hp.throwables.find((t) => t.kind === 'car' && !hp.held); C.placeAt(new T(3000 + 16, 0.05, -24), 0, 0); step(5); hp.pickUp(car); step(20); C.pitch = 0.05; step(2); })()`);
   }
 
   r.push(`${errors.length ? 'FAIL' : 'PASS'}  no errors  ${errors.slice(0, 3).join(' | ')}`);

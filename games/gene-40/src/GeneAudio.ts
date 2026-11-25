@@ -121,6 +121,26 @@ registerSounds({
     noise(c, o, t, { dur: 0.5, type: 'bandpass', freq: 400, freqEnd: 3000, q: 1.5, gain: 0.15 * v, attack: 0.1 });
     [392, 523, 659, 784].forEach((f, i) => tone(c, o, t + 0.1 + i * 0.07, { dur: 0.5, type: 'square', freq: f, gain: 0.07 * v }));
   },
+  /** Hero city: the swing line firing (thwip!). */
+  thwip: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.12, type: 'bandpass', freq: 3200, freqEnd: 1400, q: 2, gain: 0.35 * v });
+    tone(c, o, t, { dur: 0.1, type: 'triangle', freq: 1400, freqEnd: 700, gain: 0.12 * v });
+  },
+  /** Letting go of a line, taking off: a rising whoosh. */
+  whoosh: (c, o, t, v) => noise(c, o, t, { dur: 0.45, type: 'bandpass', freq: 500, freqEnd: 1800, q: 0.9, gain: 0.3 * v, attack: 0.08 }),
+  /** Lifting a car: a heavy creak and grunt. */
+  heave: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.3, type: 'sawtooth', freq: 90, freqEnd: 140, gain: 0.12 * v, attack: 0.03 });
+    noise(c, o, t, { dur: 0.25, type: 'lowpass', freq: 600, gain: 0.25 * v });
+  },
+  /** A car thrown: a big low whoosh. */
+  hurl: (c, o, t, v) => noise(c, o, t, { dur: 0.6, type: 'bandpass', freq: 300, freqEnd: 900, q: 0.7, gain: 0.45 * v, attack: 0.04 }),
+  /** The ground slam: a boom and a rumble. */
+  slam: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.7, type: 'sine', freq: 90, freqEnd: 32, gain: 0.6 * v, attack: 0.005 });
+    noise(c, o, t, { dur: 0.9, type: 'lowpass', freq: 900, freqEnd: 150, gain: 0.55 * v, attack: 0.005 });
+    noise(c, o, t, { dur: 0.15, type: 'highpass', freq: 2500, gain: 0.2 * v });
+  },
   boing: (c, o, t, v) => tone(c, o, t, { dur: 0.45, type: 'triangle', freq: 180, freqEnd: 720, gain: 0.25 * v }),
   /** The net: a soft swish. */
   swish: (c, o, t, v) => noise(c, o, t, { dur: 0.35, type: 'bandpass', freq: 2500, freqEnd: 900, q: 0.7, gain: 0.3 * v, attack: 0.04 }),
@@ -180,6 +200,11 @@ export class GeneAudio implements System {
     ev.on('buddies:ball', ({ state }) => (state === 'carried' ? play('pickup') : play('woof', 1, 0.9 + Math.random() * 0.25)));
     ev.on('heroes:kitten', () => (play('pickup'), play('meow', 0.9, 0.9 + Math.random() * 0.3)));
     ev.on('heroes:power', () => play('powerup'));
+    ev.on('heroes:swing', ({ on }) => (on ? play('thwip', 1, 0.9 + Math.random() * 0.2) : play('whoosh', 0.6)));
+    ev.on('heroes:fly', ({ on }) => on && play('whoosh', 0.8, 0.8));
+    ev.on('heroes:lift', () => play('heave'));
+    ev.on('heroes:throw', () => play('hurl'));
+    ev.on('heroes:slam', ({ strength }) => play('slam', 0.6 + 0.4 * strength));
     ev.on('state:changed', ({ kind }) => kind === 'item' && play('pickup', 0.6));
     // Games.
     ev.on('axes:scored', ({ points }) => points >= 5 && play('cheer', 0.5));

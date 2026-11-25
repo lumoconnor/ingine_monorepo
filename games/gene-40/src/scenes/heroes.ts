@@ -1,44 +1,31 @@
 import * as THREE from 'three';
 import type { Game } from '@ingine/engine/core/Game';
-import type { System } from '@ingine/engine/core/System';
 import { Entity } from '@ingine/engine/entities/Entity';
 import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
-import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
-import { PlayerConfig } from '@ingine/engine/config/player';
 import type { Teleports } from '../Teleports';
 import { sceneById, type Vec3 } from '../scenes';
 import { box, cylinder, decor, label, mat, seeded, sign, tree } from './kit';
 import { buildReturnPad } from './hub';
-import { addCat, catModel } from './murph';
+import { addCat } from './murph';
+import { HeroPowers, POWERS, type PowerId, type Station } from './heroPowers';
+
+export { HeroPowers, POWERS, type PowerId } from './heroPowers';
 
 /**
- * Hero city: an original superhero town. Four power stations on the plaza
- * each give you a power, and you keep every power you collect:
- *
- *  - Super jump: jump eight metres and run faster.
- *  - Flight: hold Space in the air to fly up, let go to glide, C to drop.
- *  - Dash: Q bursts you forward, on the ground or in the air.
- *  - Grapple: G fires a line at whatever you aim at and reels you in.
+ * Hero city: an original superhero town. You arrive in the hero suit (a big
+ * jump and a fast run) and earn three powers in a row, each from a station
+ * the last one gets you to (see heroPowers.ts): Swing on the plaza, Flight on
+ * a rooftop, Super strength on top of Hero HQ. A beam of light marks the next
+ * one. Parked cars and bins line the streets for super strength and the
+ * ground slam to throw around.
  *
  * Eight kittens are stuck on rooftops (one right on top of Hero HQ): reach
  * each one to rescue it and it's waiting in the basket on the plaza. Captain
  * Whiskers, the city's caped cat, keeps an eye on things.
- *
- * Powers only work in Hero city: they switch off when you leave and come back
- * when you return.
  */
 
 type At = (x: number, y: number, z: number) => Vec3;
-
-export type PowerId = 'jump' | 'fly' | 'dash' | 'grapple';
-
-export const POWERS: { id: PowerId; name: string; hint: string; color: number; x: number }[] = [
-  { id: 'jump', name: 'SUPER JUMP', hint: 'Jump sky high', color: 0x3fd17a, x: -9 },
-  { id: 'fly', name: 'FLIGHT', hint: 'Hold Space in the air', color: 0x4fb3ff, x: -3 },
-  { id: 'dash', name: 'DASH', hint: 'Press Q', color: 0xffc94a, x: 3 },
-  { id: 'grapple', name: 'GRAPPLE', hint: 'Aim and press G', color: 0xff5c8a, x: 9 },
-];
 
 const HQ_HEIGHT = 80;
 
@@ -50,7 +37,7 @@ export function buildHeroes(game: Game, teleports: Teleports, index: number): He
   streets(game, at);
   const roofs = city(game, at);
   hq(game, at);
-  const stations = powerStations(game, at);
+  const stations = powerStations(game, at, roofs);
   buildReturnPad(game, teleports, s, index);
 
   // Captain Whiskers, in a cape, by the kitten basket.
@@ -69,6 +56,8 @@ export function buildHeroes(game: Game, teleports: Teleports, index: number): He
   powers.init(game);
   powers.setBasket(at(-11, 0, 4.5));
   for (const p of kittenSpots(at, roofs)) powers.addKitten(game, p);
+  streetStuff(game, at, powers);
+  powers.render();
   return powers;
 }
 
@@ -224,18 +213,26 @@ function hq(game: Game, at: At): void {
   box(game, [5, 4, 0.2], at(0, 2, -50.95), 0x2a2250, 'hq-doors');
 }
 
+
 // --- Power stations -------------------------------------------------------------
 
-export interface Station {
-  id: PowerId;
-  /** Centre of the station, on the ground. */
-  pos: THREE.Vector3;
-  orb: THREE.Mesh;
-}
-
-function powerStations(game: Game, at: At): Station[] {
+/**
+ * Swing on the plaza; Flight on a rooftop too high to jump to (swing up);
+ * Super strength on top of Hero HQ (fly up).
+ */
+function powerStations(game: Game, at: At, roofs: Roof[]): Station[] {
+  const [ox, oy, oz] = at(0, 0, 0);
+  // The flight roof: the nearest one to the avenue that's well out of jumping reach.
+  const flightRoof = roofs
+    .filter((r) => r.top[1] - oy >= 24 && r.top[1] - oy <= 40)
+    .sort((a, b) => Math.hypot(a.top[0] - ox, a.top[2] - (oz - 30)) - Math.hypot(b.top[0] - ox, b.top[2] - (oz - 30)))[0];
+  const where: Record<PowerId, Vec3> = {
+    swing: at(0, 0, -3),
+    fly: [flightRoof.top[0] - flightRoof.w * 0.2, flightRoof.top[1], flightRoof.top[2] - flightRoof.d * 0.2],
+    strength: at(-4, HQ_HEIGHT, -56),
+  };
   return POWERS.map((p) => {
-    const g = at(p.x, 0, -3);
+    const g = where[p.id];
     cylinder(game, 0.7, 1.0, [g[0], g[1] + 0.5, g[2]], mat(0x3a3f4a, { roughness: 0.4, metalness: 0.4 }), 'station-plinth', 24);
     decor(game, new THREE.CylinderGeometry(0.72, 0.72, 0.06, 24), mat(p.color, { emissive: p.color, emissiveIntensity: 0.8 }), [g[0], g[1] + 1.03, g[2]], 'station-rim', false);
     // The power sits in a shallow cup on top (resting, not floating).
@@ -244,14 +241,22 @@ function powerStations(game: Game, at: At): Station[] {
       .object3d as THREE.Mesh;
     label(game, p.name, [g[0], g[1] + 2.4, g[2]], 1.0);
     label(game, p.hint, [g[0], g[1] + 2.0, g[2]], 0.6, '#fff3c4');
-    return { id: p.id, pos: new THREE.Vector3(...g), orb };
+    // A beam of light you can see from across the city.
+    const beacon = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.9, 220, 16, 1, true).translate(0, 110 + 1.4, 0),
+      new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+    );
+    beacon.position.set(...g);
+    beacon.name = `beacon-${p.id}`;
+    game.renderer.scene.add(beacon);
+    return { id: p.id, pos: new THREE.Vector3(...g), orb, beacon };
   });
 }
 
 // --- Kittens --------------------------------------------------------------------
 
 function kittenSpots(at: At, roofs: Roof[]): Vec3[] {
-  // A spread of heights: a couple you can super-jump to, the rest need flight or the grapple.
+  // A spread of heights: a couple you can super-jump to, the rest need a swing or flight.
   const sorted = [...roofs].sort((a, b) => a.top[1] - b.top[1]);
   // sorted[0] is the diner (6 m).
   const picks = [0, 5, 12, 18, 24, 29, sorted.length - 1].map((i) => sorted[Math.min(i, sorted.length - 1)]);
@@ -260,309 +265,79 @@ function kittenSpots(at: At, roofs: Roof[]): Vec3[] {
   return spots;
 }
 
-interface Kitten {
-  entity: Entity;
-  pos: THREE.Vector3;
-  saved: boolean;
+// --- Cars and bins ------------------------------------------------------------------
+
+const CAR_COLORS = [0xd7263d, 0xf2c230, 0x2f6fd6, 0xf1f1ee, 0x2f9e5a, 0x1f2430, 0xff8a3d, 0x8a5cd6];
+
+/** A chunky little car: body, cabin, wheels. Length along x. Returns the model, centred on its collider. */
+function carModel(color: number): THREE.Group {
+  const g = new THREE.Group();
+  const paint = mat(color, { roughness: 0.45, metalness: 0.3 });
+  const glass = mat(0x2a3550, { roughness: 0.2, metalness: 0.5 });
+  const tyre = mat(0x1a1a1c, { roughness: 0.9 });
+  const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    g.add(mesh);
+    return mesh;
+  };
+  add(new THREE.BoxGeometry(4.2, 0.65, 1.9), paint, 0, -0.22, 0);
+  add(new THREE.BoxGeometry(2.3, 0.7, 1.72), glass, -0.2, 0.45, 0);
+  add(new THREE.BoxGeometry(2.1, 0.08, 1.76), paint, -0.2, 0.82, 0);
+  for (const x of [-1.35, 1.35]) for (const z of [-0.92, 0.92]) add(new THREE.CylinderGeometry(0.36, 0.36, 0.26, 14).rotateX(Math.PI / 2), tyre, x, -0.44, z);
+  // Headlights and tail lights.
+  for (const z of [-0.6, 0.6]) {
+    add(new THREE.BoxGeometry(0.05, 0.16, 0.3), mat(0xfff6d0, { emissive: 0xfff0b0, emissiveIntensity: 0.6 }), 2.11, -0.12, z);
+    add(new THREE.BoxGeometry(0.05, 0.14, 0.3), mat(0xc0202a, { emissive: 0x801010, emissiveIntensity: 0.5 }), -2.11, -0.12, z);
+  }
+  return g;
 }
 
-const KITTEN_FUR = [0xf4f1ea, 0x9a9aa2, 0xd9b48a, 0x2b2b30, 0xe08a3c, 0xc9c3b8, 0x7a5536, 0xf0d9a8];
-
-// --- Powers -----------------------------------------------------------------------
-
-/**
- * The powers and the kitten rescue. Runs before the player controller each
- * fixed step, so it shapes the controller's velocity and tuning rather than
- * replacing its movement.
- */
-export class HeroPowers implements System {
-  readonly name = 'hero-powers';
-  private game!: Game;
-  private ready = false;
-  readonly owned = new Set<PowerId>();
-  readonly kittens: Kitten[] = [];
-  saved = 0;
-  private basket: Vec3 = [0, 0, 0];
-  private panel!: HTMLDivElement;
-  private unsub: (() => void) | null = null;
-  private keys = { dash: false, grapple: false };
-  private dashTime = 0;
-  private dashCooldown = 0;
-  private readonly dashDir = new THREE.Vector3();
-  /** The grapple: where it's hooked, and for how long. */
-  grapple: { point: THREE.Vector3; t: number } | null = null;
-  private rope!: THREE.Line;
-  private hook!: THREE.Mesh;
-  /** Counters for the checks. */
-  dashes = 0;
-  grapples = 0;
-
-  constructor(readonly stations: Station[]) {}
-
-  init(game: Game): void {
-    if (this.ready) return;
-    this.ready = true;
-    this.game = game;
-    this.panel = document.createElement('div');
-    this.panel.classList.add('gene-panel');
-    Object.assign(this.panel.style, {
-      position: 'absolute',
-      top: '14px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      padding: '8px 14px',
-      borderRadius: '10px',
-      background: 'rgba(30,20,70,0.75)',
-      color: '#ffe98a',
-      font: '600 16px system-ui, sans-serif',
-      display: 'none',
-      pointerEvents: 'none',
-      zIndex: '4',
-      whiteSpace: 'nowrap',
-    });
-    document.getElementById('app')?.appendChild(this.panel);
-    // Raw keys, like H in Teleports (the engine's action table is closed). F is taken by fullscreen.
-    window.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.code === 'KeyQ') this.keys.dash = true;
-      if (e.code === 'KeyG') this.keys.grapple = true;
-    });
-    this.unsub = game.events.on('teleport', () => {
-      this.grapple = null;
-      this.dashTime = 0;
-      this.applyTuning();
-      this.render();
-    });
-
-    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-    this.rope = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xff5c8a }));
-    this.rope.frustumCulled = false;
-    this.rope.visible = false;
-    this.hook = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), mat(0xff5c8a, { emissive: 0xff5c8a }));
-    this.hook.visible = false;
-    game.renderer.scene.add(this.rope, this.hook);
+function binModel(): THREE.Group {
+  const g = new THREE.Group();
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.32, 1.0, 16), mat(0x3d6b4a, { roughness: 0.7, metalness: 0.3 }));
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 16), mat(0x2d4f37));
+  lid.position.y = 0.52;
+  for (const m of [can, lid]) {
+    m.castShadow = true;
+    g.add(m);
   }
+  return g;
+}
 
-  dispose(): void {
-    this.unsub?.();
-  }
-
-  setBasket(p: Vec3): void {
-    this.basket = p;
-    // A big wicker basket for rescued kittens.
-    const [x, y, z] = p;
-    const wicker = mat(0xb5874e, { roughness: 1 });
-    const ring = new THREE.CylinderGeometry(1.6, 1.3, 0.8, 24, 1, true);
-    const shell = new THREE.Mesh(ring, wicker);
-    shell.material.side = THREE.DoubleSide;
-    shell.position.set(x, y + 0.4, z);
-    shell.castShadow = true;
-    this.game.world.spawn(new Entity('kitten-basket', shell));
-    decor(this.game, new THREE.CylinderGeometry(1.3, 1.3, 0.1, 24), mat(0xe8c7d8, { roughness: 1 }), [x, y + 0.05, z], 'basket-cushion', false);
-    label(this.game, 'Rescued kittens', [x, y + 2.1, z], 0.8);
-  }
-
-  addKitten(game: Game, roof: Vec3): void {
-    const i = this.kittens.length;
-    const { root } = catModel({ fur: KITTEN_FUR[i % KITTEN_FUR.length], s: 0.9, sitting: true });
-    const g = new THREE.Group();
-    g.position.set(...roof);
-    g.rotation.y = i * 1.3;
-    g.add(root);
-    const help = label(game, 'Help!', [roof[0], roof[1] + 1.1, roof[2]], 0.7, '#ffd84a');
-    const e = new Entity('kitten', g);
-    e.tags.add('kitten');
+/** Parked cars along the avenue and cross streets, bins round the plaza: all liftable, all throwable. */
+function streetStuff(game: Game, at: At, powers: HeroPowers): void {
+  const spawn = (name: string, kind: 'car' | 'bin', model: THREE.Group, p: Vec3, yaw: number, collider: RAPIER.ColliderDesc, half: THREE.Vector3) => {
+    model.position.set(...p);
+    model.rotation.y = yaw;
+    const e = new Entity(name, model);
+    e.tags.add('throwable');
+    e.add(new RigidBodyComponent({ type: 'dynamic', ccd: true, colliders: [collider], linearDamping: 0.05, angularDamping: 0.3 }));
     game.world.spawn(e);
-    this.kittens.push({ entity: e, pos: new THREE.Vector3(...roof), saved: false });
-    (e as Entity & { help?: Entity }).help = help;
-  }
-
-  get total(): number {
-    return this.kittens.length;
-  }
-
-  private player(): PlayerController | undefined {
-    return this.game.world.find('player')?.get(PlayerController);
-  }
-
-  private here(): boolean {
-    return (this.game.getSystem('teleports') as { current?: string } | undefined)?.current === 'heroes';
-  }
-
-  /** Grant a power (also used by the checks). */
-  grant(id: PowerId): void {
-    if (this.owned.has(id)) return;
-    this.owned.add(id);
-    const st = this.stations.find((s) => s.id === id);
-    if (st) (st.orb.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.25;
-    const p = POWERS.find((q) => q.id === id)!;
-    const all = this.owned.size === POWERS.length;
-    this.game.events.emit('notify', { text: all ? 'Every power! The city is yours.' : `Power up: ${p.name.toLowerCase()}! ${p.hint}.` });
-    this.game.events.emit('heroes:power', { power: id });
-    this.applyTuning();
-    this.render();
-  }
-
-  /** Tune the controller for the powers you have, but only in Hero city. */
-  private applyTuning(): void {
-    const ctrl = this.player();
-    if (!ctrl) return;
-    const c = ctrl.cfg;
-    c.jumpHeight = PlayerConfig.jumpHeight;
-    c.sprintSpeed = PlayerConfig.sprintSpeed;
-    c.walkSpeed = PlayerConfig.walkSpeed;
-    c.airAccel = PlayerConfig.airAccel;
-    c.airMaxSpeedFactor = PlayerConfig.airMaxSpeedFactor;
-    if (!this.here()) return;
-    if (this.owned.has('jump')) {
-      c.jumpHeight = 8;
-      c.walkSpeed = 6;
-      c.sprintSpeed = 11;
-      c.airAccel = 16;
-      c.airMaxSpeedFactor = 1.3;
-    }
-    if (this.owned.has('fly')) {
-      c.airAccel = 30;
-      c.airMaxSpeedFactor = 1.8;
-    }
-  }
-
-  preFixedUpdate(dt: number): void {
-    const keys = this.keys;
-    this.keys = { dash: false, grapple: false };
-    const ctrl = this.player();
-    if (!ctrl || !this.here()) return;
-    const feet = ctrl.entity.object3d.position;
-    const v = ctrl.velocity;
-    const input = this.game.input;
-
-    // Stations: walk up to one to take its power.
-    for (const st of this.stations) {
-      if (!this.owned.has(st.id) && Math.hypot(feet.x - st.pos.x, feet.z - st.pos.z) < 1.35 && Math.abs(feet.y - st.pos.y) < 2) this.grant(st.id);
-    }
-
-    // Kittens: reach one to rescue it.
-    for (const k of this.kittens) {
-      if (!k.saved && Math.hypot(feet.x - k.pos.x, feet.z - k.pos.z) < 1.6 && Math.abs(feet.y - k.pos.y) < 2.2) this.rescue(k);
-    }
-
-    // Grapple: G fires along your aim; G again (or jump) lets go.
-    if (keys.grapple && this.owned.has('grapple')) {
-      if (this.grapple) this.grapple = null;
-      else this.fireGrapple();
-    }
-    if (this.grapple) {
-      const g = this.grapple;
-      g.t += dt;
-      const eye = _eye.copy(feet).setY(feet.y + 1.4);
-      const to = _to.subVectors(g.point, eye);
-      const dist = to.length();
-      if (dist < 2.2 || g.t > 3 || (input.wasPressed('jump') && g.t > 0.2)) {
-        // Let go with a hop, so you pop up over a ledge you were pulled to.
-        v.y = Math.max(v.y, 7);
-        this.grapple = null;
-      } else {
-        v.copy(to.multiplyScalar(Math.min(24, dist * 3) / dist));
-      }
-    }
-
-    // Dash: a short burst along your view (level), on a cooldown.
-    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
-    if (keys.dash && this.owned.has('dash') && this.dashCooldown === 0) {
-      this.dashDir.set(-Math.sin(ctrl.yaw), 0, -Math.cos(ctrl.yaw));
-      this.dashTime = 0.3;
-      this.dashCooldown = 0.75;
-      this.dashes++;
-      this.grapple = null;
-    }
-    if (this.dashTime > 0) {
-      this.dashTime -= dt;
-      v.x = this.dashDir.x * 24;
-      v.z = this.dashDir.z * 24;
-      if (!ctrl.grounded) v.y = Math.max(v.y, 0.4);
-    }
-
-    // Flight: hold jump in the air to climb, let go to glide, crouch to drop.
-    if (this.owned.has('fly') && !ctrl.grounded && !this.grapple) {
-      if (input.isDown('jump')) v.y = Math.min(v.y + 46 * dt, 9);
-      else if (!input.isDown('crouch')) v.y = Math.max(v.y, -3);
-    }
-  }
-
-  private fireGrapple(): void {
-    const cam = this.game.renderer.camera;
-    cam.updateMatrixWorld();
-    cam.getWorldPosition(_eye);
-    cam.getWorldDirection(_dir);
-    const body = this.player()?.entity.get(RigidBodyComponent)?.body;
-    const ray = new RAPIER.Ray({ x: _eye.x, y: _eye.y, z: _eye.z }, { x: _dir.x, y: _dir.y, z: _dir.z });
-    const hit = this.game.physics.world.castRay(ray, 80, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined, undefined, body);
-    if (!hit || hit.timeOfImpact < 2.5) {
-      this.game.events.emit('notify', { text: 'Nothing to grab there.' });
-      return;
-    }
-    this.grappleAt(_eye.clone().addScaledVector(_dir, hit.timeOfImpact));
-  }
-
-  /** Hook a point and start reeling in. Public for the checks. */
-  grappleAt(point: THREE.Vector3): void {
-    this.grapple = { point: point.clone(), t: 0 };
-    this.grapples++;
-    this.dashTime = 0;
-  }
-
-  private rescue(k: Kitten): void {
-    k.saved = true;
-    this.saved++;
-    const n = this.saved - 1;
-    // Off the roof and into the basket.
-    const a = n * 0.8;
-    const r = n === 0 ? 0 : 0.85;
-    k.entity.object3d.position.set(this.basket[0] + Math.cos(a) * r, this.basket[1] + 0.1, this.basket[2] + Math.sin(a) * r);
-    k.entity.object3d.rotation.y = -a;
-    const help = (k.entity as Entity & { help?: Entity }).help;
-    if (help) this.game.world.destroy(help);
-    const all = this.saved === this.total;
-    this.game.events.emit('notify', { text: all ? 'Every kitten is safe. City saved!' : `Kitten rescued! ${this.saved} / ${this.total}` });
-    this.game.events.emit('heroes:kitten', { saved: this.saved, total: this.total });
-    if (all) this.game.state.setFlag('heroes.allKittens');
-    this.render();
-  }
-
-  update(): void {
-    const g = this.grapple;
-    this.rope.visible = this.hook.visible = !!g;
-    if (!g) return;
-    const cam = this.game.renderer.camera;
-    cam.getWorldPosition(_eye);
-    cam.getWorldDirection(_dir);
-    // From just below and right of the view, so the line reads as coming from your hand.
-    const right = _to.set(-_dir.z, 0, _dir.x).normalize();
-    const hand = _eye.addScaledVector(_dir, 0.5).addScaledVector(right, 0.25).setY(_eye.y - 0.25);
-    const pos = this.rope.geometry.attributes.position as THREE.BufferAttribute;
-    pos.setXYZ(0, hand.x, hand.y, hand.z);
-    pos.setXYZ(1, g.point.x, g.point.y, g.point.z);
-    pos.needsUpdate = true;
-    this.hook.position.copy(g.point);
-  }
-
-  private render(): void {
-    const here = this.here();
-    this.panel.style.display = here ? 'block' : 'none';
-    const powers = POWERS.filter((p) => this.owned.has(p.id)).map((p) => p.name.toLowerCase());
-    this.panel.textContent = `Kittens rescued: ${this.saved} / ${this.total}   ·   Powers: ${powers.length ? powers.join(', ') : 'visit a station'}`;
-  }
-}
-
-const _eye = new THREE.Vector3();
-const _dir = new THREE.Vector3();
-const _to = new THREE.Vector3();
-
-declare module '@ingine/engine/core/EventBus' {
-  interface GameEvents {
-    'heroes:power': { power: PowerId };
-    'heroes:kitten': { saved: number; total: number };
-  }
+    powers.addThrowable({ entity: e, kind, half });
+  };
+  const rand = seeded(777);
+  const cars: [number, number, number][] = [];
+  // Both kerbs of the avenue, nose to tail, leaving HQ's front clear.
+  for (const z of [-24, -36, -78, -92, -106, -120]) for (const x of [-12.5, 12.5]) cars.push([x, z, Math.PI / 2]);
+  // The cross street behind the plaza.
+  for (const x of [-64, -40, 40, 64]) cars.push([x, -24, 0]);
+  // Two right by the plaza, for a first throw.
+  cars.push([-26, -10, Math.PI / 2], [26, 2, Math.PI / 2]);
+  cars.forEach(([x, z, yaw], i) => {
+    const color = CAR_COLORS[Math.floor(rand() * CAR_COLORS.length) % CAR_COLORS.length];
+    spawn(
+      'car',
+      'car',
+      carModel(i === 0 ? 0xf2c230 : color),
+      at(x, 0.8, z),
+      yaw + (rand() - 0.5) * 0.06,
+      RAPIER.ColliderDesc.cuboid(2.1, 0.8, 0.95).setDensity(70).setFriction(0.7).setRestitution(0.1),
+      new THREE.Vector3(2.1, 0.8, 0.95),
+    );
+  });
+  for (const [x, z] of [[-17, -14], [17, -14], [-17, 10], [17, 10], [-6, 12], [6, 12]])
+    spawn('bin', 'bin', binModel(), at(x, 0.5, z), 0, RAPIER.ColliderDesc.cylinder(0.5, 0.36).setDensity(60).setFriction(0.6), new THREE.Vector3(0.4, 0.5, 0.4));
 }

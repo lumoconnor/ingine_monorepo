@@ -1,6 +1,6 @@
 // Phone check: an emulated iPhone in landscape. The on-screen controls show
 // once you tap to play, nothing covers them, the stick moves you, and the
-// party's own buttons work: Home away from the plaza, Dash and Grapple in hero
+// party's own buttons work: Home away from the plaza, Swing in hero
 // city, pause. SHOTS=dir saves screenshots.
 const { chromium, devices } = require('playwright');
 
@@ -76,21 +76,21 @@ const check = (label, ok, extra = '') => r.push(`${ok ? 'PASS' : 'FAIL'}  ${labe
   const p1 = await page.evaluate(() => game.world.find('player').object3d.position.toArray());
   check('pushing the stick forward walks you forward', p0[2] - p1[2] > 1, `moved ${(p0[2] - p1[2]).toFixed(2)} m`);
 
-  // Hero city: Dash and Grapple appear once you have them and work; Home takes you back.
+  // Hero city: Swing appears once you have it and works while held; Home takes you back.
   await page.evaluate(() => { const p = teleports.pads.find((q) => q.sceneId === 'heroes'); teleports.go(p.to, p.toYaw, p.sceneId); });
   await ticks(4);
   check('in hero city before any power: just Home', JSON.stringify(await extras()) === '["Home"]', JSON.stringify(await extras()));
-  await page.evaluate(() => {
-    const hp = game.getSystem('hero-powers');
-    for (const id of ['dash', 'grapple']) { hp.owned.add(id); game.events.emit('heroes:power', { power: id }); }
-  });
-  check('with the powers: Home, Dash and Grapple buttons', JSON.stringify((await extras()).sort()) === JSON.stringify(['Dash', 'Grapple', 'Home']), JSON.stringify(await extras()));
+  await page.evaluate(() => game.getSystem('hero-powers').grant('swing'));
+  check('with swing: Home and Swing buttons', JSON.stringify((await extras()).sort()) === JSON.stringify(['Home', 'Swinghold']), JSON.stringify(await extras()));
   await shot('phone-heroes');
-  const d0 = await page.evaluate(() => game.world.find('player').object3d.position.toArray());
-  await press('.t-extra:text("Dash")');
-  await ticks(20);
-  const d1 = await page.evaluate(() => game.world.find('player').object3d.position.toArray());
-  check('Dash bursts you forward', Math.hypot(d1[0] - d0[0], d1[2] - d0[2]) > 2, `${Math.hypot(d1[0] - d0[0], d1[2] - d0[2]).toFixed(2)} m`);
+  const sb = await page.locator('.t-extra:text("Swing")').boundingBox();
+  await touch('touchStart', [[sb.x + sb.width / 2, sb.y + sb.height / 2]]);
+  await ticks(6);
+  const hooked = await page.evaluate(() => !!game.getSystem('hero-powers').swing);
+  await touch('touchEnd', []);
+  await ticks(6);
+  const released = await page.evaluate(() => !game.getSystem('hero-powers').swing);
+  check('holding Swing hooks a line, lifting your finger lets go', hooked && released);
   const n0 = await page.evaluate(() => teleports.count);
   await press('.t-extra:text("Home")');
   await page.waitForFunction((n) => teleports.count > n, n0, { timeout: 20000 }).catch(() => {});

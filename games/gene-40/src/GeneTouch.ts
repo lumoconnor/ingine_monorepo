@@ -6,8 +6,10 @@ import type { HeroPowers } from './scenes/heroes';
 
 /**
  * Phone buttons for the party's own keys, on top of the engine's touch
- * controls: Home (H) away from the plaza, Dash (Q) and Grapple (G) in hero
- * city once you have them, and hold-to-talk (V) once the mic is on.
+ * controls: Home (H) away from the plaza, Swing (hold G) in hero city once
+ * you have it, and hold-to-talk (V) once the mic is on. Hero city's other
+ * powers use the engine's own buttons: Jump in the air flies, Crouch in the
+ * air slams, Attack lifts and throws.
  */
 export class GeneTouch implements System {
   readonly name = 'gene-touch';
@@ -21,16 +23,14 @@ export class GeneTouch implements System {
     document.head.appendChild(css);
     const t = this.touch;
     const talk = t.addButton({ label: 'Talk<small>hold</small>', key: 'KeyV' });
-    const grapple = t.addButton({ label: 'Grapple', key: 'KeyG' });
-    const dash = t.addButton({ label: 'Dash', key: 'KeyQ' });
+    const swing = t.addButton({ label: 'Swing<small>hold</small>', key: 'KeyG' });
     const home = t.addButton({ label: 'Home', key: 'KeyH' });
     talk.classList.add('hidden');
     const place = () => {
       const scene = this.teleports.current;
       const owned = game.getSystem<HeroPowers>('hero-powers')?.owned;
       home.classList.toggle('hidden', scene === 'hub');
-      dash.classList.toggle('hidden', scene !== 'heroes' || !owned?.has('dash'));
-      grapple.classList.toggle('hidden', scene !== 'heroes' || !owned?.has('grapple'));
+      swing.classList.toggle('hidden', scene !== 'heroes' || !owned?.has('swing'));
     };
     place();
     game.events.on('teleport', place);
