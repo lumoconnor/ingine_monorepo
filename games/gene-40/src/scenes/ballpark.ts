@@ -78,21 +78,21 @@ function field(game: Game, at: At): void {
   // The ground everywhere (the warning track and stands sit on it).
   box(game, [220, 1, 220], at(0, -0.5, -40), 0x5a5f66, 'ballpark-ground');
   // Outfield grass: a quarter disc out to the wall, with mown stripes.
-  const quarter = (r: number, color: number, y: number, name: string) => {
+  const quarter = (r: number, color: number, y: number, name: string, order: number) => {
     const g = new THREE.CircleGeometry(r, 64, Math.PI / 4, Math.PI / 2).rotateX(-Math.PI / 2);
     // CircleGeometry's 0 angle is +X; after rotateX(-90) the quarter spans -Z ± 45°.
-    decor(game, g, mat(color, { roughness: 1 }), at(PLATE[0], y, PLATE[2]), name, false);
+    decor(game, g, groundLayer(color, order), at(PLATE[0], y, PLATE[2]), name, false);
   };
-  quarter(WALL_R + 4, 0xb48a5a, 0.01, 'warning-track');
-  quarter(WALL_R, 0x4f9a46, 0.015, 'outfield');
+  quarter(WALL_R + 4, 0xb48a5a, 0.01, 'warning-track', 1);
+  quarter(WALL_R, 0x4f9a46, 0.015, 'outfield', 2);
   for (let k = 1; k < 8; k += 2) {
     const ring = new THREE.RingGeometry(k * 7.5, k * 7.5 + 3.75, 64, 1, Math.PI / 4, Math.PI / 2).rotateX(-Math.PI / 2);
-    decor(game, ring, mat(0x58a84e, { roughness: 1 }), at(PLATE[0], 0.018, PLATE[2]), 'mow-stripe', false);
+    decor(game, ring, groundLayer(0x58a84e, 3), at(PLATE[0], 0.018, PLATE[2]), 'mow-stripe', false);
   }
   // Infield dirt and the infield grass diamond.
-  quarter(29, 0xb07a4a, 0.02, 'infield-dirt');
+  quarter(29, 0xb07a4a, 0.02, 'infield-dirt', 4);
   const diamond = new THREE.PlaneGeometry(19.4, 19.4).rotateX(-Math.PI / 2).rotateY(Math.PI / 4);
-  decor(game, diamond, mat(0x4f9a46, { roughness: 1 }), P(13.7, 0, 0.025), 'infield-grass', false);
+  decor(game, diamond, groundLayer(0x4f9a46, 5), P(13.7, 0, 0.025), 'infield-grass', false);
   // The mound.
   cylinder(game, 2.7, 0.25, P(MOUND_DIST, 0, 0.125), mat(0xb07a4a, { roughness: 1 }), 'mound', 32);
   // Bases.
@@ -212,13 +212,28 @@ function scoreboard(game: Game, at: At): (lines: string[]) => void {
   return draw;
 }
 
+/**
+ * A flat ground layer (grass, dirt, stripes) lying a few mm over the one below.
+ * Millimetres alone lose to depth precision at a distance and on phones, so the
+ * layers flickered into each other (dirt and grass striping across the infield).
+ * The polygon offset pulls each layer toward the camera by its order, so the
+ * higher order always draws on top.
+ */
+function groundLayer(color: number, order: number, roughness = 1): THREE.MeshStandardMaterial {
+  const m = mat(color, { roughness });
+  m.polygonOffset = true;
+  m.polygonOffsetFactor = -order;
+  m.polygonOffsetUnits = -4 * order;
+  return m;
+}
+
 function battingArea(game: Game, at: At, park: Ballpark): void {
   const [px, , pz] = PLATE;
   // Home plate, the batter's boxes and a bat rack by the backstop.
   const plate = new THREE.Shape([new THREE.Vector2(-0.22, 0), new THREE.Vector2(0.22, 0), new THREE.Vector2(0.22, -0.22), new THREE.Vector2(0, -0.43), new THREE.Vector2(-0.22, -0.22)]);
   const pg = new THREE.ShapeGeometry(plate).rotateX(-Math.PI / 2);
-  decor(game, pg, mat(0xffffff), at(px, 0.03, pz - 0.2), 'home-plate', false);
-  decor(game, new THREE.CircleGeometry(4, 40).rotateX(-Math.PI / 2), mat(0xb07a4a, { roughness: 1 }), at(px, 0.022, pz), 'home-dirt', false);
+  decor(game, pg, groundLayer(0xffffff, 7, 0.7), at(px, 0.03, pz - 0.2), 'home-plate', false);
+  decor(game, new THREE.CircleGeometry(4, 40).rotateX(-Math.PI / 2), groundLayer(0xb07a4a, 6), at(px, 0.028, pz), 'home-dirt', false);
   const chalk = mat(0xffffff, { roughness: 1 });
   for (const sx of [-1, 1]) {
     const cx = px + sx * 0.95;
