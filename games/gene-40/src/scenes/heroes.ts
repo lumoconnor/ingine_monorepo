@@ -9,6 +9,7 @@ import { box, cylinder, decor, label, mat, seeded, sign, tree } from './kit';
 import { buildReturnPad } from './hub';
 import { addCat } from './murph';
 import { HeroPowers, POWERS, type PowerId, type Station } from './heroPowers';
+import { HeroEmergencies, type EmergencySites } from './heroEmergencies';
 
 export { HeroPowers, POWERS, type PowerId } from './heroPowers';
 
@@ -19,6 +20,10 @@ export { HeroPowers, POWERS, type PowerId } from './heroPowers';
  * a rooftop, Super strength on top of Hero HQ. A beam of light marks the next
  * one. Parked cars and bins line the streets for super strength and the
  * ground slam to throw around.
+ *
+ * Emergencies (heroEmergencies.ts) open up as you earn powers: a kitten
+ * falling off a ledge, a burning building, Captain Whiskers' ring race and a
+ * runaway bus.
  *
  * Eight kittens are stuck on rooftops (one right on top of Hero HQ): reach
  * each one to rescue it and it's waiting in the basket on the plaza. Captain
@@ -58,6 +63,8 @@ export function buildHeroes(game: Game, teleports: Teleports, index: number): He
   for (const p of kittenSpots(at, roofs)) powers.addKitten(game, p);
   streetStuff(game, at, powers);
   powers.render();
+  const emergencies = game.addSystem(new HeroEmergencies(powers, emergencySites(at, roofs)));
+  emergencies.init(game);
   return powers;
 }
 
@@ -321,7 +328,8 @@ function streetStuff(game: Game, at: At, powers: HeroPowers): void {
   const rand = seeded(777);
   const cars: [number, number, number][] = [];
   // Both kerbs of the avenue, nose to tail, leaving HQ's front clear.
-  for (const z of [-24, -36, -78, -92, -106, -120]) for (const x of [-12.5, 12.5]) cars.push([x, z, Math.PI / 2]);
+  // (The right kerb sits further out: the runaway bus comes down the right lane.)
+  for (const z of [-24, -36, -78, -92, -106, -120]) for (const x of [-12.5, 13.8]) cars.push([x, z, Math.PI / 2]);
   // The cross street behind the plaza.
   for (const x of [-64, -40, 40, 64]) cars.push([x, -24, 0]);
   // Two right by the plaza, for a first throw.
@@ -340,4 +348,47 @@ function streetStuff(game: Game, at: At, powers: HeroPowers): void {
   });
   for (const [x, z] of [[-17, -14], [17, -14], [-17, 10], [17, 10], [-6, 12], [6, 12]])
     spawn('bin', 'bin', binModel(), at(x, 0.5, z), 0, RAPIER.ColliderDesc.cylinder(0.5, 0.36).setDensity(60).setFriction(0.6), new THREE.Vector3(0.4, 0.5, 0.4));
+}
+
+// --- Where the emergencies happen ------------------------------------------------------
+
+function emergencySites(at: At, roofs: Roof[]): EmergencySites {
+  const [ox, oy, oz] = at(0, 0, 0);
+  const rel = (r: Roof) => ({ x: r.top[0] - ox, z: r.top[2] - oz, h: r.top[1] - oy });
+  const pick = (x: number, lo: number, hi: number) =>
+    roofs
+      .filter((r) => Math.abs(rel(r).x - x) < 1 && rel(r).z < -70)
+      .sort((a, b) => Math.abs(rel(a).h - (lo + hi) / 2) - Math.abs(rel(b).h - (lo + hi) / 2))[0];
+  // The kitten's ledge: a tower on the right of the avenue, on the edge facing it.
+  const ledge = pick(24, 25, 45);
+  const lx = ledge.top[0] - ledge.w / 2;
+  // The burning building: on the left, its face to the avenue.
+  const fire = pick(-24, 30, 50);
+  const fx = fire.top[0] + fire.w / 2 + 0.45;
+  const fh = fire.top[1] - oy;
+  const windows: Vec3[] = [
+    [fx, oy + Math.min(10, fh - 6), fire.top[2] + 4],
+    [fx, oy + Math.min(18, fh - 4), fire.top[2]],
+    [fx, oy + Math.min(26, fh - 2), fire.top[2] - 4],
+  ];
+  // The ring course: up off the plaza, a lap round Hero HQ above the rooftops, back down.
+  const pts: Vec3[] = [at(0, 14, -8), at(0, 34, -24)];
+  for (let deg = 45; deg <= 315; deg += 45) {
+    const a = (deg * Math.PI) / 180;
+    pts.push(at(32 * Math.sin(a), 55, -60 + 32 * Math.cos(a)));
+  }
+  pts.push(at(0, 22, -16));
+  const rings = pts.map((p, i) => {
+    const q = pts[Math.min(i + 1, pts.length - 1)];
+    const prev = pts[Math.max(i - 1, 0)];
+    const dx = i < pts.length - 1 ? q[0] - p[0] : p[0] - prev[0];
+    const dz = i < pts.length - 1 ? q[2] - p[2] : p[2] - prev[2];
+    return { at: p, facing: Math.atan2(dx, dz) };
+  });
+  return {
+    ledge: { top: [lx + 0.5, ledge.top[1], ledge.top[2]], street: [lx - 2, oy, ledge.top[2]] },
+    fire: { windows, normal: [1, 0, 0] },
+    rings,
+    bus: { from: at(10.8, 1.6, -135), to: at(10.8, 1.6, -20) },
+  };
 }

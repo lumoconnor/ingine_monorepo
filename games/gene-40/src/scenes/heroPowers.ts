@@ -561,7 +561,7 @@ export class HeroPowers implements System {
     const fx = -Math.sin(ctrl.yaw);
     const fz = -Math.cos(ctrl.yaw);
     // Over your head, a little in front, long side across your shoulders.
-    rb.body.setNextKinematicTranslation({ x: feet.x + fx * 1.8, y: feet.y + 2.6 + this.held!.half.y, z: feet.z + fz * 1.8 });
+    rb.body.setNextKinematicTranslation({ x: feet.x + fx * 1.8, y: feet.y + 3.0 + this.held!.half.y, z: feet.z + fz * 1.8 });
     _q.setFromEuler(_euler.set(0, ctrl.yaw, 0));
     rb.body.setNextKinematicRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w });
   }
