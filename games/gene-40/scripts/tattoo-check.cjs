@@ -1,5 +1,5 @@
 // Tattoo check: arrive on the street, walk in through the shop door (the
-// windows stop you), talk to Inka, pick a design off the flash wall, sit in
+// windows stop you), talk to Annie, pick a design off the flash wall, sit in
 // the chair and get inked: it's on your forearm (seen when you raise your
 // fists), kept in this browser, and a new design goes over the old one.
 // SHOTS=dir saves screenshots.
@@ -65,23 +65,23 @@ const shots = process.env.SHOTS;
     step(10);
     check('you can walk in through the door', feet.z < -2 && feet.z > -14, where());
 
-    // Inka talks.
+    // Annie talks (she only says one thing).
     const lines = [];
     const offL = game.events.on('dialogue:line', (l) => lines.push(l));
     const talk = () => {
       lines.length = 0;
-      const inka = game.world.find('inka');
-      const p = inka.object3d.position;
+      const annie = game.world.find('annie');
+      const p = annie.object3d.position;
       C.placeAt(new T(p.x - 1.4, 0.05, p.z), 0, 0);
       step(2);
-      comp(inka, 'Interactable').interact(player);
+      comp(annie, 'Interactable').interact(player);
       step(2);
       game.getSystem('dialogue').end();
       step(2);
       return lines[0];
     };
     const hi = talk();
-    check('Inka the artist talks', !!hi && /Inkwell/.test(hi.text), hi ? hi.text.slice(0, 50) : 'nothing');
+    check('Annie the artist talks', !!hi && hi.text === 'I NEED A SNACK', hi ? hi.text.slice(0, 50) : 'nothing');
 
     // The chair wants a design first.
     const chairBack = game.world.find('tattoo-chair');
@@ -127,7 +127,7 @@ const shots = process.env.SHOTS;
     arm.traverse((o) => o.name === 'tattoo' && decals.push(o));
     check('a new design replaces the old one', shop.inked === 'cat' && decals.length === 1, `${shop.inked}, ${decals.length} on the arm`);
     const after = talk();
-    check('Inka admires your ink', !!after && /Look at that ink/.test(after.text), after ? after.text.slice(0, 40) : 'nothing');
+    check('Annie still needs a snack', !!after && after.text === 'I NEED A SNACK', after ? after.text.slice(0, 40) : 'nothing');
     offL();
     return r;
   });
@@ -148,6 +148,7 @@ const shots = process.env.SHOTS;
     await shot('tattoo-street', `(${aimFrom})(0, 0.05, 9, 0, 2.6, 0)`);
     await shot('tattoo-flash-wall', `(${aimFrom})(0, 0.05, -9.5, 0, 1.9, -14)`);
     await shot('tattoo-inside', `(${aimFrom})(-5.5, 0.05, -1, 4, 1.0, -9)`);
+    await shot('tattoo-annie', `(${aimFrom})(3.4, 0.05, -10.6, 5.2, 0.85, -9.4)`);
     await shot('tattoo-arm', `(() => { const { C, T, step, aim } = X; C.placeAt(new T(4200, 0.05, -6), 0, 0); step(3); aim(4200, 0.6, -9); game.input.down.add('Mouse2'); })()`);
   }
 
