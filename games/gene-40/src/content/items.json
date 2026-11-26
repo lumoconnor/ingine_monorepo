@@ -238,5 +238,255 @@
         "scale": 0.6
       }
     }
+  },
+  "pup_football": {
+    "name": "Budderball's football",
+    "description": "Hold the attack button to wind up, let go to throw. Budderball will fetch it.",
+    "category": "weapon",
+    "model": "pup_football",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.2
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.6
+      }
+    }
+  },
+  "pup_soccer": {
+    "name": "Rosebud's soccer ball",
+    "description": "Hold the attack button to wind up, let go to throw. Rosebud will fetch it.",
+    "category": "weapon",
+    "model": "pup_soccer",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.2
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.6
+      }
+    }
+  },
+  "pup_volleyball": {
+    "name": "Mudbud's volleyball",
+    "description": "Hold the attack button to wind up, let go to throw. Mudbud will fetch it.",
+    "category": "weapon",
+    "model": "pup_volleyball",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.2
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.6
+      }
+    }
+  },
+  "pup_baseball": {
+    "name": "Buddha's baseball",
+    "description": "Hold the attack button to wind up, let go to throw. Buddha will fetch it.",
+    "category": "weapon",
+    "model": "pup_baseball",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.2
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.9
+      }
+    }
+  },
+  "pup_basketball": {
+    "name": "B-Dawg's basketball",
+    "description": "Hold the attack button to wind up, let go to throw. B-Dawg will fetch it.",
+    "category": "weapon",
+    "model": "pup_basketball",
+    "weapon": {
+      "noise": 2,
+      "modes": {
+        "primary": {
+          "trigger": {
+            "kind": "charge",
+            "min": 0,
+            "max": 1.2
+          },
+          "timing": {
+            "windup": 0,
+            "active": 0.05,
+            "recovery": 0.25
+          },
+          "delivery": {
+            "kind": "sweep",
+            "reach": 0.4,
+            "radius": 0.05,
+            "arc": "thrust"
+          },
+          "payload": {
+            "damage": [
+              {
+                "type": "blunt",
+                "amount": 1
+              }
+            ]
+          }
+        }
+      },
+      "view": {
+        "position": [
+          0.3,
+          -0.34,
+          -0.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 0.6
+      }
+    }
   }
 }
