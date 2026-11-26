@@ -188,12 +188,12 @@ function chair(game: Game, at: At, sys: TattooParlour): void {
 
 /**
  * Annie, the tattoo artist: Luke's two-year-old. Toddler sized (about 90 cm),
- * big head, pigtails, a pink T-shirt and denim dungarees, standing on a step
+ * big head, straw-blonde pigtails, a pink T-shirt and denim dungarees, standing on a step
  * stool by the chair so she can reach. Whatever you say, she needs a snack.
  */
 function annie(game: Game, at: At): void {
   const skin = mat(0xf2cfb4, { roughness: 0.8 });
-  const hair = mat(0x8a5a32, { roughness: 0.9 });
+  const hair = mat(0xdcc07a, { roughness: 0.9 }); // light, almost straw blonde
   const shirt = mat(0xff8fc2, { roughness: 0.8 });
   const denim = mat(0x4f78b8, { roughness: 0.85 });
   const dark = mat(0x1d1d1d);
@@ -233,7 +233,7 @@ function annie(game: Game, at: At): void {
   }
   const gun = part(new THREE.BoxGeometry(0.03, 0.03, 0.12), mat(0x333333, { metalness: 0.5, roughness: 0.4 }), 0.21, 0.32, 0.12);
   gun.rotation.x = 0.4;
-  // A big toddler head with pigtails.
+  // A big toddler head.
   const head = new THREE.Group();
   head.position.set(0, 0.7, 0);
   body.add(head);
@@ -241,8 +241,14 @@ function annie(game: Game, at: At): void {
   const cap = part(new THREE.SphereGeometry(0.157, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, 0, 0.005, -0.01, head);
   cap.rotation.x = -0.35;
   for (const sx of [-1, 1]) {
-    part(new THREE.SphereGeometry(0.055, 10, 8), hair, sx * 0.15, 0.06, -0.04, head);
-    part(new THREE.SphereGeometry(0.022, 8, 6), mat(0xff4fa3), sx * 0.125, 0.08, -0.03, head);
+    // Pigtails: a pink hair tie each side, then a tail hanging down and out.
+    part(new THREE.SphereGeometry(0.025, 8, 6), mat(0xff4fa3), sx * 0.145, 0.03, -0.05, head);
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.16, 0.03, -0.05);
+    pivot.rotation.z = sx * 0.4;
+    head.add(pivot);
+    part(new THREE.CapsuleGeometry(0.032, 0.16, 4, 8), hair, 0, -0.1, 0, pivot);
+    part(new THREE.ConeGeometry(0.032, 0.07, 8), hair, 0, -0.22, 0, pivot).rotation.x = Math.PI;
     part(new THREE.SphereGeometry(0.02, 8, 6), dark, sx * 0.05, 0.01, 0.137, head);
     part(new THREE.SphereGeometry(0.025, 8, 6), mat(0xf7a6a6, { roughness: 0.9 }), sx * 0.085, -0.04, 0.12, head);
   }

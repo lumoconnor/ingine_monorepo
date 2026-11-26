@@ -148,7 +148,7 @@ const shots = process.env.SHOTS;
     await shot('tattoo-street', `(${aimFrom})(0, 0.05, 9, 0, 2.6, 0)`);
     await shot('tattoo-flash-wall', `(${aimFrom})(0, 0.05, -9.5, 0, 1.9, -14)`);
     await shot('tattoo-inside', `(${aimFrom})(-5.5, 0.05, -1, 4, 1.0, -9)`);
-    await shot('tattoo-annie', `(${aimFrom})(3.4, 0.05, -10.6, 5.2, 0.85, -9.4)`);
+    await shot('tattoo-annie', `(${aimFrom})(4.0, 0.05, -10.4, 5.2, 0.95, -9.4)`);
     await shot('tattoo-arm', `(() => { const { C, T, step, aim } = X; C.placeAt(new T(4200, 0.05, -6), 0, 0); step(3); aim(4200, 0.6, -9); game.input.down.add('Mouse2'); })()`);
   }
 
