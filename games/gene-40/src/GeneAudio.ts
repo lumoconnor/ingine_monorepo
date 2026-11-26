@@ -71,7 +71,7 @@ const VOICES: Record<string, { type: 'square' | 'triangle' | 'sine' | 'sawtooth'
   Aurora: { type: 'triangle', hz: 330 },
   Renee: { type: 'triangle', hz: 360 },
   Chris: { type: 'square', hz: 220 },
-  Inka: { type: 'triangle', hz: 300 },
+  Annie: { type: 'sine', hz: 720 },
   Nimbus: { type: 'sine', hz: 520 },
   'Captain Whiskers': { type: 'square', hz: 280 },
   Murphy: { type: 'sine', hz: 600 },

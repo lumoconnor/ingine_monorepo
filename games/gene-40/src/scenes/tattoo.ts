@@ -6,7 +6,11 @@ import { Entity as E } from '@ingine/engine/entities/Entity';
 import { Interactable } from '@ingine/engine/gameplay/interaction/Interactable';
 import { PlayerController } from '@ingine/engine/gameplay/player/PlayerController';
 import { FistViewmodel } from '@ingine/engine/combat/FistViewmodel';
-import { addNpc } from '@ingine/engine/world/npcs';
+import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
+import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
+import { Npc } from '@ingine/engine/gameplay/components/Npc';
+import type { DialogueSystem } from '@ingine/engine/dialogue/DialogueSystem';
+import { makeLabel } from '@ingine/engine/render/labels';
 import type { Teleports } from '../Teleports';
 import { sceneById, type Vec3 } from '../scenes';
 import { TATTOOS, tattooCanvas } from '../content/tattooArt';
@@ -15,7 +19,8 @@ import { buildReturnPad } from './hub';
 
 /**
  * The tattoo parlour: Inkwell Tattoo, a little shop on a city street. Pick a
- * design off the flash wall, sit in the chair, and Inka inks it on your
+ * design off the flash wall, sit in the chair, and Annie (aged two)
+ * inks it on your
  * forearm, where you see it in first person from then on. Your ink is kept
  * in this browser. (Nothing is permanent: a fresh design goes over the old.)
  */
@@ -41,7 +46,7 @@ export function buildTattoo(game: Game, teleports: Teleports, index: number): Ta
   sys.init(game);
   flashWall(game, at, sys);
   chair(game, at, sys);
-  addNpc(game, { id: 'inka', name: 'Inka', dialogue: 'inka', position: at(5.2, 0, -9.4), facingDeg: -90, color: 0x1b1b1f, skin: 0xe8c3a6, hat: { color: 0x7b2d8e, kind: 'cap' } });
+  annie(game, at);
   buildReturnPad(game, teleports, s, index);
   return sys;
 }
@@ -181,6 +186,94 @@ function chair(game: Game, at: At, sys: TattooParlour): void {
   label(game, 'Tattoo chair (E)', at(x, 1.9, z), 0.6);
 }
 
+/**
+ * Annie, the tattoo artist: Luke's two-year-old. Toddler sized (about 90 cm),
+ * big head, straw-blonde pigtails, a pink T-shirt and denim dungarees, standing on a step
+ * stool by the chair so she can reach. Whatever you say, she needs a snack.
+ */
+function annie(game: Game, at: At): void {
+  const skin = mat(0xf2cfb4, { roughness: 0.8 });
+  const hair = mat(0xdcc07a, { roughness: 0.9 }); // light, almost straw blonde
+  const shirt = mat(0xff8fc2, { roughness: 0.8 });
+  const denim = mat(0x4f78b8, { roughness: 0.85 });
+  const dark = mat(0x1d1d1d);
+  const STOOL = 0.3;
+  const [x, z] = [5.2, -9.4];
+  // The step stool (solid, so you can't walk through it).
+  box(game, [0.6, STOOL, 0.45], at(x, STOOL / 2, z), 0xffd23f, 'step-stool');
+
+  const root = new THREE.Group();
+  root.position.set(...at(x, STOOL, z));
+  const body = new THREE.Group();
+  root.add(body);
+  const part = (geo: THREE.BufferGeometry, m: THREE.Material, px: number, py: number, pz: number, parent: THREE.Object3D = body) => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(px, py, pz);
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+  // Little shoes and stubby legs in dungarees.
+  for (const sx of [-1, 1]) {
+    part(new THREE.BoxGeometry(0.09, 0.06, 0.14), mat(0xffffff), sx * 0.07, 0.03, 0.02);
+    part(new THREE.CapsuleGeometry(0.055, 0.16, 4, 8), denim, sx * 0.07, 0.15, 0);
+  }
+  // Round tummy: shirt on top, dungarees below, with a bib and straps.
+  const tummy = part(new THREE.SphereGeometry(0.17, 16, 12), denim, 0, 0.36, 0);
+  tummy.scale.set(1, 0.95, 0.85);
+  const chest = part(new THREE.SphereGeometry(0.15, 16, 12), shirt, 0, 0.47, 0);
+  chest.scale.set(1, 0.9, 0.85);
+  part(new THREE.BoxGeometry(0.14, 0.1, 0.02), denim, 0, 0.46, 0.125);
+  for (const sx of [-1, 1]) part(new THREE.BoxGeometry(0.025, 0.12, 0.02), denim, sx * 0.06, 0.53, 0.11);
+  // Arms, one holding up a tattoo gun like a crayon.
+  for (const sx of [-1, 1]) {
+    const arm = part(new THREE.CapsuleGeometry(0.04, 0.16, 4, 8), shirt, sx * 0.17, 0.42, 0.03);
+    arm.rotation.z = sx * 0.35;
+    part(new THREE.SphereGeometry(0.04, 8, 6), skin, sx * 0.21, 0.32, 0.06);
+  }
+  const gun = part(new THREE.BoxGeometry(0.03, 0.03, 0.12), mat(0x333333, { metalness: 0.5, roughness: 0.4 }), 0.21, 0.32, 0.12);
+  gun.rotation.x = 0.4;
+  // A big toddler head.
+  const head = new THREE.Group();
+  head.position.set(0, 0.7, 0);
+  body.add(head);
+  part(new THREE.SphereGeometry(0.15, 18, 14), skin, 0, 0, 0, head);
+  const cap = part(new THREE.SphereGeometry(0.157, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, 0, 0.005, -0.01, head);
+  cap.rotation.x = -0.35;
+  for (const sx of [-1, 1]) {
+    // Pigtails: a pink hair tie each side, then a tail hanging down and out.
+    part(new THREE.SphereGeometry(0.025, 8, 6), mat(0xff4fa3), sx * 0.145, 0.03, -0.05, head);
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.16, 0.03, -0.05);
+    pivot.rotation.z = sx * 0.4;
+    head.add(pivot);
+    part(new THREE.CapsuleGeometry(0.032, 0.16, 4, 8), hair, 0, -0.1, 0, pivot);
+    part(new THREE.ConeGeometry(0.032, 0.07, 8), hair, 0, -0.22, 0, pivot).rotation.x = Math.PI;
+    part(new THREE.SphereGeometry(0.02, 8, 6), dark, sx * 0.05, 0.01, 0.137, head);
+    part(new THREE.SphereGeometry(0.025, 8, 6), mat(0xf7a6a6, { roughness: 0.9 }), sx * 0.085, -0.04, 0.12, head);
+  }
+  // Mouth open wide: she is saying it again.
+  const mouth = part(new THREE.SphereGeometry(0.03, 10, 8), mat(0x7a2633), 0, -0.065, 0.13, head);
+  mouth.scale.set(1.2, 0.9, 0.5);
+
+  const tag = makeLabel('Annie', { scale: 0.7, color: '#ffe7a8' });
+  tag.position.y = 1.15;
+  root.add(tag);
+
+  const e = new E('annie', root);
+  e.tags.add('npc');
+  e.add(new RigidBodyComponent({ type: 'fixed', colliders: [RAPIER.ColliderDesc.capsule(0.25, 0.2).setTranslation(0, 0.45, 0)] }));
+  const npc = e.add(new Npc('annie', 'Annie', 'annie', body, head, THREE.MathUtils.degToRad(-90), 0.7));
+  e.add(
+    new Interactable({
+      prompt: 'Talk to Annie',
+      range: 3,
+      onInteract: () => game.getSystem<DialogueSystem>('dialogue')?.start('annie', e, npc),
+    }),
+  );
+  game.world.spawn(e);
+}
+
 // --- The system -----------------------------------------------------------------------
 
 export class TattooParlour implements System {
@@ -255,7 +348,7 @@ export class TattooParlour implements System {
     return this.chosen ? `Get the ${this.designName(this.chosen)} tattoo` : 'Pick a design off the wall first';
   }
 
-  /** E at the chair: sit, and Inka gets to work. */
+  /** E at the chair: sit, and Annie gets to work. */
   sit(user: Entity): void {
     if (this.inking > 0) return;
     if (!this.chosen) {
@@ -270,7 +363,7 @@ export class TattooParlour implements System {
     }
     this.sitter = user;
     this.inking = INK_TIME;
-    this.game.events.emit('notify', { text: 'Bzzzzzz... Inka is inking. Hold still!' });
+    this.game.events.emit('notify', { text: 'Bzzzzzz... Annie is inking. Hold still!' });
     this.game.events.emit('tattoo:start', { design: this.chosen });
     this.render();
   }
