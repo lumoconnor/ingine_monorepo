@@ -104,13 +104,11 @@ function hall(game: Game, at: (x: number, y: number, z: number) => Vec3): void {
   label(game, 'Axe throwing', at(0, 3.3, 1.0), 1.4, '#ffe066');
   label(game, 'Grab axes at the rack (E). Stand behind the red line. Hold to wind up, let go to throw.', at(0, 2.6, 1.0), 0.5, '#fff3c4');
 
-  // Lounge: benches and a high table.
+  // Lounge: benches either side (the middle stays clear for the return pad at z = +10).
   for (const x of [-4.5, 4.5]) {
     box(game, [2.4, 0.08, 0.6], at(x, 0.46, 8), 0x3d2a1c, 'bench');
     box(game, [2.2, 0.42, 0.5], at(x, 0.21, 8), 0x2c2f36, 'bench-base');
   }
-  box(game, [1.2, 0.06, 0.8], at(0, 1.05, 9.5), 0x3d2a1c, 'high-table');
-  box(game, [0.1, 1.02, 0.1], at(0, 0.51, 9.5), 0x2c2f36, 'high-table-leg');
 }
 
 /** One lane: board, painted target, cage walls, red throw line. Returns its board. */
