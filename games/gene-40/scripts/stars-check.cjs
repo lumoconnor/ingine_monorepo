@@ -47,7 +47,7 @@ const shots = process.env.SHOTS;
 
     const sc = game.getSystem('star-course');
     check('ten stars', sc.total === 10, `${sc.total}`);
-    // Every star's stand rests on a surface.
+    // Every star hovers over a surface.
     const world = game.physics.world;
     const floating = [];
     for (const s of sc.stars) {
@@ -55,7 +55,12 @@ const shots = process.env.SHOTS;
       const hit = world.castRay(new RAPIER.Ray({ x: p.x, y: p.y + 0.05, z: p.z }, { x: 0, y: -1, z: 0 }), 3, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS);
       if (!hit || Math.abs(hit.timeOfImpact - 0.05) > 0.03) floating.push(`${f(p.x - ox)},${f(p.y)},${f(p.z)} ${hit ? hit.timeOfImpact.toFixed(2) : 'none'}`);
     }
-    check('every star stands on something', floating.length === 0, floating.join(' | '));
+    check('every star hovers over something', floating.length === 0, floating.join(' | '));
+    const star0 = sc.stars[0];
+    const ry0 = star0.star.rotation.y, sy0 = star0.star.position.y;
+    sc.update({ delta: 0.5, elapsed: 7.7, alpha: 0 });
+    check('stars hover above their spot', sc.stars.every((s) => s.star.position.y > 0.8), `${star0.star.position.y.toFixed(2)} m`);
+    check('stars spin slowly and bob', Math.abs(star0.star.rotation.y - ry0 - 0.45) < 0.01 && Math.abs(star0.star.position.y - sy0) > 0.001, `turned ${(star0.star.rotation.y - ry0).toFixed(2)} rad`);
 
     // A real jump: stand at `from` facing `to`, hold W (and sprint), jump, and see where you land.
     const hop = (label, from, to, radius, sprint, dy = 0.2) => {
@@ -220,7 +225,7 @@ const shots = process.env.SHOTS;
     const aimFrom = `(x, y, z, tx, ty, tz) => { const { C, T, step, aim } = X; C.placeAt(new T(2400 + x, y, z), 0, 0); step(5); aim(2400 + tx, ty, tz); }`;
     await shot('stars-arrival', `(${aimFrom})(0, 0.05, 6, 0, 4, -40)`);
     await shot('stars-nimbus', `(${aimFrom})(2.5, 0.05, 7.5, 4.5, 1.3, 4)`);
-    await shot('stars-star', `(${aimFrom})(6.5, 2.05, -4.5, 8.5, 2.5, -6.5)`);
+    await shot('stars-star', `(${aimFrom})(5.5, 2.05, -3.5, 8.5, 3.0, -6.5)`);
     await shot('stars-overview', `(${aimFrom})(-30, 35, 10, 5, 10, -60)`);
     await shot('stars-stair', `(${aimFrom})(2, 13.05, -73, -1, 20, -80)`);
     await shot('stars-castle', `(${aimFrom})(0, 30.55, -88.6, 0, 33, -104)`);

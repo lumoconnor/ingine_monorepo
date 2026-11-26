@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '@ingine/engine/core/Game';
 import type { System } from '@ingine/engine/core/System';
+import type { FrameTime } from '@ingine/engine/core/Time';
 import { Entity } from '@ingine/engine/entities/Entity';
 import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
@@ -20,8 +21,8 @@ import { buildReturnPad } from './hub';
  * Murph Land: a cat paradise for Gene's cat Murphy. A giant statue of Murphy
  * on a plinth (with Murphy himself lounging beside it), four cat trees you can
  * climb with ziplines between them, giant yarn balls, a giant cardboard box,
- * a giant food bowl and a toy mouse. Murphy coins lie on the ground, on the
- * cat-tree platforms and inside the box: find them all. Cats wander about and
+ * a giant food bowl and a toy mouse. Murphy coins hover and spin over the
+ * ground, the cat-tree platforms and inside the box: find them all. Cats wander about and
  * are happy to chat.
  *
  * Murphy is drawn from Luke's photo: a brown tabby with dark mackerel
@@ -576,7 +577,7 @@ function cats(game: Game, at: At, oy: number): void {
 
 // --- Coins ---------------------------------------------------------------------
 
-/** Where the coins lie: always on a surface (ground, platforms, the plinth, inside the box). */
+/** Where the coins hover: always over a surface (ground, platforms, the plinth, inside the box). */
 function coinSpots(at: At, platformTops: Vec3[]): Vec3[] {
   const ground: [number, number][] = [
     [0, -3], [0, -8], [-0.6, -13], [0.6, -18],
@@ -598,6 +599,13 @@ function coinSpots(at: At, platformTops: Vec3[]): Vec3[] {
   spots.push(at(-14, 0.35, -26), at(15, 0.35, -30));
   return spots;
 }
+
+/** A coin's centre hovers this high over its spot, bobbing up and down by COIN_BOB. */
+const COIN_HOVER = 0.75;
+const COIN_BOB = 0.1;
+/** Slow turn (rad/s) and bob speed (rad/s). */
+const COIN_SPIN = 1.2;
+const COIN_BOB_SPEED = 2.4;
 
 let coinTexture: THREE.Texture | null = null;
 /** Murphy's face stamped on a gold coin. */
@@ -643,14 +651,15 @@ function murphyFace(): THREE.Texture {
 }
 
 /**
- * Murphy coins: they lie flat where they are (nothing floats or spins). Walk
- * over one to pick it up. A counter shows how many you've found; finding them
+ * Murphy coins: they stand on edge, hovering over their spot, turning slowly
+ * and bobbing. Walk through one to pick it up. A counter shows how many you've found; finding them
  * all makes you an honorary cat (Murphy has something to say about it).
  */
 export class MurphCoins implements System {
   readonly name = 'murph-coins';
   private game!: Game;
-  readonly coins: { entity: Entity; pos: THREE.Vector3; taken: boolean }[] = [];
+  /** `pos` is the resting spot under the coin (just above the surface); the mesh hovers over it. */
+  readonly coins: { entity: Entity; pos: THREE.Vector3; phase: number; taken: boolean }[] = [];
   found = 0;
   private panel!: HTMLDivElement;
   private ready = false;
@@ -687,20 +696,31 @@ export class MurphCoins implements System {
   }
 
   add(game: Game, surface: Vec3): void {
-    const r = 0.24;
-    const t = 0.04;
+    const r = 0.28;
+    const t = 0.05;
     const gold = new THREE.MeshStandardMaterial({ color: 0xf2c14e, roughness: 0.35, metalness: 0.4, emissive: 0x3a2600, emissiveIntensity: 0.4 });
     const face = new THREE.MeshStandardMaterial({ map: murphyFace(), roughness: 0.35, metalness: 0.3, emissive: 0x3a2600, emissiveIntensity: 0.4 });
-    // Cylinder groups: side, top, bottom.
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, t, 28), [gold, face, gold]);
-    // Lying flat, resting on the surface, turned a little at random.
-    mesh.position.set(surface[0], surface[1] + t / 2, surface[2]);
-    mesh.rotation.y = (this.coins.length * 2.399) % (Math.PI * 2);
+    // Cylinder groups: side, top, bottom. Stood on edge so Murphy's face looks out.
+    const geo = new THREE.CylinderGeometry(r, r, t, 28).rotateX(Math.PI / 2);
+    const mesh = new THREE.Mesh(geo, [gold, face, gold]);
+    const phase = (this.coins.length * 2.399) % (Math.PI * 2);
+    mesh.position.set(surface[0], surface[1] + COIN_HOVER, surface[2]);
+    mesh.rotation.y = phase;
     mesh.castShadow = true;
     const e = new Entity('murphy-coin', mesh);
     e.tags.add('murphy-coin');
     game.world.spawn(e);
-    this.coins.push({ entity: e, pos: mesh.position.clone(), taken: false });
+    this.coins.push({ entity: e, pos: new THREE.Vector3(surface[0], surface[1] + 0.02, surface[2]), phase, taken: false });
+  }
+
+  /** Turn and bob the coins still out there. */
+  update(time: FrameTime): void {
+    for (const c of this.coins) {
+      if (c.taken) continue;
+      const o = c.entity.object3d;
+      o.rotation.y += COIN_SPIN * time.delta;
+      o.position.y = c.pos.y - 0.02 + COIN_HOVER + Math.sin(time.elapsed * COIN_BOB_SPEED + c.phase) * COIN_BOB;
+    }
   }
 
   get total(): number {
