@@ -166,7 +166,7 @@ registerSounds({
     for (let i = 0; i < 4; i++) tone(c, o, t + i * 0.32, { dur: 0.3, type: 'square', freq: i % 2 ? 660 : 880, gain: 0.05 * v, attack: 0.02 });
   },
   /** The runaway bus: a long horn. */
-  horn: (c, o, t, v) => {
+  busHorn: (c, o, t, v) => {
     tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 220, gain: 0.08 * v, attack: 0.02 });
     tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 277, gain: 0.06 * v, attack: 0.02 });
   },
@@ -290,7 +290,7 @@ export class GeneAudio implements System {
     ev.on('heroes:catch', () => (play('pickup'), play('meow', 0.9, 1.1)));
     ev.on('heroes:kittenFall', () => play('meow', 1, 1.4));
     ev.on('heroes:ring', ({ n }) => play('pickup', 0.8, 1 + n * 0.05));
-    ev.on('heroes:busGo', () => play('horn'));
+    ev.on('heroes:busGo', () => play('busHorn'));
     ev.on('heroes:busStop', () => play('crunch'));
     ev.on('heroes:slam', ({ strength }) => play('slam', 0.6 + 0.4 * strength));
     ev.on('state:changed', ({ kind }) => kind === 'item' && play('pickup', 0.6));
