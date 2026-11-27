@@ -71,7 +71,7 @@ const VOICES: Record<string, { type: 'square' | 'triangle' | 'sine' | 'sawtooth'
   Aurora: { type: 'triangle', hz: 330 },
   Renee: { type: 'triangle', hz: 360 },
   Chris: { type: 'square', hz: 220 },
-  Inka: { type: 'triangle', hz: 300 },
+  Annie: { type: 'sine', hz: 720 },
   Nimbus: { type: 'sine', hz: 520 },
   'Captain Whiskers': { type: 'square', hz: 280 },
   Murphy: { type: 'sine', hz: 600 },
@@ -114,6 +114,26 @@ registerSounds({
     noise(c, o, t, { dur: 0.1, type: 'bandpass', freq: 900 * p, q: 1.5, gain: 0.15 * v });
     tone(c, o, t + 0.18, { dur: 0.12, type: 'sawtooth', freq: 360 * p, freqEnd: 200 * p, gain: 0.1 * v });
     [1047, 1319].forEach((f, i) => tone(c, o, t + 0.3 + i * 0.09, { dur: 0.4, type: 'triangle', freq: f, gain: 0.12 * v }));
+  },
+  /** A pup's excited yip (off after a ball). */
+  yip: (c, o, t, v, p) => {
+    tone(c, o, t, { dur: 0.08, type: 'sawtooth', freq: 620 * p, freqEnd: 420 * p, gain: 0.1 * v });
+    noise(c, o, t, { dur: 0.06, type: 'bandpass', freq: 1800 * p, q: 2, gain: 0.12 * v });
+  },
+  /** Mission control's countdown beep (higher on the last ones). */
+  beep: (c, o, t, v, p) => tone(c, o, t, { dur: 0.16, type: 'square', freq: 880 * p, gain: 0.07 * v, attack: 0.005 }),
+  /** Liftoff: a long low roar. */
+  liftoff: (c, o, t, v) => {
+    noise(c, o, t, { dur: 6, type: 'lowpass', freq: 500, freqEnd: 180, gain: 0.5 * v, attack: 0.6 });
+    tone(c, o, t, { dur: 5, type: 'sawtooth', freq: 55, freqEnd: 38, gain: 0.08 * v, attack: 0.5 });
+  },
+  /** The rocket coming back down: a softer roar. */
+  descent: (c, o, t, v) => noise(c, o, t, { dur: 9, type: 'lowpass', freq: 220, freqEnd: 420, gain: 0.3 * v, attack: 2 }),
+  /** The ghost: a wobbly "ooOOOoo". */
+  boo: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.9, type: 'sine', freq: 300, freqEnd: 520, gain: 0.22 * v, attack: 0.08 });
+    tone(c, o, t + 0.1, { dur: 0.8, type: 'triangle', freq: 310, freqEnd: 480, gain: 0.1 * v, attack: 0.1 });
+    noise(c, o, t, { dur: 0.7, type: 'bandpass', freq: 600, q: 2, gain: 0.08 * v, attack: 0.1 });
   },
   meow: (c, o, t, v, p) => tone(c, o, t, { dur: 0.35, type: 'triangle', freq: 700 * p, freqEnd: 450 * p, gain: 0.16 * v, attack: 0.05 }),
   /** A hero power: a rising whoosh and chord. */
@@ -212,6 +232,14 @@ export class GeneAudio implements System {
     ev.on('stars:star', ({ found, total }) => (found >= total ? (play('star'), this.audio.play('fanfare', { delay: 0.5 })) : play('star')));
     ev.on('stars:bounce', () => play('boing'));
     ev.on('buddies:ball', ({ state }) => (state === 'carried' ? play('pickup') : play('woof', 1, 0.9 + Math.random() * 0.25)));
+    ev.on('buddies:fetch', ({ phase }) => (phase === 'throw' ? (play('whoosh', 0.5, 1.4), play('yip', 1, 0.9 + Math.random() * 0.3)) : phase === 'catch' ? play('yip', 0.9, 1.2) : phase === 'drop' ? play('woof', 0.8, 0.9 + Math.random() * 0.25) : play('yip', 0.7, 1.1)));
+    ev.on('buddies:rocket', ({ phase, n }) => {
+      if (phase === 'count') play('beep', 1, n !== undefined && n <= 3 ? 1.5 : 1);
+      else if (phase === 'liftoff') (play('beep', 1, 2), play('liftoff'));
+      else if (phase === 'descent') play('descent');
+      else if (phase === 'landed') this.audio.play('fanfare', { delay: 0.3 });
+    });
+    ev.on('buddies:boo', () => play('boo'));
     ev.on('heroes:kitten', () => (play('pickup'), play('meow', 0.9, 0.9 + Math.random() * 0.3)));
     ev.on('heroes:power', () => play('powerup'));
     ev.on('heroes:swing', ({ on }) => (on ? play('thwip', 1, 0.9 + Math.random() * 0.2) : play('whoosh', 0.6)));

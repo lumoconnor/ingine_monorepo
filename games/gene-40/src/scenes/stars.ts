@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '@ingine/engine/core/Game';
 import type { System } from '@ingine/engine/core/System';
+import type { FrameTime } from '@ingine/engine/core/Time';
 import { Entity } from '@ingine/engine/entities/Entity';
 import { RAPIER } from '@ingine/engine/physics/PhysicsWorld';
 import { RigidBodyComponent } from '@ingine/engine/physics/RigidBodyComponent';
@@ -19,8 +20,8 @@ import { buildReturnPad } from './hub';
  * Star islands: an original first-person platformer. Grassy islands float
  * over the sea, joined by stepping stones, a shuttle platform, a lift, a
  * bounce pad, a spinning disc, a platform circling a pillar, a narrow beam
- * and a spiral cloud stair up to the star castle. Ten stars stand on top of
- * things along the way. Fall in the sea and you're back at the last flag you
+ * and a spiral cloud stair up to the star castle. Ten stars hover and turn
+ * over things along the way. Fall in the sea and you're back at the last flag you
  * touched. Nimbus, a friendly cloud, says hello at the start.
  *
  * The course, from the arrival (heading north, -Z):
@@ -288,8 +289,12 @@ function starGeometry(r: number): THREE.ExtrudeGeometry {
 }
 
 interface StarItem {
-  /** The star and its stand. */
+  /** Anchored at the surface spot under the star; the star hovers inside it. */
   group: THREE.Group;
+  /** The hovering, spinning star. */
+  star: THREE.Mesh;
+  /** Start of its bob, so they don't all move in step. */
+  phase: number;
   taken: boolean;
 }
 
@@ -308,9 +313,12 @@ interface BouncePad {
 }
 
 const STAR_R = 0.6;
-/** The star's two lower points sit this far below its centre. */
-const STAR_FOOT = STAR_R * Math.cos((Math.PI * 4) / 5) * -1 + 0.05;
-const STAND_H = 0.1;
+/** The star's centre hovers this high over its spot, bobbing up and down by STAR_BOB. */
+const STAR_HOVER = 1.05;
+const STAR_BOB = 0.12;
+/** Slow turn (rad/s) and bob speed (rad/s). */
+const STAR_SPIN = 0.9;
+const STAR_BOB_SPEED = 2.2;
 
 /**
  * Stars, checkpoints, bounce pads and the splash back to the last flag.
@@ -369,27 +377,33 @@ export class StarCourse implements System {
   }
 
   /**
-   * A star standing upright on a little stand that rests on the surface at
-   * `surface` (world, or local to `parent` when it rides a moving platform).
+   * A star hovering over the surface at `surface` (world, or local to
+   * `parent` when it rides a moving platform), turning slowly and bobbing.
    */
   star(game: Game, surface: Vec3, parent?: Entity): void {
     const g = new THREE.Group();
     g.position.set(...surface);
-    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, STAND_H, 24), mat(0xb8862f, { metalness: 0.5, roughness: 0.4 }));
-    stand.position.y = STAND_H / 2;
-    stand.castShadow = true;
-    g.add(stand);
     const star = new THREE.Mesh(starGeometry(STAR_R), mat(0xffd23f, { emissive: 0xffb300, emissiveIntensity: 0.55, metalness: 0.3, roughness: 0.3 }));
-    star.position.y = STAND_H + STAR_FOOT;
-    star.rotation.y = (this.stars.length * 0.9) % Math.PI;
+    const phase = this.stars.length * 0.9;
+    star.position.y = STAR_HOVER;
+    star.rotation.y = phase % Math.PI;
     star.castShadow = true;
     g.add(star);
     if (parent) parent.object3d.add(g);
     else game.world.spawn(new Entity('star', g));
-    this.stars.push({ group: g, taken: false });
+    this.stars.push({ group: g, star, phase, taken: false });
   }
 
-  /** World position of a star's stand (its foot). */
+  /** Turn and bob the stars still out there. */
+  update(time: FrameTime): void {
+    for (const s of this.stars) {
+      if (s.taken) continue;
+      s.star.rotation.y += STAR_SPIN * time.delta;
+      s.star.position.y = STAR_HOVER + Math.sin(time.elapsed * STAR_BOB_SPEED + s.phase) * STAR_BOB;
+    }
+  }
+
+  /** World position of the spot a star hovers over. */
   starPos(s: StarItem, out = new THREE.Vector3()): THREE.Vector3 {
     s.group.parent?.updateMatrixWorld(true);
     return s.group.getWorldPosition(out);

@@ -133,19 +133,11 @@ export const CHATTER: ChatterDef[] = [
     special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
   {
-    id: 'inka',
-    speaker: 'Inka',
-    hello: "Happy 40th, Gene! Welcome to Inkwell. Pick a design off the flash wall at the back, hop in the chair, and I'll sort you out. Don't worry, it washes off. Mostly.",
-    lines: [
-      "Forty's the perfect age for your first tattoo. Old enough to choose well, young enough to choose a skull in a party hat.",
-      'The heart with GENE on the banner is the classic. Very popular with people called Gene.',
-      "I did a tattoo of a cat once. The cat was furious. It was the cat's tattoo.",
-      "Sailors got swallows for every five thousand miles at sea. You get one for every forty years. Same thing.",
-      "Wiggle your fingers when you're done. Raise your fists to see it properly. Right-click, like a boxer.",
-      "My mum still thinks this is a phase. It's been nineteen years.",
-      "Murphy's on the wall! Brown tabby, white chin, that look like you've disappointed him. Drawn from a photo.",
-    ],
-    special: { flag: 'tattoo.inked', text: "Look at that ink! Healing nicely. Come back any time if you fancy another. I'll draw right over it." },
+    // Luke's two-year-old. She only ever says one thing.
+    id: 'annie',
+    speaker: 'Annie',
+    hello: 'I NEED A SNACK',
+    lines: ['I NEED A SNACK'],
   },
   {
     id: 'rex',
@@ -239,7 +231,7 @@ function buddiesChatter(): ChatterDef[] {
         "Football is easy. You run, you catch, you fall over, everybody claps.",
         'My brothers say I eat too much. I say they eat too little. We are both right.',
       ],
-      special: { flag: 'buddies.budderball', text: "MY FOOTBALL! Gene, you're the best. If I find a sandwich today, you get half. Maybe a third." },
+      special: { flag: 'buddies.budderball', text: "MY FOOTBALL! Gene, you're the best. If I find a sandwich today, you get half. Maybe a third. Now THROW IT. Please. Throw it." },
     },
     {
       id: 'rosebud',
@@ -251,7 +243,7 @@ function buddiesChatter(): ChatterDef[] {
         'Mudbud, if you roll in that puddle again, I am telling Mom.',
         "Being the only girl means I'm automatically in charge. That's the rule. I made it.",
       ],
-      special: { flag: 'buddies.rosebud', text: "My soccer ball! Thanks, Gene. You're an honorary Buddy now. That means you have to wear a bow. I don't make the rules. (I do make the rules.)" },
+      special: { flag: 'buddies.rosebud', text: "My soccer ball! Thanks, Gene. You're an honorary Buddy now. That means you have to wear a bow. I don't make the rules. (I do make the rules.) Rule one: you throw, I fetch." },
     },
     {
       id: 'mudbud',
@@ -263,7 +255,7 @@ function buddiesChatter(): ChatterDef[] {
         'I spiked a volleyball so hard once it landed in next week.',
         'Rosebud says I smell. I say I smell AMAZING.',
       ],
-      special: { flag: 'buddies.mudbud', text: "My volleyball! And it's even got a bit of mud on it. Perfect. You get me, Gene." },
+      special: { flag: 'buddies.mudbud', text: "My volleyball! And it's even got a bit of mud on it. Perfect. You get me, Gene. Throw it in the puddle! ...Please?" },
     },
     {
       id: 'buddha',
@@ -275,7 +267,7 @@ function buddiesChatter(): ChatterDef[] {
         'The squirrel does not run from the dog. The dog runs after the squirrel. Think about it.',
         'Patience, my brothers. Also, where did Budderball put the treats?',
       ],
-      special: { flag: 'buddies.buddha', text: 'You have returned my baseball. The universe is in balance. Also, I am very happy. Woof.' },
+      special: { flag: 'buddies.buddha', text: 'You have returned my baseball. The universe is in balance. Also, I am very happy. Throw it, and I shall return it. That is the way.' },
     },
     {
       id: 'b_dawg',
@@ -287,7 +279,7 @@ function buddiesChatter(): ChatterDef[] {
         "Gene's forty and still got game. Respect.",
         "My chain says B. It stands for B-Dawg. Also Buddy, Ball, Bacon. Mostly bacon.",
       ],
-      special: { flag: 'buddies.b_dawg', text: "My ball's back! Gene, you're the MVP. Most Valuable Pal. Up top! ...Okay, paw top." },
+      special: { flag: 'buddies.b_dawg', text: "My ball's back! Gene, you're the MVP. Most Valuable Pal. Up top! ...Okay, paw top. Now chuck it long, I got wheels." },
     },
     {
       id: 'buddy',
@@ -299,7 +291,7 @@ function buddiesChatter(): ChatterDef[] {
         "Molly says I'm a soft touch. I say I'm a good sport.",
         "There's no rule that says a dog can't play. Look it up.",
       ],
-      special: { flag: 'buddies.all', text: "Every ball found! Gene, you're part of the pack now. Happy birthday, from all seven of us." },
+      special: { flag: 'buddies.all', text: "Every ball found! Gene, you're part of the pack now. Happy birthday, from all seven of us. Now the pups want to go to space. Of course they do. The launch button's by the rocket." },
     },
     {
       id: 'molly',
