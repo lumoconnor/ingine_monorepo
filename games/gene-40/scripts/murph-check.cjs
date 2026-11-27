@@ -40,7 +40,7 @@ const shots = process.env.SHOTS;
 
     const coins = game.getSystem('murph-coins');
     check('there are plenty of Murphy coins', coins.total >= 30, `${coins.total}`);
-    // Every coin rests on something: a ray from just above its centre down hits a surface right under its bottom face.
+    // Every coin hovers over something solid: a ray from its spot down hits a surface right under it.
     const world = game.physics.world;
     let floating = [];
     for (const c of coins.coins) {
@@ -50,6 +50,12 @@ const shots = process.env.SHOTS;
       if (gap === null || Math.abs(gap) > 0.03) floating.push(`${(c.pos.x - 1800).toFixed(1)},${c.pos.y.toFixed(2)},${c.pos.z.toFixed(1)} gap ${gap?.toFixed(3)}`);
     }
     window.__floating = floating;
+    // Coins hover above their spot, and turn and bob as frames go by.
+    const c0 = coins.coins[0].entity.object3d;
+    const coin0 = { ry: c0.rotation.y, y: c0.position.y };
+    coins.update({ delta: 0.5, elapsed: 10.3, alpha: 0 });
+    check('coins hover over their spot', coins.coins.every((c) => c.entity.object3d.position.y - c.pos.y > 0.5), `${(c0.position.y - coins.coins[0].pos.y).toFixed(2)} m`);
+    check('coins spin slowly and bob', Math.abs(c0.rotation.y - coin0.ry - 0.6) < 0.01 && Math.abs(c0.position.y - coin0.y) > 0.001, `turned ${(c0.rotation.y - coin0.ry).toFixed(2)} rad`);
 
     // Walk onto every coin.
     let got = 0;
@@ -164,7 +170,7 @@ const shots = process.env.SHOTS;
     return r;
   });
   const floating = await page.evaluate(() => window.__floating);
-  r.push(`${floating.length ? 'FAIL' : 'PASS'}  every coin rests on a surface  ${floating.slice(0, 4).join(' | ')}`);
+  r.push(`${floating.length ? 'FAIL' : 'PASS'}  every coin hovers over a surface  ${floating.slice(0, 4).join(' | ')}`);
 
   if (shots) {
     const shot = async (name, setup) => {
@@ -192,6 +198,7 @@ const shots = process.env.SHOTS;
     await shot('murph-top', `(${aimFrom})(1800 - 17.2, 9.42, -13.6, 1800 + 10, 3, -20)`);
     await shot('murph-murphy', `(${aimFrom})(1800 + 5.2, 0.05, -21.9, 1800 + 5.6, 0.9, -24.4)`);
     await shot('murph-face', `(${aimFrom})(1800 + 5.1, 0.05, -23.0, 1800 + 5.6, 1.2, -24.4)`);
+    await shot('murph-coin', `(${aimFrom})(1800 - 2, 0.05, -5, 1800, 0.75, -8)`);
     await shot('murph-box', `(${aimFrom})(1800 + 12, 0.05, -29, 1800 + 12, 1.0, -38)`);
   }
 
