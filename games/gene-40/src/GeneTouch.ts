@@ -19,7 +19,8 @@ export class GeneTouch implements System {
   init(game: Game): void {
     // Each world's score panel sits top centre: on phones, below the button row.
     const css = document.createElement('style');
-    css.textContent = `body.touch-ui .gene-panel { top: calc(64px + env(safe-area-inset-top)) !important; font-size: 13px !important; max-width: 38vw; white-space: normal !important; text-align: center; }`;
+    css.textContent = `body.touch-ui .gene-panel { top: calc(64px + env(safe-area-inset-top)) !important; font-size: 13px !important; max-width: 38vw; white-space: normal !important; text-align: center; }
+      body.touch-ui .gene-alert { top: calc(128px + env(safe-area-inset-top)) !important; font-size: 12px !important; max-width: 60vw; white-space: normal !important; text-align: center; }`;
     document.head.appendChild(css);
     const t = this.touch;
     const talk = t.addButton({ label: 'Talk<small>hold</small>', key: 'KeyV' });

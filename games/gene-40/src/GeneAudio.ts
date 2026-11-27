@@ -161,6 +161,20 @@ registerSounds({
     noise(c, o, t, { dur: 0.9, type: 'lowpass', freq: 900, freqEnd: 150, gain: 0.55 * v, attack: 0.005 });
     noise(c, o, t, { dur: 0.15, type: 'highpass', freq: 2500, gain: 0.2 * v });
   },
+  /** Hero city: an emergency call, a two-tone siren. */
+  siren: (c, o, t, v) => {
+    for (let i = 0; i < 4; i++) tone(c, o, t + i * 0.32, { dur: 0.3, type: 'square', freq: i % 2 ? 660 : 880, gain: 0.05 * v, attack: 0.02 });
+  },
+  /** The runaway bus: a long horn. */
+  horn: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 220, gain: 0.08 * v, attack: 0.02 });
+    tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 277, gain: 0.06 * v, attack: 0.02 });
+  },
+  /** Something big stopping hard: a crunch. */
+  crunch: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.4, type: 'lowpass', freq: 1800, freqEnd: 300, gain: 0.5 * v });
+    tone(c, o, t, { dur: 0.3, type: 'triangle', freq: 120, freqEnd: 50, gain: 0.3 * v });
+  },
   boing: (c, o, t, v) => tone(c, o, t, { dur: 0.45, type: 'triangle', freq: 180, freqEnd: 720, gain: 0.25 * v }),
   /** The net: a soft swish. */
   swish: (c, o, t, v) => noise(c, o, t, { dur: 0.35, type: 'bandpass', freq: 2500, freqEnd: 900, q: 0.7, gain: 0.3 * v, attack: 0.04 }),
@@ -265,12 +279,19 @@ export class GeneAudio implements System {
       else if (phase === 'landed') this.audio.play('fanfare', { delay: 0.3 });
     });
     ev.on('buddies:boo', () => play('boo'));
-    ev.on('heroes:kitten', () => (play('pickup'), play('meow', 0.9, 0.9 + Math.random() * 0.3)));
     ev.on('heroes:power', () => play('powerup'));
     ev.on('heroes:swing', ({ on }) => (on ? play('thwip', 1, 0.9 + Math.random() * 0.2) : play('whoosh', 0.6)));
     ev.on('heroes:fly', ({ on }) => on && play('whoosh', 0.8, 0.8));
     ev.on('heroes:lift', () => play('heave'));
     ev.on('heroes:throw', () => play('hurl'));
+    ev.on('heroes:alert', () => play('siren'));
+    ev.on('heroes:saved', () => (play('chime'), play('cheer', 0.6)));
+    ev.on('heroes:failed', () => play('aww'));
+    ev.on('heroes:catch', () => (play('pickup'), play('meow', 0.9, 1.1)));
+    ev.on('heroes:kittenFall', () => play('meow', 1, 1.4));
+    ev.on('heroes:ring', ({ n }) => play('pickup', 0.8, 1 + n * 0.05));
+    ev.on('heroes:busGo', () => play('horn'));
+    ev.on('heroes:busStop', () => play('crunch'));
     ev.on('heroes:slam', ({ strength }) => play('slam', 0.6 + 0.4 * strength));
     ev.on('state:changed', ({ kind }) => kind === 'item' && play('pickup', 0.6));
     // Games.
