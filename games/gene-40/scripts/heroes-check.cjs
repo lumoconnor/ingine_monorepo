@@ -1,7 +1,8 @@
 // Hero city check: arrive in the hero suit (super jump), earn swing, flight and
 // super strength in order and each works (swing arcs, flight and dive, ground
-// slam throws cars, lift and throw a car), every kitten sits on a
-// roof and reaching it rescues it, Captain Whiskers talks, powers switch off
+// slam throws cars, lift and throw a car), one chain of steps to SAVE HERO
+// CITY (powers gated behind the emergencies, one beam at a time, the panel
+// says what's next), each emergency, Captain Whiskers talks, powers switch off
 // outside the city and back on when you return, and nothing has fall damage.
 // SHOTS=dir saves screenshots.
 const { chromium } = require('playwright');
@@ -78,10 +79,9 @@ const shots = process.env.SHOTS;
 
     const station = (id) => hp.stations.find((s) => s.id === id);
     const visit = (id) => { const st = station(id); C.placeAt(new T(st.pos.x, st.pos.y + 0.05, st.pos.z + 1.1), 0, 0); step(4); return hp.owned.has(id); };
-    check('flight is locked until you can swing', !visit('fly') && !visit('strength'));
+    check('flight and strength are locked at the start', !visit('fly') && !visit('strength'));
     check('the plaza station gives swing', visit('swing'));
-    check('  and lights the flight beacon', station('fly').beacon.visible && !station('swing').beacon.visible);
-    check('the flight station is out of jumping reach', station('fly').pos.y - 0 > 20, `roof at ${f(station('fly').pos.y)} m`);
+        check('the flight station is out of jumping reach', station('fly').pos.y - 0 > 20, `roof at ${f(station('fly').pos.y)} m`);
 
     // Swing down the avenue: hold G, ride the arc, let go.
     C.placeAt(new T(o[0] + 3, 0.05, -14), 0, 0);
@@ -109,6 +109,33 @@ const shots = process.env.SHOTS;
     ku('KeyG');
     step(200);
 
+    check('flight waits until the kitten is safe: no beam on it yet', !station('fly').beacon.visible && !visit('fly'));
+    check('the panel says what to do next', /SAVE HERO CITY\s+1 \/ 7/.test(hp.panel.textContent) && /Next: catch the kitten/.test(hp.panel.textContent), hp.panel.textContent);
+    // 1. The falling kitten: let it fall once, then catch it.
+    check('the city calls in the falling kitten first', em.callNext() === 'kitten' && em.current === 'kitten');
+    const kit = em.kitten.root.position;
+    const ledge = kit.clone();
+    C.placeAt(new T(ledge.x - 80, 0.05, ledge.z), 0, 0);
+    step(30);
+    check('  it waits on its ledge until you come near', !em.kitten.falling && Math.abs(kit.y - ledge.y) < 0.01, `kitten y ${f(kit.y)}`);
+    C.placeAt(new T(ledge.x - 30, 0.05, ledge.z + 15), 0, 0);
+    step(2);
+    check('  it slips as you come close', em.kitten.falling);
+    step(60 * 8);
+    check('  miss it and it lands on its feet, and you get another go', em.fails === 1 && em.current === 'kitten', `fails ${em.fails}`);
+    C.placeAt(new T(ledge.x - 80, 0.05, ledge.z), 0, 0);
+    step(60 * 4);
+    check('  it is back on the ledge', Math.abs(kit.y - ledge.y) < 0.01 && !em.kitten.falling);
+    C.placeAt(new T(ledge.x - 30, 0.05, ledge.z + 15), 0, 0);
+    step(60 * 2);
+    check('  and slips again once you are ready', em.kitten.falling && kit.y < ledge.y - 2, `kitten y ${f(kit.y)}`);
+    // Swoop in and grab it mid-air.
+    C.placeAt(new T(kit.x, kit.y - 1.6, kit.z), 0, 0);
+    hp.fly();
+    step(2);
+    check('  catch it in mid-air and it is saved', em.state.kitten === 'done' && !em.current, `state ${em.state.kitten}`);
+    check('  then the flight beam lights up, and nothing else', station('fly').beacon.visible && !station('strength').beacon.visible && !em.beacon.visible);
+    check('  and the panel sends you there', /Next: swing up to the blue beam/.test(hp.panel.textContent), hp.panel.textContent);
     check('the rooftop station gives flight', visit('fly'));
     // Fly: jump, Space again in the air, W.
     C.placeAt(new T(o[0], 0.05, -20), 0, 0);
@@ -156,47 +183,7 @@ const shots = process.env.SHOTS;
     check('  and the shockwave throws the car', carUp > 3, `car vy ${carUp.toFixed(1)}`);
     step(120);
 
-    check('Hero HQ roof gives super strength', visit('strength'));
-    // Lift the car by the plaza and throw it.
-    const car2 = cars.find((t) => Math.abs(t.entity.object3d.position.x - (o[0] + 26)) < 0.5);
-    const c2 = car2.entity.object3d.position;
-    C.placeAt(new T(c2.x - 4, 0.05, c2.z), 0, 0);
-    step(10);
-    aim(c2.x, c2.y, c2.z);
-    kd('KeyE');
-    step(30);
-    check('E lifts a car over your head', hp.held === car2 && c2.y > feet.y + 2.5, `car y ${f(c2.y)}`);
-    const from = c2.clone();
-    C.pitch = 0.15;
-    input.pressed.add('attack');
-    step(40);
-    check('click throws it', !hp.held && hp.throws === 1 && c2.distanceTo(from) > 15, `${c2.distanceTo(from).toFixed(1)} m`);
-    step(60);
-    // Emergencies.
-    check('every emergency open once you have the powers', Object.values(em.state).every((s) => s === 'waiting'), JSON.stringify(em.state));
-    // 1. The falling kitten: let it fall once, then catch it.
-    check('the city calls in the falling kitten first', em.callNext() === 'kitten' && em.current === 'kitten');
-    const kit = em.kitten.root.position;
-    const ledge = kit.clone();
-    C.placeAt(new T(ledge.x - 80, 0.05, ledge.z), 0, 0);
-    step(30);
-    check('  it waits on its ledge until you come near', !em.kitten.falling && Math.abs(kit.y - ledge.y) < 0.01, `kitten y ${f(kit.y)}`);
-    C.placeAt(new T(ledge.x - 30, 0.05, ledge.z + 15), 0, 0);
-    step(2);
-    check('  it slips as you come close', em.kitten.falling);
-    step(60 * 8);
-    check('  miss it and it lands on its feet, and you get another go', em.fails === 1 && em.current === 'kitten', `fails ${em.fails}`);
-    C.placeAt(new T(ledge.x - 80, 0.05, ledge.z), 0, 0);
-    step(60 * 4);
-    check('  it is back on the ledge', Math.abs(kit.y - ledge.y) < 0.01 && !em.kitten.falling);
-    C.placeAt(new T(ledge.x - 30, 0.05, ledge.z + 15), 0, 0);
-    step(60 * 2);
-    check('  and slips again once you are ready', em.kitten.falling && kit.y < ledge.y - 2, `kitten y ${f(kit.y)}`);
-    // Swoop in and grab it mid-air.
-    C.placeAt(new T(kit.x, kit.y - 1.6, kit.z), 0, 0);
-    hp.fly();
-    step(2);
-    check('  catch it in mid-air and it is saved', em.state.kitten === 'done' && !em.current, `state ${em.state.kitten}`);
+    check('super strength waits until the fire and the race are done', !visit('strength') && !station('strength').beacon.visible);
     // 2. The burning building: three cats at the windows.
     check('then the burning building', em.callNext() === 'fire');
     step(1);
@@ -220,6 +207,23 @@ const shots = process.env.SHOTS;
       step(30);
     }
     check('  fly every ring in time and you beat the Captain', em.state.race === 'done' && em.raceBest < 30, `${em.raceBest.toFixed(1)} s`);
+    check('  then the HQ beam lights up for super strength', station('strength').beacon.visible && /Next: fly to the green beam/.test(hp.panel.textContent), hp.panel.textContent);
+    check('Hero HQ roof gives super strength', visit('strength'));
+    // Lift the car by the plaza and throw it.
+    const car2 = cars.find((t) => Math.abs(t.entity.object3d.position.x - (o[0] + 26)) < 0.5);
+    const c2 = car2.entity.object3d.position;
+    C.placeAt(new T(c2.x - 4, 0.05, c2.z), 0, 0);
+    step(10);
+    aim(c2.x, c2.y, c2.z);
+    kd('KeyE');
+    step(30);
+    check('E lifts a car over your head', hp.held === car2 && c2.y > feet.y + 2.5, `car y ${f(c2.y)}`);
+    const from = c2.clone();
+    C.pitch = 0.15;
+    input.pressed.add('attack');
+    step(40);
+    check('click throws it', !hp.held && hp.throws === 1 && c2.distanceTo(from) > 15, `${c2.distanceTo(from).toFixed(1)} m`);
+    step(60);
     // 4. The runaway bus: let it through once, then stop it.
     check('then the runaway bus', em.callNext() === 'bus');
     const busAt = () => em.bus.pos.clone();
@@ -251,7 +255,8 @@ const shots = process.env.SHOTS;
     mb.setLinvel({ x: 0, y: -4, z: -25 }, true);
     for (let i = 0; i < 90 && em.current === 'bus'; i++) step(1);
     check('  a thrown car stops it too', em.state.bus === 'done' && !em.bus.moving, `state ${em.state.bus}`);
-    check('every emergency handled', em.done === 4 && game.state.hasFlag('heroes.allEmergencies'));
+    check('every step done: Hero city is saved', em.done === 4 && em.step === null && game.state.hasFlag('heroes.saved') && /HERO CITY SAVED/.test(hp.panel.textContent), hp.panel.textContent);
+    check('the rescued cats wait in the basket', hp.saved === 4, `${hp.saved}`);
 
     // No fall damage: drop off a tall roof.
     const health = comp(player, 'Damageable') ?? comp(player, 'Health');
@@ -259,25 +264,6 @@ const shots = process.env.SHOTS;
     C.placeAt(new T(o[0] + 36, 60, -84), 0, 0);
     step(200);
     check('no fall damage', health && health.health === before && feet.y < 2, `health ${before} -> ${health?.health}, y ${f(feet.y)}`);
-
-    // Kittens.
-    check('eight kittens to rescue', hp.total === 8, `${hp.total}`);
-    const world = game.physics.world;
-    const floating = [];
-    for (const k of hp.kittens) {
-      const hit = world.castRay(new RAPIER.Ray({ x: k.pos.x, y: k.pos.y + 0.5, z: k.pos.z }, { x: 0, y: -1, z: 0 }), 3, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS);
-      if (!hit || Math.abs(hit.timeOfImpact - 0.5) > 0.03) floating.push(k.pos.toArray().map(f).join(','));
-    }
-    check('every kitten sits on a roof', floating.length === 0, floating.join(' | '));
-    const heights = hp.kittens.map((k) => k.pos.y).sort((a, b) => a - b);
-    check('kittens on a spread of heights, one on top of HQ', heights[0] === 6 && heights[7] === 80, heights.map((h) => h.toFixed(0)).join(','));
-    for (const k of hp.kittens) {
-      C.placeAt(new T(k.pos.x + 1, k.pos.y + 0.05, k.pos.z), 0, 0);
-      step(4);
-    }
-    check('reaching every kitten rescues it', hp.saved === 8 && game.state.hasFlag('heroes.allKittens'), `${hp.saved} / 8`);
-    const inBasket = hp.kittens.filter((k) => k.entity.object3d.position.distanceTo(new T(o[0] - 11, 0.1, 4.5)) < 1.2).length;
-    check('rescued kittens wait in the basket', inBasket === 8, `${inBasket}`);
 
     // Captain Whiskers.
     const lines = [];

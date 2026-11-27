@@ -8,12 +8,14 @@ import { PlayerController } from '@ingine/engine/gameplay/player/PlayerControlle
 import type { Vec3 } from '../scenes';
 import { catModel } from './murph';
 import { label, mat } from './kit';
-import type { HeroPowers, PowerId } from './heroPowers';
+import type { HeroPowers, Mission, PowerId } from './heroPowers';
 
 /**
- * Hero city's emergencies: things that need a hero, each built for a power.
- * They open up as you earn the powers, and the city calls them in one at a
- * time with a siren, a red beam over the spot and a line on the panel:
+ * Hero city's one goal, SAVE HERO CITY, as a chain of steps (STEPS): take a
+ * power, use it on the emergency it's for, which opens the next power. Only
+ * one beam is lit at a time (a power station's, or the red one over an
+ * emergency) and the top panel always says what to do next. The emergencies,
+ * called in with a siren:
  *
  *  - Falling kitten (swing): a kitten on a roof ledge slips as you come near.
  *    Catch it before it reaches the street.
@@ -55,6 +57,24 @@ export interface EmergencySites {
   bus: { from: Vec3; to: Vec3 };
 }
 
+/**
+ * The one goal: save Hero city. One step at a time, in this order: each power
+ * gets you to the emergency it's for, and handling that opens the next power.
+ */
+type Step = { power: PowerId } | { emergency: EmergencyId };
+export const STEPS: Step[] = [{ power: 'swing' }, { emergency: 'kitten' }, { power: 'fly' }, { emergency: 'fire' }, { emergency: 'race' }, { power: 'strength' }, { emergency: 'bus' }];
+
+const NEXT_TEXT: Record<string, string> = {
+  swing: 'take SWING from the station by the HERO CITY sign',
+  kitten: 'catch the kitten falling off the roof (red beam)',
+  fly: 'swing up to the blue beam on the rooftops for FLIGHT',
+  fire: 'fly the cats out of the burning building (red beam)',
+  race: "fly Captain Whiskers' ring course in 30 s (first ring by the sign)",
+  strength: 'fly to the green beam on top of Hero HQ for SUPER STRENGTH',
+  bus: 'stop the runaway bus before it hits the plaza (red beam)',
+  saved: 'go and tell Captain Whiskers',
+};
+
 const KITTEN_FALL = { trigger: 45, gravity: 7, maxSpeed: 9, catchRadius: 2.6 };
 const FIRE = { trigger: 70, time: 75, reach: 2.6 };
 const RACE = { par: 30, radius: 4.6 };
@@ -62,7 +82,7 @@ const BUS = { speed: 9, half: new THREE.Vector3(1.35, 1.6, 5.6) };
 
 type State = 'locked' | 'waiting' | 'active' | 'done';
 
-export class HeroEmergencies implements System {
+export class HeroEmergencies implements System, Mission {
   readonly name = 'hero-emergencies';
   private game!: Game;
   readonly state: Record<EmergencyId, State> = { kitten: 'locked', fire: 'locked', race: 'locked', bus: 'locked' };
@@ -80,7 +100,7 @@ export class HeroEmergencies implements System {
   // Falling kitten.
   private kitten!: { root: THREE.Group; shout: Entity; y: number; vy: number; falling: boolean; resetIn: number; grace: number };
   // Fire.
-  private fire!: { cats: { root: THREE.Group; at: THREE.Vector3; saved: boolean }[]; flames: THREE.Mesh[]; smoke: THREE.Mesh[]; t: number; lit: boolean };
+  private fire!: { cats: { root: THREE.Group; at: THREE.Vector3; saved: boolean; fur: number }[]; flames: THREE.Mesh[]; smoke: THREE.Mesh[]; t: number; lit: boolean };
   // Race.
   private race!: { rings: THREE.Mesh[]; next: number; t: number; running: boolean };
   // Bus.
@@ -147,17 +167,57 @@ export class HeroEmergencies implements System {
     return EMERGENCIES.filter((e) => this.state[e.id] === 'done').length;
   }
 
+  // --- The mission ------------------------------------------------------------------
+
+  private stepDone(st: Step): boolean {
+    return 'power' in st ? this.powers.owned.has(st.power) : this.state[st.emergency] === 'done';
+  }
+
+  /** The step you're on, or null once the city is saved. */
+  get step(): Step | null {
+    return STEPS.find((st) => !this.stepDone(st)) ?? null;
+  }
+
+  allows(id: PowerId): boolean {
+    const i = STEPS.findIndex((st) => 'power' in st && st.power === id);
+    return STEPS.slice(0, i).every((st) => this.stepDone(st));
+  }
+
+  next(): string {
+    const st = this.step;
+    return NEXT_TEXT[st ? ('power' in st ? st.power : st.emergency) : 'saved'];
+  }
+
+  progress(): { done: number; total: number } {
+    return { done: STEPS.filter((st) => this.stepDone(st)).length, total: STEPS.length };
+  }
+
+  /** Something moved on: refresh the beams and the panel, and say what's next. */
+  private advanced(): void {
+    this.powers.refreshStations();
+    this.powers.render();
+    const st = this.step;
+    if (!st) {
+      this.game.state.setFlag('heroes.saved');
+      this.game.events.emit('notify', { text: 'HERO CITY IS SAVED! Go and tell Captain Whiskers.' });
+      this.game.events.emit('heroes:citySaved', {});
+    } else if ('power' in st) this.game.events.emit('notify', { text: `Next: ${this.next()}.` });
+  }
+
   // --- The queue -------------------------------------------------------------------
 
   private unlock(): void {
     for (const e of EMERGENCIES) if (this.state[e.id] === 'locked' && this.powers.owned.has(e.needs)) this.state[e.id] = 'waiting';
-    if (!this.current) this.gap = Math.min(this.gap || 4, 4);
+    if (!this.current) this.gap = Math.min(this.gap || 3, 3);
     this.render();
+    this.advanced();
   }
 
   /** Call in the next waiting emergency. Public for the checks (skips the pause). */
   callNext(): EmergencyId | null {
-    const next = EMERGENCIES.find((e) => this.state[e.id] === 'waiting');
+    // Only the step you're on: the city calls them in one at a time, in order.
+    const st = this.step;
+    const next = st && 'emergency' in st && this.state[st.emergency] === 'waiting' ? EMERGENCIES.find((e) => e.id === st.emergency)! : null;
     if (!next) return null;
     this.current = next.id;
     this.state[next.id] = 'active';
@@ -181,15 +241,11 @@ export class HeroEmergencies implements System {
     this.state[id] = 'done';
     if (this.current === id) this.current = null;
     this.beacon.visible = false;
-    this.gap = 6;
-    const all = this.done === EMERGENCIES.length;
+    this.gap = 4;
     this.game.events.emit('notify', { text });
-    if (all) {
-      this.game.events.emit('notify', { text: 'Every emergency handled. Hero city is safe!' });
-      this.game.state.setFlag('heroes.allEmergencies');
-    }
     this.game.events.emit('heroes:saved', { id, done: this.done, total: EMERGENCIES.length });
     this.render();
+    this.advanced();
   }
 
   private fail(text: string): void {
@@ -267,7 +323,8 @@ export class HeroEmergencies implements System {
       k.falling = false;
       this.placeKitten();
       this.game.events.emit('heroes:catch', {});
-      this.succeed('kitten', 'Caught it! The kitten is safe in your arms. Nice swinging.');
+      this.powers.addToBasket(0xe08a3c);
+      this.succeed('kitten', 'Caught it! The kitten is safe, waiting in the basket on the plaza.');
       return;
     }
     if (!k.falling) {
@@ -322,7 +379,8 @@ export class HeroEmergencies implements System {
         scene.add(s);
         smoke.push(s);
       }
-      const { root } = catModel({ fur: [0x9a9aa2, 0xf4f1ea, 0x2b2b30][i % 3], s: 0.85, sitting: true });
+      const fur = [0x9a9aa2, 0xf4f1ea, 0x2b2b30][i % 3];
+      const { root } = catModel({ fur, s: 0.85, sitting: true });
       const g = new THREE.Group();
       g.add(root);
       g.position.set(...w);
@@ -333,7 +391,7 @@ export class HeroEmergencies implements System {
       sill.position.set(w[0], w[1] - 0.06, w[2]);
       sill.rotation.y = yaw;
       scene.add(sill);
-      return { root: g, at: new THREE.Vector3(...w), saved: false };
+      return { root: g, at: new THREE.Vector3(...w), saved: false, fur };
     });
     this.fire = { cats, flames, smoke, t: 0, lit: false };
     this.showFire(false);
@@ -362,6 +420,7 @@ export class HeroEmergencies implements System {
       if (c.saved || chest.distanceTo(c.at) > FIRE.reach) continue;
       c.saved = true;
       c.root.visible = false;
+      this.powers.addToBasket(c.fur);
       const left = f.cats.filter((q) => !q.saved).length;
       this.game.events.emit('heroes:catch', {});
       if (left) this.game.events.emit('notify', { text: `Got one! ${left} more at the windows.` });
@@ -608,6 +667,7 @@ declare module '@ingine/engine/core/EventBus' {
     'heroes:failed': Record<string, never>;
     'heroes:kittenFall': Record<string, never>;
     'heroes:catch': Record<string, never>;
+    'heroes:citySaved': Record<string, never>;
     'heroes:ring': { n: number; of: number };
     'heroes:busGo': Record<string, never>;
     'heroes:busStop': Record<string, never>;

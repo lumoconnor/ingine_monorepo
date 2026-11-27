@@ -240,7 +240,6 @@ export class GeneAudio implements System {
       else if (phase === 'landed') this.audio.play('fanfare', { delay: 0.3 });
     });
     ev.on('buddies:boo', () => play('boo'));
-    ev.on('heroes:kitten', () => (play('pickup'), play('meow', 0.9, 0.9 + Math.random() * 0.3)));
     ev.on('heroes:power', () => play('powerup'));
     ev.on('heroes:swing', ({ on }) => (on ? play('thwip', 1, 0.9 + Math.random() * 0.2) : play('whoosh', 0.6)));
     ev.on('heroes:fly', ({ on }) => on && play('whoosh', 0.8, 0.8));

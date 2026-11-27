@@ -31,11 +31,19 @@ import { label, mat } from './kit';
 
 export type PowerId = 'swing' | 'fly' | 'strength';
 
-export const POWERS: { id: PowerId; name: string; hint: string; color: number; next: string }[] = [
-  { id: 'swing', name: 'SWING', hint: 'Hold right mouse or G', color: 0xff5c8a, next: 'Swing up to the blue beacon on the rooftops to learn to fly.' },
-  { id: 'fly', name: 'FLIGHT', hint: 'Space in the air, then look where you want to go', color: 0x4fb3ff, next: 'Fly to the top of Hero HQ for super strength. C in the air slams you down.' },
-  { id: 'strength', name: 'SUPER STRENGTH', hint: 'Click a car to lift it, click again to throw', color: 0x3fd17a, next: 'Every power! Lift a car and throw it.' },
+export const POWERS: { id: PowerId; name: string; hint: string; color: number }[] = [
+  { id: 'swing', name: 'SWING', hint: 'Hold right mouse or G', color: 0xff5c8a },
+  { id: 'fly', name: 'FLIGHT', hint: 'Space in the air, then look where you want to go. C in the air slams you down', color: 0x4fb3ff },
+  { id: 'strength', name: 'SUPER STRENGTH', hint: 'Click a car to lift it, click again to throw', color: 0x3fd17a },
 ];
+
+/** The city's to-do list (heroEmergencies.ts): which power you may take now, and what to do next. */
+export interface Mission {
+  allows(id: PowerId): boolean;
+  /** One line: what to do next. */
+  next(): string;
+  progress(): { done: number; total: number };
+}
 
 export interface Station {
   id: PowerId;
@@ -54,13 +62,6 @@ export interface Throwable {
   half: THREE.Vector3;
 }
 
-interface Kitten {
-  entity: Entity;
-  pos: THREE.Vector3;
-  saved: boolean;
-  help?: Entity;
-}
-
 const KITTEN_FUR = [0xf4f1ea, 0x9a9aa2, 0xd9b48a, 0x2b2b30, 0xe08a3c, 0xc9c3b8, 0x7a5536, 0xf0d9a8];
 
 /** Swing and flight tuning (m, m/s, m/s^2). */
@@ -74,9 +75,10 @@ export class HeroPowers implements System {
   private game!: Game;
   private ready = false;
   readonly owned = new Set<PowerId>();
-  readonly kittens: Kitten[] = [];
   readonly throwables: Throwable[] = [];
+  /** Cats rescued so far (they wait in the basket). */
   saved = 0;
+  mission: Mission | null = null;
   private basket: Vec3 = [0, 0, 0];
   private panel!: HTMLDivElement;
   private lines!: HTMLCanvasElement;
@@ -173,29 +175,27 @@ export class HeroPowers implements System {
     const cushion = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.1, 24), mat(0xe8c7d8, { roughness: 1 }));
     cushion.position.set(x, y + 0.05, z);
     this.game.renderer.scene.add(cushion);
-    label(this.game, 'Rescued kittens', [x, y + 2.1, z], 0.8);
+    label(this.game, 'Rescued cats', [x, y + 2.1, z], 0.8);
   }
 
-  addKitten(game: Game, roof: Vec3): void {
-    const i = this.kittens.length;
-    const { root } = catModel({ fur: KITTEN_FUR[i % KITTEN_FUR.length], s: 0.9, sitting: true });
+  /** A rescued cat goes to wait in the basket on the plaza. */
+  addToBasket(fur?: number): void {
+    const n = this.saved++;
+    const { root } = catModel({ fur: fur ?? KITTEN_FUR[n % KITTEN_FUR.length], s: 0.9, sitting: true });
     const g = new THREE.Group();
-    g.position.set(...roof);
-    g.rotation.y = i * 1.3;
+    const a = n * 1.3;
+    const r = n === 0 ? 0 : 0.85;
+    g.position.set(this.basket[0] + Math.cos(a) * r, this.basket[1] + 0.1, this.basket[2] + Math.sin(a) * r);
+    g.rotation.y = -a;
     g.add(root);
-    const help = label(game, 'Help!', [roof[0], roof[1] + 1.1, roof[2]], 0.7, '#ffd84a');
-    const e = new Entity('kitten', g);
+    const e = new Entity('rescued-cat', g);
     e.tags.add('kitten');
-    game.world.spawn(e);
-    this.kittens.push({ entity: e, pos: new THREE.Vector3(...roof), saved: false, help });
+    this.game.world.spawn(e);
+    this.render();
   }
 
   addThrowable(t: Throwable): void {
     this.throwables.push(t);
-  }
-
-  get total(): number {
-    return this.kittens.length;
   }
 
   /** The next power to collect, if any. */
@@ -223,18 +223,22 @@ export class HeroPowers implements System {
     this.owned.add(id);
     const p = POWERS.find((q) => q.id === id)!;
     this.game.events.emit('notify', { text: `${p.name}! ${p.hint}.` });
-    this.game.events.emit('notify', { text: p.next });
     this.game.events.emit('heroes:power', { power: id });
     this.refreshStations();
     this.render();
   }
 
-  private refreshStations(): void {
-    const next = this.nextPower;
+  /** Can you take this power now? (The next one, once the city's emergencies before it are handled.) */
+  canTake(id: PowerId): boolean {
+    return id === this.nextPower && (this.mission?.allows(id) ?? true);
+  }
+
+  /** Light the beam over the one station you're meant to go to now, if any. */
+  refreshStations(): void {
     for (const st of this.stations) {
       const has = this.owned.has(st.id);
-      (st.orb.material as THREE.MeshStandardMaterial).emissiveIntensity = has ? 0.25 : 1.4;
-      st.beacon.visible = st.id === next;
+      (st.orb.material as THREE.MeshStandardMaterial).emissiveIntensity = has ? 0.25 : this.canTake(st.id) ? 1.4 : 0.6;
+      st.beacon.visible = this.canTake(st.id);
     }
   }
 
@@ -301,14 +305,9 @@ export class HeroPowers implements System {
     const v = ctrl.velocity;
     const input = this.game.input;
 
-    // Stations: walk up to the next one to take its power.
-    const next = this.nextPower;
+    // Stations: walk up to the one you're sent to, to take its power.
     for (const st of this.stations) {
-      if (st.id === next && Math.hypot(feet.x - st.pos.x, feet.z - st.pos.z) < 1.5 && Math.abs(feet.y - st.pos.y) < 2.5) this.grant(st.id);
-    }
-    // Kittens: reach one to rescue it.
-    for (const k of this.kittens) {
-      if (!k.saved && Math.hypot(feet.x - k.pos.x, feet.z - k.pos.z) < 1.8 && Math.abs(feet.y - k.pos.y) < 2.4) this.rescue(k);
+      if (this.canTake(st.id) && Math.hypot(feet.x - st.pos.x, feet.z - st.pos.z) < 1.5 && Math.abs(feet.y - st.pos.y) < 2.5) this.grant(st.id);
     }
 
     // Swing: hold to hook, let go to fly off.
@@ -591,24 +590,6 @@ export class HeroPowers implements System {
     this.render();
   }
 
-  // --- Kittens -------------------------------------------------------------------------
-
-  private rescue(k: Kitten): void {
-    k.saved = true;
-    this.saved++;
-    const n = this.saved - 1;
-    const a = n * 0.8;
-    const r = n === 0 ? 0 : 0.85;
-    k.entity.object3d.position.set(this.basket[0] + Math.cos(a) * r, this.basket[1] + 0.1, this.basket[2] + Math.sin(a) * r);
-    k.entity.object3d.rotation.y = -a;
-    if (k.help) this.game.world.destroy(k.help);
-    const all = this.saved === this.total;
-    this.game.events.emit('notify', { text: all ? 'Every kitten is safe. City saved!' : `Kitten rescued! ${this.saved} / ${this.total}` });
-    this.game.events.emit('heroes:kitten', { saved: this.saved, total: this.total });
-    if (all) this.game.state.setFlag('heroes.allKittens');
-    this.render();
-  }
-
   // --- Each frame: the line, the camera, speed lines, wind -------------------------------------
 
   update(time: { delta: number }): void {
@@ -733,10 +714,10 @@ export class HeroPowers implements System {
   render(): void {
     const here = this.here();
     this.panel.style.display = here ? 'block' : 'none';
-    const powers = POWERS.filter((p) => this.owned.has(p.id)).map((p) => p.name.toLowerCase());
-    const next = POWERS.find((p) => p.id === this.nextPower);
-    const goal = next ? (this.owned.size ? `next: ${next.name.toLowerCase()} at the beacon` : 'grab SWING by the HERO CITY sign') : 'every power';
-    this.panel.textContent = `Kittens: ${this.saved} / ${this.total}   ·   Powers: ${powers.length ? powers.join(', ') : 'none yet'} (${goal})`;
+    const m = this.mission;
+    if (!m) return;
+    const { done, total } = m.progress();
+    this.panel.textContent = done === total ? `HERO CITY SAVED!   ·   Next: ${m.next()}` : `SAVE HERO CITY  ${done} / ${total}   ·   Next: ${m.next()}`;
   }
 }
 
@@ -753,7 +734,6 @@ const _euler = new THREE.Euler();
 declare module '@ingine/engine/core/EventBus' {
   interface GameEvents {
     'heroes:power': { power: PowerId };
-    'heroes:kitten': { saved: number; total: number };
     'heroes:swing': { on: boolean };
     'heroes:fly': { on: boolean };
     'heroes:lift': { on: boolean };

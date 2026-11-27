@@ -14,20 +14,16 @@ import { HeroEmergencies, type EmergencySites } from './heroEmergencies';
 export { HeroPowers, POWERS, type PowerId } from './heroPowers';
 
 /**
- * Hero city: an original superhero town. You arrive in the hero suit (a big
- * jump and a fast run) and earn three powers in a row, each from a station
- * the last one gets you to (see heroPowers.ts): Swing on the plaza, Flight on
- * a rooftop, Super strength on top of Hero HQ. A beam of light marks the next
- * one. Parked cars and bins line the streets for super strength and the
- * ground slam to throw around.
- *
- * Emergencies (heroEmergencies.ts) open up as you earn powers: a kitten
- * falling off a ledge, a burning building, Captain Whiskers' ring race and a
- * runaway bus.
- *
- * Eight kittens are stuck on rooftops (one right on top of Hero HQ): reach
- * each one to rescue it and it's waiting in the basket on the plaza. Captain
- * Whiskers, the city's caped cat, keeps an eye on things.
+ * Hero city: an original superhero town, with one goal: SAVE HERO CITY. You
+ * arrive in the hero suit (a big jump and a fast run), and work down one
+ * chain (heroEmergencies.ts): take Swing on the plaza, catch a kitten falling
+ * off a roof, swing up to a rooftop for Flight, fly cats out of a burning
+ * building, fly Captain Whiskers' ring race, fly to the top of Hero HQ for
+ * Super strength, stop a runaway bus. One beam marks where to go and the top
+ * panel always says what's next. Rescued cats wait in the basket on the
+ * plaza. Parked cars and bins line the streets for super strength and the
+ * ground slam to throw around. Captain Whiskers, the city's caped cat, keeps
+ * an eye on things.
  */
 
 type At = (x: number, y: number, z: number) => Vec3;
@@ -60,10 +56,10 @@ export function buildHeroes(game: Game, teleports: Teleports, index: number): He
   const powers = game.addSystem(new HeroPowers(stations));
   powers.init(game);
   powers.setBasket(at(-11, 0, 4.5));
-  for (const p of kittenSpots(at, roofs)) powers.addKitten(game, p);
   streetStuff(game, at, powers);
   powers.render();
   const emergencies = game.addSystem(new HeroEmergencies(powers, emergencySites(at, roofs)));
+  powers.mission = emergencies;
   emergencies.init(game);
   return powers;
 }
@@ -258,18 +254,6 @@ function powerStations(game: Game, at: At, roofs: Roof[]): Station[] {
     game.renderer.scene.add(beacon);
     return { id: p.id, pos: new THREE.Vector3(...g), orb, beacon };
   });
-}
-
-// --- Kittens --------------------------------------------------------------------
-
-function kittenSpots(at: At, roofs: Roof[]): Vec3[] {
-  // A spread of heights: a couple you can super-jump to, the rest need a swing or flight.
-  const sorted = [...roofs].sort((a, b) => a.top[1] - b.top[1]);
-  // sorted[0] is the diner (6 m).
-  const picks = [0, 5, 12, 18, 24, 29, sorted.length - 1].map((i) => sorted[Math.min(i, sorted.length - 1)]);
-  const spots = picks.map((r) => [r.top[0] + r.w * 0.25, r.top[1], r.top[2] + r.d * 0.25] as Vec3);
-  spots.push(at(4, HQ_HEIGHT, -64)); // right on top of Hero HQ
-  return spots;
 }
 
 // --- Cars and bins ------------------------------------------------------------------

@@ -116,21 +116,19 @@ export const CHATTER: ChatterDef[] = [
   {
     id: 'captain_whiskers',
     speaker: 'Captain Whiskers',
-    hello: "Citizen Gene! Happy 40th! Eight kittens are stuck on the rooftops. Grab SWING from the station by the sign, then follow the beams of light: every power gets you to the next one.",
+    hello: "Citizen Gene! Happy 40th! Hero city needs saving and you're the hero for it. Take SWING from the station by the sign, then just read the top of your screen: it always says what's next.",
     lines: [
       'My superpower? Landing on my feet. Every time. Even from Hero HQ. Do not test this.',
       'The cape is not for flying. The cape is for drama.',
       'Swinging tip: hold on through the bottom of the arc, let go on the way up. Physics is on your side. Mostly.',
       'Flying is easy. Look where you want to go and hold W. Shift if you are in a hurry. Dive if you are showing off.',
       'Press C in the air and you come down like a dropped piano. The cars do not enjoy it. I do.',
-      "Super strength is on the roof of Hero HQ. Somebody parked their car badly on the avenue. Teach them a lesson.",
-      "One kitten is right on top of Hero HQ. Don't ask me how. Kittens are a mystery.",
-      'Every hero needs a nemesis. Mine is the vacuum cleaner.',
       'When the siren goes, follow the red beam. Somebody needs you. Usually a cat.',
       'My ring course record is thirty seconds. I would like it noted that I did it with a cape on.',
       'If a bus is coming at you, stand your ground. Or throw a car at it. Both are valid hero choices.',
+      'Every hero needs a nemesis. Mine is the vacuum cleaner.',
     ],
-    special: { flag: 'heroes.allKittens', text: 'Every kitten home safe! Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
+    special: { flag: 'heroes.saved', text: 'You did it! Hero city is saved and the basket is full of grateful cats. Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
   {
     // Luke's two-year-old. She only ever says one thing.
