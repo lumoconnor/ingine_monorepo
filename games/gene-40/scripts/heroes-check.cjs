@@ -55,6 +55,13 @@ const shots = process.env.SHOTS;
     const kd = (code) => window.dispatchEvent(new KeyboardEvent('keydown', { code }));
     const ku = (code) => window.dispatchEvent(new KeyboardEvent('keyup', { code }));
     const hspeed = () => Math.hypot(C.velocity.x, C.velocity.z);
+    // The top-centre column: panel first, then messages, newest few only; no debug readout.
+    for (let i = 0; i < 6; i++) game.events.emit('notify', { text: `message ${i}` });
+    const topCol = document.querySelector('.gene-top');
+    const shown = [...topCol.querySelectorAll('.toast')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => t.textContent);
+    check('top-centre: the panel and messages stack in one column', topCol.contains(hp.panel) && !!topCol.querySelector('.toasts') && hp.panel.getBoundingClientRect().bottom <= topCol.querySelector('.toasts').getBoundingClientRect().top + 0.5);
+    check('  only the newest three messages show', shown.join() === 'message 3,message 4,message 5', shown.join());
+    check('the debug readout is hidden', document.querySelector('.hud .debug').classList.contains('hidden'));
     check('three power stations', hp.stations.length === 3);
     check('no powers to start with', hp.owned.size === 0);
     check('only the swing beacon is lit', hp.stations.map((s) => s.beacon.visible).join() === 'true,false,false');
