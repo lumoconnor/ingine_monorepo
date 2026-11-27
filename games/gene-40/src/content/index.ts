@@ -11,6 +11,7 @@ import damageTypes from './combat/damage-types.json';
 import factions from './combat/factions.json';
 import unarmed from './combat/unarmed.json';
 import './models';
+import './pupBalls';
 
 /**
  * Hands this game's content to the engine. Must run before `game.init()`.
