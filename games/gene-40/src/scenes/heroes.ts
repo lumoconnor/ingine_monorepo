@@ -374,5 +374,7 @@ function emergencySites(at: At, roofs: Roof[]): EmergencySites {
     fire: { windows, normal: [1, 0, 0] },
     rings,
     bus: { from: at(10.8, 1.6, -135), to: at(10.8, 1.6, -20) },
+    // Up the avenue behind HQ, where the cars are parked.
+    liz: { x: ox, y: oy, zNear: oz - 80, zFar: oz - 128 },
   };
 }

@@ -127,8 +127,9 @@ export const CHATTER: ChatterDef[] = [
       'My ring course record is thirty seconds. I would like it noted that I did it with a cape on.',
       'If a bus is coming at you, stand your ground. Or throw a car at it. Both are valid hero choices.',
       'Every hero needs a nemesis. Mine is the vacuum cleaner.',
+      'If the sky goes dark and the ground starts shaking, that is Big Liz having a bad day. She is a big softie really. A very big softie.',
     ],
-    special: { flag: 'heroes.saved', text: 'You did it! Hero city is saved and the basket is full of grateful cats. Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
+    special: { flag: 'heroes.saved', text: 'You did it! Big Liz is calm, the sun is out, Hero city is saved and the basket is full of grateful cats. Gene, you are an official hero of the city. Here is your medal. It is a bottle cap. It is very shiny.' },
   },
   {
     // Luke's two-year-old. She only ever says one thing.
