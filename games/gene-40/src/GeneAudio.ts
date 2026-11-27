@@ -174,6 +174,45 @@ registerSounds({
     noise(c, o, t, { dur: 1.6, type: 'bandpass', freq: 1100, freqEnd: 900, q: 0.5, gain: 0.22 * v, attack: 0.25 });
     noise(c, o, t + 0.1, { dur: 1.2, type: 'bandpass', freq: 2400, q: 0.8, gain: 0.08 * v, attack: 0.2 });
   },
+  /** Ballpark: the umpire's whistle and the organ's rising "let's go!" riff to start a round. */
+  playball: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.18, type: 'sine', freq: 2300, gain: 0.12 * v });
+    tone(c, o, t + 0.22, { dur: 0.5, type: 'sine', freq: 2300, freqEnd: 2150, gain: 0.12 * v });
+    [523, 659, 784, 1047].forEach((f, i) => tone(c, o, t + 0.85 + i * 0.13, { dur: 0.16, type: 'square', freq: f, gain: 0.09 * v, detune: 8 }));
+    [523, 659, 784, 1047].forEach((f) => tone(c, o, t + 1.42, { dur: 0.9, type: 'square', freq: f, gain: 0.05 * v, attack: 0.02, detune: 8 }));
+  },
+  /** The umpire's "steee-rike!" (a buzzy rise and a long fall). */
+  ump: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.16, type: 'sawtooth', freq: 240, freqEnd: 330, gain: 0.12 * v, attack: 0.02 });
+    noise(c, o, t, { dur: 0.12, type: 'bandpass', freq: 3500, q: 2, gain: 0.08 * v });
+    tone(c, o, t + 0.16, { dur: 0.55, type: 'sawtooth', freq: 330, freqEnd: 170, gain: 0.13 * v, attack: 0.02 });
+    noise(c, o, t + 0.16, { dur: 0.5, type: 'bandpass', freq: 900, freqEnd: 500, q: 3, gain: 0.1 * v });
+  },
+  /** The crowd groans (caught out). */
+  groan: (c, o, t, v) => {
+    noise(c, o, t, { dur: 1.1, type: 'bandpass', freq: 700, freqEnd: 260, q: 0.7, gain: 0.25 * v, attack: 0.08 });
+    tone(c, o, t, { dur: 0.9, type: 'triangle', freq: 260, freqEnd: 140, gain: 0.08 * v, attack: 0.05 });
+  },
+  /** A foul ball: a little "doink" and the crowd going "ooh". */
+  doink: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.3, type: 'triangle', freq: 620, freqEnd: 310, gain: 0.14 * v });
+    noise(c, o, t + 0.1, { dur: 0.6, type: 'bandpass', freq: 800, freqEnd: 1100, q: 1, gain: 0.08 * v, attack: 0.1 });
+  },
+  /** An organ stab (one per base on a hit). */
+  stab: (c, o, t, v, p) => [1, 1.26, 1.5].forEach((m) => tone(c, o, t, { dur: 0.22, type: 'square', freq: 392 * p * m, gain: 0.06 * v, detune: 10 })),
+  /** The stadium air horn (home runs). */
+  horn: (c, o, t, v) => [233, 294, 349].forEach((f) => tone(c, o, t, { dur: 1.4, type: 'sawtooth', freq: f, gain: 0.07 * v, attack: 0.03 })),
+  /** The crowd on its feet: a long roar. */
+  roar: (c, o, t, v) => {
+    noise(c, o, t, { dur: 3.5, type: 'bandpass', freq: 1000, freqEnd: 800, q: 0.4, gain: 0.3 * v, attack: 0.3 });
+    noise(c, o, t + 0.2, { dur: 3, type: 'bandpass', freq: 2600, q: 0.8, gain: 0.1 * v, attack: 0.3 });
+  },
+  /** A firework: a boom and a crackle. */
+  boom: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.6, type: 'sine', freq: 110, freqEnd: 36, gain: 0.35 * v });
+    noise(c, o, t, { dur: 0.5, type: 'lowpass', freq: 1200, freqEnd: 200, gain: 0.3 * v });
+    for (let k = 0; k < 6; k++) noise(c, o, t + 0.25 + k * 0.07 + Math.random() * 0.05, { dur: 0.04, type: 'highpass', freq: 4000, gain: 0.12 * v });
+  },
   /** A miss or a strike: a soft low "bwomp". */
   aww: (c, o, t, v) => tone(c, o, t, { dur: 0.4, type: 'triangle', freq: 300, freqEnd: 200, gain: 0.12 * v, attack: 0.03 }),
   /** The tattoo needle: a buzzy hum (one second; the parlour plays three). */
@@ -237,7 +276,23 @@ export class GeneAudio implements System {
     // Games.
     ev.on('axes:scored', ({ points }) => points >= 5 && play('cheer', 0.5));
     ev.on('ballpark:contact', ({ quality }) => play('crack', 0.6 + 0.4 * quality));
-    ev.on('ballpark:result', ({ result }) => (result === 'homer' ? play('cheer') : result === 'strike' ? play('aww') : undefined));
+    ev.on('ballpark:start', () => (play('playball'), this.audio.play('cheer', { volume: 0.5, delay: 1.4 })));
+    ev.on('ballpark:result', ({ result, bases }) => {
+      if (result === 'strike') (play('ump'), this.audio.play('aww', { delay: 0.6 }));
+      else if (result === 'out') play('groan');
+      else if (result === 'foul') play('doink');
+      else if (result === 'homer') {
+        play('horn');
+        play('roar');
+        this.audio.play('fanfare', { delay: 0.6 });
+      } else {
+        // A stab per base, climbing, and a cheer that grows with the hit.
+        for (let k = 0; k < bases; k++) this.audio.play('stab', { delay: k * 0.16, pitch: 1 + k * 0.25 });
+        play('cheer', 0.4 + 0.25 * bases);
+      }
+    });
+    ev.on('ballpark:firework', () => play('boom', 0.7 + Math.random() * 0.3));
+    ev.on('ballpark:end', ({ record }) => record && this.audio.play('fanfare', { delay: 1.8 }));
     ev.on('hoops:score', ({ points }) => (play('swish'), points === 3 && play('cheer', 0.7)));
     ev.on('tattoo:start', () => [0, 1, 2].forEach((k) => this.audio.play('buzz', { delay: k })));
     ev.on('tattoo:done', () => play('chime'));
