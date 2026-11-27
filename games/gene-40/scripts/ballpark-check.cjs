@@ -1,5 +1,6 @@
 // Ballpark check: arrive and walk through the backstop to the plate, grab a
-// bat (it's equipped), stand in the box and the machine pitches; a real click
+// bat (it's equipped), step into the glowing circle (no sign over the plate)
+// and the round starts with its sound, then the machine pitches; a real click
 // at the right moment hits it (well-timed = a long fly, early = pulled left,
 // late = pushed right), not swinging is a strike, and a perfect swing looking
 // up a little clears the wall for a home run (called with its distance). Ten pitches end the round and
@@ -64,12 +65,17 @@ const shots = process.env.SHOTS;
     step(3);
     const cb = comp(player, 'Combatant');
     check('the rack gives you a bat in hand', game.state.itemCount('baseball_bat') === 1 && cb.itemId === 'baseball_bat', `${cb.itemId}`);
-    check('and starts a round', park.roundOn && park.results.length === 0);
+    check('grabbing a bat alone does not start the round yet', !park.roundOn);
+    check('no floating text over the plate, a glowing circle instead', !game.world.all().find((e) => /label/.test(e.name) && Math.abs(e.object3d.position.x - (ox - 0.95)) < 0.5 && Math.abs(e.object3d.position.z + 4) < 0.5) && !!game.world.find('step-circle'));
+    let starts = 0;
+    const offStart = game.events.on('ballpark:start', () => starts++);
 
     // In the box, facing the pitcher.
     const box = park.boxCentre;
     const stand = (pitchDeg = 0, yawDeg = 0) => { C.placeAt(new T(box.x, 0.05, box.z), 0, 0); step(2); C.yaw = (yawDeg * Math.PI) / 180; C.pitch = (pitchDeg * Math.PI) / 180; step(1); };
     stand();
+    check('stepping into the circle starts the round with its start sound', park.roundOn && starts === 1 && park.results.length === 0, `starts ${starts}`);
+    check('the start pops up on screen', /PLAY BALL/.test(document.querySelector('.ballpark-callout')?.textContent || ''));
     let tries = 0;
     while (!park.ball && tries++ < 400) step(1);
     check('the machine pitches once you are in the box', !!park.ball && park.ball.phase === 'pitch');
@@ -79,6 +85,7 @@ const shots = process.env.SHOTS;
     tries = 0;
     while (res.length === 0 && tries++ < 300) step(1);
     check('taking a pitch is a strike', res[0] === 'strike', res.join(','));
+    check('the strike pops up big on screen', /STRIKE/.test(document.querySelector('.ballpark-callout')?.textContent || ''));
 
     // Swing when the ball is `lead` metres from the plate (the swing's wind-up is ~0.06 s).
     const swingAt = (lead, pitchDeg = 0, yawDeg = 0) => {
@@ -116,6 +123,14 @@ const shots = process.env.SHOTS;
     park.lastHit = null;
     const homer = swingAt(1.25, 14);
     check('a perfect swing, looking up a little, is a home run', homer.result === 'homer' && homer.hit.dist > 62, `${homer.result} ${JSON.stringify(homer.hit && { dist: homer.hit.dist.toFixed(0), speed: homer.hit.speed.toFixed(1), launch: homer.hit.launch.toFixed(0), spray: homer.hit.spray.toFixed(0) })}`);
+    let booms = 0;
+    const offBoom = game.events.on('ballpark:firework', () => booms++);
+    // Step out of the circle while they go off, so the machine waits for you.
+    C.placeAt(new T(box.x + 3, 0.05, box.z), 0, 0);
+    step(200);
+    check('the machine waits while you are out of the circle mid-round', park.roundOn && (!park.ball || park.ball.phase !== 'pitch'));
+    offBoom();
+    check('a home run pops up big and sets off fireworks', /HOME RUN/.test(document.querySelector('.ballpark-callout')?.textContent || '') && booms >= 4, `${booms} fireworks`);
     park.lastHit = null;
     const miss = swingAt(6);
     check('swinging far too early misses: strike', miss.result === 'strike' && !miss.hit, `${miss.result}`);
@@ -125,7 +140,15 @@ const shots = process.env.SHOTS;
     swingAt(1.25, 14);
     off();
     check('ten pitches end the round', park.results.length === 10 && !park.roundOn, `${park.results.length}: ${park.results.join(',')}`);
-    check('the best round is kept', park.best === park.score && park.score > 0 && Number(localStorage.getItem('gene40.ballpark.best')) === park.score, `best ${park.best}, score ${park.score}`);
+    const finalScore = park.score;
+    step(3);
+    check('stepping back in after the round does nothing until you step out', !park.roundOn && starts === 1);
+    C.placeAt(new T(box.x + 3, 0.05, box.z), 0, 0);
+    step(3);
+    stand();
+    check('stepping out and back in starts a new round', park.roundOn && starts === 2 && park.results.length === 0);
+    offStart();
+    check('the best round is kept', park.best === finalScore && finalScore > 0 && Number(localStorage.getItem('gene40.ballpark.best')) === finalScore, `best ${park.best}, score ${finalScore}`);
     return r;
   });
 
@@ -142,6 +165,11 @@ const shots = process.env.SHOTS;
       await page.evaluate(() => game.stop());
     };
     const aimFrom = `(x, y, z, tx, ty, tz) => { const { C, T, step, aim } = X; C.placeAt(new T(4800 + x, y, z), 0, 0); step(5); aim(4800 + tx, ty, tz); }`;
+    // The new bits: the glowing circle waiting (bat in hand, no round on), a homer's
+    // call with fireworks and the flashing scoreboard, and the board close up.
+    await shot('ballpark-circle', `(() => { clearTimeout(X.park.finalTimer); X.park.pop = null; X.park.callout.style.opacity = '0'; X.park.roundOn = false; X.park.results.length = 0; X.park.render(); X.park.board = { title: 'BATTER UP!', sub: 'Step in the circle to start', color: '#ffd84a', lit: 0 }; X.park.redraw(); X.park.results.length = 0; X.park.ball?.mesh.removeFromParent(); X.park.ball = null; (${aimFrom})(-3.2, 0.05, 0.4, -0.95, 0.3, -4); })()`);
+    await shot('ballpark-homer', `(() => { const { C, T, step, aim, park } = X; C.placeAt(new T(4800 - 0.95, 0.05, -4), 0, 0); step(2); C.yaw = 0; C.pitch = 0.4; step(1); park.lastHit = { speed: 31, launch: 30, spray: 0, dist: 88 }; park.pitch(); park.ball.phase = 'hit'; park.call('homer'); step(8); })()`);
+    await shot('ballpark-scoreboard', `(() => { const { C, T, step, aim, park } = X; C.placeAt(new T(4800, 0.05, -50), 0, 0); step(3); aim(4800, 27, -88); park.flashT = 0; park.redraw(); })()`);
     await shot('ballpark-arrival', `(${aimFrom})(0, 0.05, 6, 0, 3, -40)`);
     await shot('ballpark-box', `(${aimFrom})(-0.95, 0.05, -4, 0, 1.3, -22)`);
     await shot('ballpark-overview', `(${aimFrom})(-30, 30, 20, 0, 0, -40)`);
