@@ -495,6 +495,11 @@ export class HeroPowers implements System {
   }
 
   /** The ground slam: a shockwave that throws cars and bins around. Public for the checks. */
+  /** Shake the camera (a stomp nearby, thunder overhead). */
+  quake(k: number): void {
+    this.shake = Math.max(this.shake, k);
+  }
+
   slam(strength = 1): void {
     const ctrl = this.player();
     if (!ctrl) return;

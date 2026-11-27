@@ -25,6 +25,8 @@ export interface HudOptions {
   title?: string;
   /** Rows for the start screen's controls table (input, what it does). Defaults to the full engine list. */
   controls?: [string, string][];
+  /** Show the debug readout (fps, position, ...) from the start. Default true; ` or F3 toggles it either way. */
+  debug?: boolean;
 }
 
 const escapeHtml = (t: string) =>
@@ -132,6 +134,8 @@ export class Hud implements System {
     container.appendChild(this.root);
     this.overlay = this.root.querySelector('.overlay')!;
     this.debug = this.root.querySelector('.debug')!;
+    this.debugVisible = opts.debug ?? true;
+    this.debug.classList.toggle('hidden', !this.debugVisible);
     this.crosshair = this.root.querySelector('.crosshair')!;
     this.spreadEl = this.root.querySelector('.spread')!;
     this.hint = this.root.querySelector('.hint')!;

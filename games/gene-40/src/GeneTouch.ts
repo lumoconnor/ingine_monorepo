@@ -17,10 +17,9 @@ export class GeneTouch implements System {
   constructor(private touch: TouchControls, private teleports: Teleports) {}
 
   init(game: Game): void {
-    // Each world's score panel sits top centre: on phones, below the button row.
+    // The top-centre column (GeneTopStack): on phones, below the button row and narrower.
     const css = document.createElement('style');
-    css.textContent = `body.touch-ui .gene-panel { top: calc(64px + env(safe-area-inset-top)) !important; font-size: 13px !important; max-width: 38vw; white-space: normal !important; text-align: center; }
-      body.touch-ui .gene-alert { top: calc(128px + env(safe-area-inset-top)) !important; font-size: 12px !important; max-width: 60vw; white-space: normal !important; text-align: center; }`;
+    css.textContent = `body.touch-ui .gene-top { top: calc(64px + env(safe-area-inset-top)) !important; max-width: 60vw !important; max-height: 34vh !important; } body.touch-ui .gene-top > .gene-panel, body.touch-ui .gene-top > .gene-alert, body.touch-ui .gene-top .toast { font-size: 12px !important; }`;
     document.head.appendChild(css);
     const t = this.touch;
     const talk = t.addButton({ label: 'Talk<small>hold</small>', key: 'KeyV' });

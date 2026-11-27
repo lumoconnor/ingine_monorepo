@@ -9,6 +9,7 @@ import type { Vec3 } from '../scenes';
 import { catModel } from './murph';
 import { label, mat } from './kit';
 import type { HeroPowers, Mission, PowerId } from './heroPowers';
+import { KAIJU, Kaiju, Storm } from './heroFinale';
 
 /**
  * Hero city's one goal, SAVE HERO CITY, as a chain of steps (STEPS): take a
@@ -25,11 +26,14 @@ import type { HeroPowers, Mission, PowerId } from './heroPowers';
  *    Whiskers' time.
  *  - Runaway bus (super strength): a driverless bus rolls down the avenue at
  *    the plaza. Stand in its way, throw a car at it or slam the road by it.
+ *  - Big Liz (the finale): a storm rolls in and a giant Big Liz stomps up the
+ *    avenue behind Hero HQ. Throw cars at her and slam the ground by her
+ *    feet until she calms down and shrinks back to her usual size.
  *
  * Fail one and it resets for another go.
  */
 
-export type EmergencyId = 'kitten' | 'fire' | 'race' | 'bus';
+export type EmergencyId = 'kitten' | 'fire' | 'race' | 'bus' | 'liz';
 
 interface Def {
   id: EmergencyId;
@@ -43,6 +47,7 @@ export const EMERGENCIES: Def[] = [
   { id: 'fire', needs: 'fly', title: 'Building on fire', alert: 'EMERGENCY! A building is on fire with cats at the windows. Fly them out!' },
   { id: 'race', needs: 'fly', title: "Captain Whiskers' ring race", alert: "CHALLENGE! Captain Whiskers bets you can't fly his ring course in time. Fly through the first ring to start." },
   { id: 'bus', needs: 'strength', title: 'Runaway bus', alert: 'EMERGENCY! A runaway bus is heading for the plaza. Stop it!' },
+  { id: 'liz', needs: 'strength', title: 'KAIJU! Big Liz', alert: 'KAIJU ALERT! A storm is coming, and Big Liz is HUGE and stomping up the avenue behind Hero HQ. Calm her down!' },
 ];
 
 /** What the scene hands over: the places each emergency happens. */
@@ -55,6 +60,8 @@ export interface EmergencySites {
   rings: { at: Vec3; facing: number }[];
   /** The bus route: start, and where it would hit the plaza. */
   bus: { from: Vec3; to: Vec3 };
+  /** Big Liz's stretch of avenue: she walks along z between zFar and zNear at x. */
+  liz: { x: number; y: number; zNear: number; zFar: number };
 }
 
 /**
@@ -62,7 +69,7 @@ export interface EmergencySites {
  * gets you to the emergency it's for, and handling that opens the next power.
  */
 type Step = { power: PowerId } | { emergency: EmergencyId };
-export const STEPS: Step[] = [{ power: 'swing' }, { emergency: 'kitten' }, { power: 'fly' }, { emergency: 'fire' }, { emergency: 'race' }, { power: 'strength' }, { emergency: 'bus' }];
+export const STEPS: Step[] = [{ power: 'swing' }, { emergency: 'kitten' }, { power: 'fly' }, { emergency: 'fire' }, { emergency: 'race' }, { power: 'strength' }, { emergency: 'bus' }, { emergency: 'liz' }];
 
 const NEXT_TEXT: Record<string, string> = {
   swing: 'take SWING from the station by the HERO CITY sign',
@@ -72,6 +79,7 @@ const NEXT_TEXT: Record<string, string> = {
   race: "fly Captain Whiskers' ring course in 30 s (first ring by the sign)",
   strength: 'fly to the green beam on top of Hero HQ for SUPER STRENGTH',
   bus: 'stop the runaway bus before it hits the plaza (red beam)',
+  liz: 'calm Big Liz down: throw cars at her, slam the ground by her feet',
   saved: 'go and tell Captain Whiskers',
 };
 
@@ -79,13 +87,15 @@ const KITTEN_FALL = { trigger: 45, gravity: 7, maxSpeed: 9, catchRadius: 2.6 };
 const FIRE = { trigger: 70, time: 75, reach: 2.6 };
 const RACE = { par: 30, radius: 4.6 };
 const BUS = { speed: 9, half: new THREE.Vector3(1.35, 1.6, 5.6) };
+/** How the fight goes: she wakes a few seconds after the storm starts; a stomp throws you back. */
+const LIZ = { wakeAfter: 3, shove: 14, pop: 9, throwSpeed: 8 };
 
 type State = 'locked' | 'waiting' | 'active' | 'done';
 
 export class HeroEmergencies implements System, Mission {
   readonly name = 'hero-emergencies';
   private game!: Game;
-  readonly state: Record<EmergencyId, State> = { kitten: 'locked', fire: 'locked', race: 'locked', bus: 'locked' };
+  readonly state: Record<EmergencyId, State> = { kitten: 'locked', fire: 'locked', race: 'locked', bus: 'locked', liz: 'locked' };
   /** The one the city is calling about right now. */
   current: EmergencyId | null = null;
   /** Call emergencies in by themselves (the checks turn this off and call them in by hand). */
@@ -105,6 +115,10 @@ export class HeroEmergencies implements System, Mission {
   private race!: { rings: THREE.Mesh[]; next: number; t: number; running: boolean };
   // Bus.
   private bus!: { entity: Entity; body: RAPIER.RigidBody; pos: THREE.Vector3; dir: THREE.Vector3; moving: boolean; stopped: boolean; resetIn: number; wait: number };
+  // The finale.
+  storm!: Storm;
+  kaiju!: Kaiju;
+  private lizIn = 0;
 
   constructor(
     private powers: HeroPowers,
@@ -143,10 +157,13 @@ export class HeroEmergencies implements System, Mission {
     this.buildFire();
     this.buildRace();
     this.buildBus();
+    this.storm = new Storm(game);
+    this.kaiju = new Kaiju(game, this.sites.liz);
 
     game.events.on('heroes:power', () => this.unlock());
     game.events.on('heroes:slam', () => this.onSlam());
-    game.events.on('teleport', () => this.render());
+    game.events.on('heroes:thunder', () => this.powers.quake(0.25));
+    game.events.on('teleport', () => (this.render(), this.storm.apply(this.here())));
     this.unlock();
   }
 
@@ -234,6 +251,7 @@ export class HeroEmergencies implements System, Mission {
     if (id === 'kitten') return _w.set(s.ledge.street[0], s.ledge.street[1], s.ledge.street[2]);
     if (id === 'fire') return _w.set(s.fire.windows[0][0], 0, s.fire.windows[0][2]).setY(this.sites.ledge.street[1]);
     if (id === 'race') return _w.set(...s.rings[0].at).setY(this.sites.ledge.street[1]);
+    if (id === 'liz') return _w.copy(this.kaiju.pos).setY(this.sites.ledge.street[1]);
     return _w.copy(this.bus.pos).setY(this.sites.ledge.street[1]);
   }
 
@@ -264,6 +282,7 @@ export class HeroEmergencies implements System, Mission {
     this.stepFire(dt);
     this.stepRace(dt);
     this.stepBus(dt);
+    this.stepLiz(dt);
   }
 
   // --- Falling kitten --------------------------------------------------------------------
@@ -556,8 +575,12 @@ export class HeroEmergencies implements System, Mission {
   }
 
   private onSlam(): void {
-    if (this.current !== 'bus' || !this.bus.moving) return;
     const p = this.player()?.entity.object3d.position;
+    if (this.current === 'liz' && p && this.kaiju.awake && this.kaiju.reach(p) < KAIJU.slamReach) {
+      this.hitLiz(KAIJU.slamHit, 'slam');
+      return;
+    }
+    if (this.current !== 'bus' || !this.bus.moving) return;
     if (p && Math.hypot(p.x - this.bus.pos.x, p.z - this.bus.pos.z) < 12) this.stopBus('Your slam cracked the road and the bus stopped dead. Nobody spilled their coffee.');
   }
 
@@ -620,9 +643,67 @@ export class HeroEmergencies implements System, Mission {
     }
   }
 
+  // --- Big Liz ------------------------------------------------------------------------
+
+  private stepLiz(dt: number): void {
+    const k = this.kaiju;
+    if (this.current !== 'liz') return;
+    // The storm rolls in first, then she wakes up.
+    if (!this.storm.on) {
+      this.storm.on = true;
+      this.lizIn = LIZ.wakeAfter;
+      this.game.events.emit('heroes:storm', { on: true });
+    }
+    if (!k.awake) {
+      this.lizIn -= dt;
+      if (this.lizIn <= 0) k.wake();
+      return;
+    }
+    const ctrl = this.player();
+    if (!ctrl) return;
+    const feet = ctrl.entity.object3d.position;
+    if (k.step(dt, feet)) {
+      this.game.events.emit('heroes:stomp', {});
+      const d = k.reach(feet);
+      this.powers.quake(d < 40 ? 0.9 : 0.4);
+      // Too close and on the ground: the stomp throws you back.
+      if (d < KAIJU.stompReach && feet.y - this.sites.liz.y < 3) {
+        const ax = (feet.x - k.pos.x) / (d || 1);
+        const az = (feet.z - k.pos.z) / (d || 1);
+        ctrl.shove({ x: ax, z: az }, LIZ.shove);
+        ctrl.velocity.set(ax * LIZ.shove, Math.max(ctrl.velocity.y, LIZ.pop), az * LIZ.shove);
+      }
+    }
+    // Anything you threw that hits her.
+    for (const t of this.powers.throwables) {
+      if (t === this.powers.held) continue;
+      const rb = t.entity.get(RigidBodyComponent)?.body;
+      if (!rb) continue;
+      const v = rb.linvel();
+      if (Math.hypot(v.x, v.y, v.z) < LIZ.throwSpeed) continue;
+      const p = rb.translation();
+      if (k.reach(p) < KAIJU.radius + 1.5 && p.y - this.sites.liz.y < KAIJU.height + 1) {
+        if (this.hitLiz(KAIJU.carHit, t)) return;
+      }
+    }
+    this.beacon.position.copy(this.where('liz'));
+    this.render();
+  }
+
+  /** A hit on Big Liz. True once she's calmed down (and the city is saved). */
+  private hitLiz(amount: number, what: unknown): boolean {
+    if (!this.kaiju.hurt(amount, what)) return false;
+    this.storm.on = false;
+    this.game.events.emit('heroes:storm', { on: false });
+    this.succeed('liz', "Big Liz has calmed down and shrunk back to normal. She says sorry about the cars. The storm's clearing!");
+    return true;
+  }
+
   // --- Panel and beacon ------------------------------------------------------------------------
 
-  update(time: { elapsed: number }): void {
+  update(time: { elapsed: number; delta: number }): void {
+    this.storm.update(time.delta, this.here());
+    this.kaiju.update(time.delta);
     const pulse = 0.22 + 0.12 * Math.sin(time.elapsed * 6);
     (this.beacon.material as THREE.MeshBasicMaterial).opacity = pulse;
     for (const s of this.fire.smoke) {
@@ -649,6 +730,11 @@ export class HeroEmergencies implements System, Mission {
     if (id === 'fire') {
       const left = this.fire.cats.filter((c) => !c.saved).length;
       extra = this.fire.t > 0 ? `  ·  ${left} cats left  ·  ${Math.max(0, Math.ceil(FIRE.time - this.fire.t))} s` : '';
+    }
+    if (id === 'liz') {
+      const n = 10;
+      const full = Math.ceil((this.kaiju.hp / KAIJU.hp) * n);
+      extra = this.kaiju.awake ? `  ·  grumpiness ${'█'.repeat(full)}${'░'.repeat(n - full)}` : '  ·  here she comes...';
     }
     if (id === 'race') extra = this.race.running ? `  ·  ring ${this.race.next + 1} / ${this.race.rings.length}  ·  ${this.race.t.toFixed(1)} s (beat ${RACE.par})` : '  ·  fly through the first ring';
     this.panel.textContent = `🚨 ${def.title}${extra}  ·  follow the red beam`;

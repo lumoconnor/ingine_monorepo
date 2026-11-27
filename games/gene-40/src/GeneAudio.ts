@@ -26,6 +26,8 @@ export const MUSIC: Record<string, MusicTrack> = {
   murph: { id: 'murph', bpm: 112, root: 67, scale: PENTATONIC, progression: [0, 2, 3, 1], pad: { type: 'sine', gain: 0.1 }, bass: { type: 'sine', gain: 0.09 }, lead: { type: 'triangle', gain: 0.06, density: 0.42, decay: 0.16 }, seed: 4 },
   stars: { id: 'stars', bpm: 72, root: 64, scale: LYDIAN, progression: [0, 1, 0, 4], pad: { type: 'sine', gain: 0.16, cutoff: 2500, detune: 20 }, bass: { type: 'sine', gain: 0.07 }, lead: { type: 'sine', gain: 0.05, density: 0.25, octave: 2, decay: 1.2 }, seed: 5 },
   heroes: { id: 'heroes', bpm: 120, root: 58, scale: MIXOLYDIAN, progression: [0, 6, 3, 0], pad: { type: 'sawtooth', gain: 0.07, cutoff: 900 }, bass: { type: 'triangle', gain: 0.1 }, lead: { type: 'square', gain: 0.025, density: 0.3, decay: 0.3 }, beat: { gain: 0.07 }, seed: 6 },
+  // Big Liz in the storm: minor, faster, a heavy beat.
+  storm: { id: 'storm', bpm: 138, root: 50, scale: MINOR, progression: [0, 5, 6, 4], pad: { type: 'sawtooth', gain: 0.09, cutoff: 700, detune: 18 }, bass: { type: 'sawtooth', gain: 0.1 }, lead: { type: 'square', gain: 0.03, density: 0.45, decay: 0.2 }, beat: { gain: 0.14 }, seed: 11 },
   buddies: { id: 'buddies', bpm: 108, root: 69, scale: MAJOR, progression: [0, 3, 4, 3], pad: { type: 'triangle', gain: 0.08 }, bass: { type: 'sine', gain: 0.09 }, lead: { type: 'triangle', gain: 0.06, density: 0.45, decay: 0.25 }, beat: { gain: 0.05 }, seed: 7 },
   tattoo: { id: 'tattoo', bpm: 84, root: 57, scale: MINOR, progression: [0, 5, 2, 6], pad: { type: 'triangle', gain: 0.12, cutoff: 1100, detune: 12 }, bass: { type: 'sine', gain: 0.1 }, lead: { type: 'triangle', gain: 0.045, density: 0.25, decay: 0.5 }, beat: { gain: 0.05 }, seed: 8 },
   // The ballpark organ.
@@ -170,6 +172,28 @@ registerSounds({
     tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 220, gain: 0.08 * v, attack: 0.02 });
     tone(c, o, t, { dur: 0.9, type: 'sawtooth', freq: 277, gain: 0.06 * v, attack: 0.02 });
   },
+  /** Thunder: a crack, then a long low rumble. */
+  thunder: (c, o, t, v) => {
+    noise(c, o, t, { dur: 0.25, type: 'highpass', freq: 1500, gain: 0.25 * v });
+    noise(c, o, t + 0.1, { dur: 3.2, type: 'lowpass', freq: 400, freqEnd: 60, gain: 0.6 * v, attack: 0.15 });
+    tone(c, o, t + 0.1, { dur: 2.5, type: 'sine', freq: 48, freqEnd: 30, gain: 0.3 * v, attack: 0.2 });
+  },
+  /** Big Liz, very upset: a huge low bellow. */
+  kaijuRoar: (c, o, t, v) => {
+    tone(c, o, t, { dur: 2.2, type: 'sawtooth', freq: 140, freqEnd: 70, gain: 0.12 * v, attack: 0.25, detune: 30 });
+    tone(c, o, t, { dur: 2.2, type: 'square', freq: 72, freqEnd: 40, gain: 0.08 * v, attack: 0.3 });
+    noise(c, o, t, { dur: 2, type: 'bandpass', freq: 500, freqEnd: 200, q: 0.8, gain: 0.4 * v, attack: 0.3 });
+  },
+  /** Big Liz stomping: a deep thud. */
+  stomp: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.9, type: 'sine', freq: 60, freqEnd: 25, gain: 0.7 * v, attack: 0.005 });
+    noise(c, o, t, { dur: 0.6, type: 'lowpass', freq: 500, freqEnd: 90, gain: 0.5 * v });
+  },
+  /** Something bouncing off Big Liz: a bonk and a grumpy squawk. */
+  lizHit: (c, o, t, v) => {
+    tone(c, o, t, { dur: 0.25, type: 'triangle', freq: 260, freqEnd: 90, gain: 0.3 * v });
+    tone(c, o, t + 0.12, { dur: 0.45, type: 'sawtooth', freq: 320, freqEnd: 180, gain: 0.08 * v, attack: 0.03 });
+  },
   /** Something big stopping hard: a crunch. */
   crunch: (c, o, t, v) => {
     noise(c, o, t, { dur: 0.4, type: 'lowpass', freq: 1800, freqEnd: 300, gain: 0.5 * v });
@@ -264,7 +288,12 @@ export class GeneAudio implements System {
       };
     const ev = game.events;
     const play = (name: string, volume = 1, pitch = 1) => this.audio.play(name, { volume, pitch });
-    ev.on('teleport', ({ scene }) => this.audio.music(MUSIC[scene] ?? MUSIC.hub));
+    // The storm over Hero city brings its own music (only while you're there).
+    let storming = false;
+    let scene = 'hub';
+    const tune = () => this.audio.music(scene === 'heroes' && storming ? MUSIC.storm : (MUSIC[scene] ?? MUSIC.hub));
+    ev.on('teleport', (e) => ((scene = e.scene), tune()));
+    ev.on('heroes:storm', ({ on }) => ((storming = on), tune()));
     this.audio.music(MUSIC.hub);
     // Pickups.
     ev.on('murph:coin', () => play('coin'));
@@ -292,6 +321,10 @@ export class GeneAudio implements System {
     ev.on('heroes:ring', ({ n }) => play('pickup', 0.8, 1 + n * 0.05));
     ev.on('heroes:busGo', () => play('busHorn'));
     ev.on('heroes:busStop', () => play('crunch'));
+    ev.on('heroes:thunder', () => play('thunder', 0.8 + Math.random() * 0.4, 0.85 + Math.random() * 0.3));
+    ev.on('heroes:roar', () => play('kaijuRoar'));
+    ev.on('heroes:stomp', () => play('stomp'));
+    ev.on('heroes:lizHit', () => play('lizHit', 1, 0.9 + Math.random() * 0.2));
     ev.on('heroes:slam', ({ strength }) => play('slam', 0.6 + 0.4 * strength));
     ev.on('state:changed', ({ kind }) => kind === 'item' && play('pickup', 0.6));
     // Games.

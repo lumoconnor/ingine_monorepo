@@ -27,6 +27,7 @@ import { Footsteps } from '@ingine/engine/audio/Footsteps';
 import { GeneAudio } from './GeneAudio';
 import { TouchControls } from '@ingine/engine/input/TouchControls';
 import { GeneTouch } from './GeneTouch';
+import { GeneTopStack } from './GeneTopStack';
 
 /** Keeps this game's rooms apart from any other game using the same broker. */
 const APP_ID = 'ingine-gene-40';
@@ -42,6 +43,8 @@ async function main(): Promise<void> {
   game.addSystem(
     new Hud(container, {
       title: "Gene's 40th",
+      // The fps/position readout is for us, not for Gene (` or F3 still shows it).
+      debug: false,
       controls: [
         ['Mouse', 'Look'],
         ['W A S D', 'Move'],
@@ -81,6 +84,7 @@ async function main(): Promise<void> {
 
   const teleports = game.addSystem(new Teleports(container));
   game.addSystem(new GeneTouch(touch, teleports));
+  game.addSystem(new GeneTopStack(container));
 
   await game.init();
   await game.loadLevel(new GeneWorld(teleports));

@@ -487,13 +487,13 @@ function people(game: Game, at: At): void {
  * classic city-stomping movie monsters (an original design: green, spiky
  * back, stubby arms, a tail). She does laps of the atrium and stops to chat.
  */
-function bigLiz(game: Game, at: At): void {
+/** Big Liz's model (about 3.6 m tall, facing +z, feet at y 0). Hero city scales her up. */
+export function lizModel(): { root: THREE.Group; body: THREE.Group; head: THREE.Group } {
   const green = mat(0x4f8a4a, { roughness: 0.75 });
   const belly = mat(0xb8c98a, { roughness: 0.8 });
   const spike = mat(0xdfe8d0, { roughness: 0.6 });
   const dark = mat(0x1d1d1d);
   const root = new THREE.Group();
-  root.position.set(...at(-6, 0, -6));
   const body = new THREE.Group();
   root.add(body);
   const part = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = body) => {
@@ -545,6 +545,12 @@ function bigLiz(game: Game, at: At): void {
   // A tiny lanyard, which she is very proud of.
   part(new THREE.BoxGeometry(0.16, 0.22, 0.02), mat(0xffffff), 0, 2.25, 0.72);
 
+  return { root, body, head };
+}
+
+function bigLiz(game: Game, at: At): void {
+  const { root, body, head } = lizModel();
+  root.position.set(...at(-6, 0, -6));
   const tag = makeLabel('Big Liz', { scale: 0.8, color: '#ffe7a8' });
   tag.position.set(0, 3.95, 0);
   root.add(tag);
